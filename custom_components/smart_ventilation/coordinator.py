@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
@@ -1271,6 +1272,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             return 0
         return round(max(0, min(100, (1 - current / initial) * 100)))
 
+    def own_entity(self, platform, key):
+        """Entity-ID einer eigenen Entität (für Klick-Ziele in der Karte)."""
+        return er.async_get(self.hass).async_get_entity_id(
+            platform, DOMAIN, f"{self.entry.entry_id}_{key}"
+        )
+
     def card_data(self):
         """Alles, was die Dashboard-Karte braucht, in einem Attribut."""
         r = lambda v, n=1: round(v, n) if v is not None else None  # noqa: E731
@@ -1313,6 +1320,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "urlaub": self.on_vacation,
             "entfeuchter": self.dehumidifier_active,
             "schimmel_tage": self.mold_streak()[0],
+            "fenster_anzahl": len(self.windows),
+            "entitaeten": {
+                "innen": self.data[CONF_INDOOR_TEMP],
+                "aussen": self.data[CONF_OUTDOOR_TEMP],
+                "wand": self.own_entity("sensor", "wall_humidity"),
+                "co2": self.data.get(CONF_CO2) or None,
+                "heute": self.own_entity("sensor", "stats_day"),
+                "bester": self.own_entity("sensor", "best_time"),
+                "kosten": self.own_entity("sensor", "cost_month"),
+            },
             "schimmel_h_heute": self.mold_hours_today,
         }
 

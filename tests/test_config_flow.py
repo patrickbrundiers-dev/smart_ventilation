@@ -59,7 +59,9 @@ async def test_overview_wizard(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "overview"})
     assert result["step_id"] == "overview"
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"combine_notifications": True})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"messages": {"combine_notifications": True}, "reports": {}}
+    )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["entry_type"] == "overview"
     await hass.async_block_till_done()
@@ -73,7 +75,7 @@ def _options_input(entry, **changes):
     for name in SECTIONS:
         keys = [str(k) for k in _section_fields(name, None, current, with_name=False) if name != "notify"] \
             if name != "notify" else ["notify_services", "persons", "quiet_start", "quiet_end",
-                                      "notification_cooldown", "weekly_report", "monthly_report",
+                                      "weekly_report", "monthly_report",
                                       "vacation_entity", "vacation_keyword"]
         user_input[name] = {k: current[k] for k in keys if k in current and current[k] not in ("", None)}
         user_input[name].update({k: v for k, v in changes.items() if k in keys})

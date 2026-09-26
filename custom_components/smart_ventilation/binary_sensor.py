@@ -43,7 +43,6 @@ class BaseBinary(BinarySensorEntity):
 
 class VentilatedTodaySensor(BaseBinary):
     """An, sobald heute mindestens eine erfolgreiche Lüftung stattfand."""
-    _attr_icon = "mdi:check-circle-outline"
 
     def __init__(self, c): super().__init__(c, "ventilated_today", "Heute gelüftet")
 
@@ -54,7 +53,6 @@ class VentilatedTodaySensor(BaseBinary):
 
 class VentilationRecommendedSensor(BaseBinary):
     """An, wenn jetzt gelüftet werden sollte – ideal als Automations-Trigger."""
-    _attr_icon = "mdi:air-filter"
 
     def __init__(self, c): super().__init__(c, "recommended", "Lüften empfohlen")
 
@@ -85,7 +83,6 @@ class CoolingDownSensor(BaseBinary):
 class QuietHoursSensor(BaseBinary):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     """An während der Ruhezeit (keine Lüft-Erinnerungen)."""
-    _attr_icon = "mdi:sleep"
 
     def __init__(self, c): super().__init__(c, "quiet_hours", "Ruhezeit")
 
@@ -97,7 +94,6 @@ class QuietHoursSensor(BaseBinary):
 class MoldAlarmSensor(BaseBinary):
     """An, wenn die Wand mehrere Tage in Folge kritisch feucht war."""
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    _attr_icon = "mdi:alert-octagon-outline"
 
     def __init__(self, c): super().__init__(c, "mold_alarm", "Schimmelgefahr")
 

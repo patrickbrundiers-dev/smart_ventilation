@@ -1,0 +1,192 @@
+{
+  "config": {
+    "step": {
+      "room": {
+        "sections": {
+          "room": "mdi:floor-plan",
+          "indoor": "mdi:home-thermometer-outline",
+          "outdoor": "mdi:weather-partly-cloudy",
+          "behavior": "mdi:tune-variant",
+          "notify": "mdi:bell-outline",
+          "devices": "mdi:radiator",
+          "advanced": "mdi:cog-outline"
+        }
+      },
+      "overview": {
+        "sections": {
+          "messages": "mdi:bell-outline",
+          "reports": "mdi:chart-box-outline"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "sections": {
+          "room": "mdi:floor-plan",
+          "indoor": "mdi:home-thermometer-outline",
+          "outdoor": "mdi:weather-partly-cloudy",
+          "behavior": "mdi:tune-variant",
+          "notify": "mdi:bell-outline",
+          "devices": "mdi:radiator",
+          "advanced": "mdi:cog-outline",
+          "messages": "mdi:bell-outline",
+          "reports": "mdi:chart-box-outline"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "recommendation": {
+        "default": "mdi:window-open-variant"
+      },
+      "minutes": {
+        "default": "mdi:timer-outline"
+      },
+      "humidity_difference": {
+        "default": "mdi:water-minus-outline"
+      },
+      "temperature_difference": {
+        "default": "mdi:thermometer-lines"
+      },
+      "mold_risk": {
+        "default": "mdi:shield-check-outline",
+        "state": {
+          "elevated": "mdi:shield-alert-outline",
+          "high": "mdi:alert-octagon-outline",
+          "unknown": "mdi:shield-off-outline"
+        }
+      },
+      "notification_status": {
+        "default": "mdi:bell-outline"
+      },
+      "ventilation_running": {
+        "default": "mdi:window-closed-variant",
+        "state": {
+          "running": "mdi:window-open-variant"
+        }
+      },
+      "ventilation_progress": {
+        "default": "mdi:progress-check"
+      },
+      "learned_ach": {
+        "default": "mdi:school-outline"
+      },
+      "learning_samples": {
+        "default": "mdi:counter"
+      },
+      "context_model_ach": {
+        "default": "mdi:weather-windy"
+      },
+      "sun_elevation": {
+        "default": "mdi:weather-sunset-up"
+      },
+      "sun_azimuth": {
+        "default": "mdi:compass-outline"
+      },
+      "stats_day": {
+        "default": "mdi:calendar-today"
+      },
+      "stats_week": {
+        "default": "mdi:calendar-week"
+      },
+      "stats_month": {
+        "default": "mdi:calendar-month"
+      },
+      "stats_total": {
+        "default": "mdi:sigma"
+      },
+      "current_duration": {
+        "default": "mdi:timer-outline"
+      },
+      "max_duration": {
+        "default": "mdi:timer-star-outline"
+      },
+      "season": {
+        "default": "mdi:white-balance-sunny",
+        "state": {
+          "winter": "mdi:snowflake"
+        }
+      },
+      "best_time": {
+        "default": "mdi:clock-check-outline"
+      },
+      "wall_temperature": {
+        "default": "mdi:wall"
+      },
+      "wall_humidity": {
+        "default": "mdi:water-percent-alert"
+      },
+      "air_quality": {
+        "default": "mdi:molecule-co2",
+        "state": {
+          "good": "mdi:leaf",
+          "moderate": "mdi:molecule-co2",
+          "poor": "mdi:weather-dust"
+        }
+      },
+      "heat_loss_today": {
+        "default": "mdi:fire-alert"
+      },
+      "cost_month": {
+        "default": "mdi:currency-eur"
+      },
+      "most_urgent": {
+        "default": "mdi:home-alert-outline"
+      },
+      "rooms_needing": {
+        "default": "mdi:window-open-variant"
+      },
+      "mold_streak": {
+        "default": "mdi:calendar-alert"
+      },
+      "need_month": {
+        "default": "mdi:chart-timeline-variant"
+      }
+    },
+    "binary_sensor": {
+      "ventilated_today": {
+        "default": "mdi:progress-clock",
+        "state": {
+          "on": "mdi:check-circle-outline"
+        }
+      },
+      "recommended": {
+        "default": "mdi:window-closed-variant",
+        "state": {
+          "on": "mdi:window-open-variant"
+        }
+      },
+      "cooling_down": {
+        "default": "mdi:thermometer-check",
+        "state": {
+          "on": "mdi:snowflake-alert"
+        }
+      },
+      "quiet_hours": {
+        "default": "mdi:bell-ring-outline",
+        "state": {
+          "on": "mdi:sleep"
+        }
+      },
+      "mold_alarm": {
+        "default": "mdi:shield-check-outline",
+        "state": {
+          "on": "mdi:alert-octagon"
+        }
+      }
+    },
+    "button": {
+      "reset_learning": {
+        "default": "mdi:school-outline"
+      }
+    }
+  },
+  "services": {
+    "status": {
+      "service": "mdi:information-outline"
+    }
+  }
+}

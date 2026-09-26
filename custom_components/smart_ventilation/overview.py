@@ -91,6 +91,7 @@ class OverviewCoordinator:
                 "co2": room.co2,
                 "laeuft": room.session is not None,
                 "dringlichkeit": self.urgency(room),
+                "entity_id": room.own_entity("sensor", "recommendation"),
             })
         rooms.sort(key=lambda r: (not r["lueften"], -r["dringlichkeit"]))
         return rooms

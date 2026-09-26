@@ -18,7 +18,6 @@ class ResetLearningButton(ButtonEntity):
     """Verwirft den gelernten Luftwechsel; Statistik bleibt erhalten."""
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_icon = "mdi:school-outline"
 
     def __init__(self, coordinator):
         self.coordinator = coordinator

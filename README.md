@@ -81,7 +81,11 @@ Die Karte wird mit der Integration installiert (ggf. Browser-Cache leeren / App 
 ```yaml
 type: custom:smart-ventilation-card
 device: <Raum oder Übersicht im Editor auswählen>
+show_details: true   # Kacheln Innen / Außen / Wand / CO₂
+show_chart: true     # Verlauf der letzten Lüftung
 ```
+
+Ein Tipp auf eine Kachel öffnet den Verlauf des jeweiligen Sensors, ein Tipp auf den Kopf die Empfehlung. Die Karte übernimmt Farben, Rundungen und Schrift deines Themes.
 
 Im Dashboard-Editor unter **Karte hinzufügen → Smart Ventilation** findest du sie auch direkt. Sie zeigt Status, Fortschritt beim Lüften, Innen-/Außen-/Wandwerte, CO₂, besten Zeitpunkt, heutige Statistik und Warnungen. Mit dem Gerät der Übersicht zeigt sie alle Räume.
 
@@ -109,6 +113,13 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.3.0
+
+- **Neue Dashboard-Karte**: klare Statusanzeige mit Badge, verständliche Überschrift („Stoßlüften“, „Lüftung läuft“, „Raumklima in Ordnung“), Kacheln mit Füllstandsbalken für Wandfeuchte und CO₂, Hinweis-Banner, Verlauf nur der Feuchte (eine Achse) mit Tooltip beim Antippen, Kacheln öffnen den jeweiligen Sensor. Passt sich schmalen Spalten an, unterstützt Tastatur und „Bewegung reduzieren“.
+- **Übersichtskarte** mit Status je Raum, Antippen öffnet den Raum.
+- **Einstellungen**: Symbole für jeden Bereich, kurze Beschreibung je Bereich, neuer Bereich „Feinabstimmung“ für selten benötigte Werte; Übersicht in zwei Bereiche gegliedert; Erklärungen im Auswahlmenü.
+- **Symbole** aller Entitäten wechseln mit dem Zustand (z. B. Fenster offen/zu, Schild/Warnung beim Schimmelrisiko).
 
 ### Version 2.2.0
 

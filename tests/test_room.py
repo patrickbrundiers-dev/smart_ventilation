@@ -48,7 +48,7 @@ async def test_ventilation_session(hass: HomeAssistant, freezer: FrozenDateTimeF
     await hass.async_block_till_done()
     await _tick(hass, freezer, 2)
     assert [c.data["hvac_mode"] for c in hvac] == ["off"]
-    assert hass.states.get(eid(hass, "sensor", entry, "ventilation_running")).state == "Läuft"
+    assert hass.states.get(eid(hass, "sensor", entry, "ventilation_running")).state == "running"
 
     # Feuchte sinkt deutlich -> "Lüften fertig"
     hass.states.async_set("sensor.innen_ah", 5.5)

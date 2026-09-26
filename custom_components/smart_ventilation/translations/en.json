@@ -7,6 +7,10 @@
         "menu_options": {
           "room": "Add a room",
           "overview": "Overview of all rooms"
+        },
+        "menu_option_descriptions": {
+          "room": "Set up sensors, windows and behaviour for one room.",
+          "overview": "Most urgent room and one combined notification for all rooms."
         }
       },
       "room": {
@@ -15,6 +19,7 @@
         "sections": {
           "room": {
             "name": "Room & windows",
+            "description": "How large is the room and which windows belong to it?",
             "data": {
               "name": "Room name",
               "window": "Window contacts",
@@ -30,6 +35,7 @@
           },
           "indoor": {
             "name": "Sensors in the room",
+            "description": "Readings from the room. CO₂ and shower are optional.",
             "data": {
               "indoor_temperature": "Temperature",
               "indoor_absolute_humidity": "Absolute humidity",
@@ -47,35 +53,28 @@
           },
           "outdoor": {
             "name": "Outdoor & weather",
+            "description": "Readings from outside – e.g. from your weather station.",
             "data": {
               "outdoor_temperature": "Outdoor temperature",
               "outdoor_absolute_humidity": "Outdoor absolute humidity",
               "rain": "Rain sensor",
               "wind_speed": "Wind speed",
               "wind_direction": "Wind direction",
-              "wind_is_from": "Wind direction is where the wind comes from",
-              "weather_entity": "Weather forecast",
-              "use_sun": "Consider sun position",
-              "sun_entity": "Sun",
-              "min_sun_elevation": "Minimum sun elevation"
+              "weather_entity": "Weather forecast"
             },
             "data_description": {
               "outdoor_absolute_humidity": "Absolute humidity outside (g/m³).",
               "rain": "Binary sensor or rain rate in mm/h. No ventilation is recommended while it rains.",
               "wind_speed": "km/h or m/s – converted automatically.",
               "wind_direction": "In degrees (0–360).",
-              "wind_is_from": "Usual for weather stations: 270° = wind from the west. Turn off only if your sensor reports the direction it blows to.",
-              "weather_entity": "Optional. With an hourly forecast the best ventilation time and a summer night-cooling plan are calculated.",
-              "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
-              "sun_entity": "Usually “sun.sun”.",
-              "min_sun_elevation": "Below this the sun does not count as shining directly."
+              "weather_entity": "Optional. With an hourly forecast the best ventilation time and a summer night-cooling plan are calculated."
             }
           },
           "behavior": {
             "name": "Ventilation behaviour",
+            "description": "When to ventilate, cool down or warn.",
             "data": {
               "season_mode": "Summer/winter mode",
-              "season_threshold": "Winter below",
               "target_absolute_humidity": "Daily humidity target",
               "max_temperature_difference": "Summer: heat lock from",
               "comfort_temperature": "Summer: cool from",
@@ -84,7 +83,6 @@
             },
             "data_description": {
               "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible.",
-              "season_threshold": "Automatic mode only: outdoor temperature below which winter mode applies (heating limit, usually 15 °C).",
               "target_absolute_humidity": "If indoor absolute humidity drops below this while ventilating, the day counts as sufficiently ventilated.",
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
@@ -93,31 +91,31 @@
             }
           },
           "notify": {
-            "name": "Notifications & absence",
+            "name": "Notifications",
+            "description": "Who is informed when, reports and vacation.",
             "data": {
               "notify_services": "Notify",
               "persons": "People",
               "quiet_start": "Quiet hours from",
               "quiet_end": "Quiet hours until",
-              "notification_cooldown": "Time between reminders",
               "weekly_report": "Weekly report",
+              "monthly_report": "Monthly report",
               "vacation_entity": "Vacation",
-              "vacation_keyword": "Calendar keyword",
-              "monthly_report": "Monthly report"
+              "vacation_keyword": "Calendar keyword"
             },
             "data_description": {
               "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
               "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
               "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
-              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
               "weekly_report": "A summary of the week on Sundays at 7 pm.",
+              "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year.",
               "vacation_entity": "Optional: calendar, switch or binary sensor. No reminders during vacation, only mould warnings.",
-              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event.",
-              "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
+              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event."
             }
           },
           "devices": {
-            "name": "Heating, dehumidifier & costs",
+            "name": "Heating & devices",
+            "description": "Optional: thermostats, dehumidifier and cost estimate.",
             "data": {
               "climate_entities": "Lower thermostats",
               "dehumidifier_entity": "Dehumidifier",
@@ -128,30 +126,64 @@
               "dehumidifier_entity": "Optional: switch or dehumidifier. Runs when it is humid and ventilating is not possible right now.",
               "energy_price": "For the cost estimate, e.g. gas ≈ 0.12 €/kWh, heat pump ≈ 0.10 €/kWh."
             }
+          },
+          "advanced": {
+            "name": "Fine-tuning",
+            "description": "Rarely needed – the defaults suit most homes.",
+            "data": {
+              "season_threshold": "Winter below",
+              "notification_cooldown": "Time between reminders",
+              "wind_is_from": "Wind direction is where the wind comes from",
+              "use_sun": "Consider sun position",
+              "sun_entity": "Sun",
+              "min_sun_elevation": "Minimum sun elevation"
+            },
+            "data_description": {
+              "season_threshold": "Automatic mode only: outdoor temperature below which winter mode applies (heating limit, usually 15 °C).",
+              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
+              "wind_is_from": "Usual for weather stations: 270° = wind from the west. Turn off only if your sensor reports the direction it blows to.",
+              "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
+              "sun_entity": "Usually “sun.sun”.",
+              "min_sun_elevation": "Below this the sun does not count as shining directly."
+            }
           }
         }
       },
       "overview": {
         "title": "Overview of all rooms",
         "description": "Shows the most urgent room and combines reminders and weekly reports of all rooms into one notification.",
-        "data": {
-          "combine_notifications": "Combined notification",
-          "notify_services": "Notify",
-          "persons": "People",
-          "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until",
-          "notification_cooldown": "Time between reminders",
-          "weekly_report": "Weekly report",
-          "monthly_report": "Monthly report"
-        },
-        "data_description": {
-          "combine_notifications": "One notification for all rooms instead of one per room.",
-          "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
-          "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
-          "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
-          "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
-          "weekly_report": "A summary of the week on Sundays at 7 pm.",
-          "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
+        "sections": {
+          "messages": {
+            "name": "Notifications",
+            "description": "One combined notification for all rooms.",
+            "data": {
+              "combine_notifications": "Combined notification",
+              "notify_services": "Notify",
+              "persons": "People",
+              "quiet_start": "Quiet hours from",
+              "quiet_end": "Quiet hours until",
+              "notification_cooldown": "Time between reminders"
+            },
+            "data_description": {
+              "combine_notifications": "One notification for all rooms instead of one per room.",
+              "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
+              "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
+              "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
+              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time."
+            }
+          },
+          "reports": {
+            "name": "Reports",
+            "description": "Weekly and monthly summary of all rooms.",
+            "data": {
+              "weekly_report": "Weekly report",
+              "monthly_report": "Monthly report"
+            },
+            "data_description": {
+              "weekly_report": "A summary of the week on Sundays at 7 pm.",
+              "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
+            }
+          }
         }
       }
     },
@@ -167,6 +199,7 @@
         "sections": {
           "room": {
             "name": "Room & windows",
+            "description": "How large is the room and which windows belong to it?",
             "data": {
               "window": "Window contacts",
               "volume": "Room volume",
@@ -180,6 +213,7 @@
           },
           "indoor": {
             "name": "Sensors in the room",
+            "description": "Readings from the room. CO₂ and shower are optional.",
             "data": {
               "indoor_temperature": "Temperature",
               "indoor_absolute_humidity": "Absolute humidity",
@@ -197,35 +231,28 @@
           },
           "outdoor": {
             "name": "Outdoor & weather",
+            "description": "Readings from outside – e.g. from your weather station.",
             "data": {
               "outdoor_temperature": "Outdoor temperature",
               "outdoor_absolute_humidity": "Outdoor absolute humidity",
               "rain": "Rain sensor",
               "wind_speed": "Wind speed",
               "wind_direction": "Wind direction",
-              "wind_is_from": "Wind direction is where the wind comes from",
-              "weather_entity": "Weather forecast",
-              "use_sun": "Consider sun position",
-              "sun_entity": "Sun",
-              "min_sun_elevation": "Minimum sun elevation"
+              "weather_entity": "Weather forecast"
             },
             "data_description": {
               "outdoor_absolute_humidity": "Absolute humidity outside (g/m³).",
               "rain": "Binary sensor or rain rate in mm/h. No ventilation is recommended while it rains.",
               "wind_speed": "km/h or m/s – converted automatically.",
               "wind_direction": "In degrees (0–360).",
-              "wind_is_from": "Usual for weather stations: 270° = wind from the west. Turn off only if your sensor reports the direction it blows to.",
-              "weather_entity": "Optional. With an hourly forecast the best ventilation time and a summer night-cooling plan are calculated.",
-              "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
-              "sun_entity": "Usually “sun.sun”.",
-              "min_sun_elevation": "Below this the sun does not count as shining directly."
+              "weather_entity": "Optional. With an hourly forecast the best ventilation time and a summer night-cooling plan are calculated."
             }
           },
           "behavior": {
             "name": "Ventilation behaviour",
+            "description": "When to ventilate, cool down or warn.",
             "data": {
               "season_mode": "Summer/winter mode",
-              "season_threshold": "Winter below",
               "target_absolute_humidity": "Daily humidity target",
               "max_temperature_difference": "Summer: heat lock from",
               "comfort_temperature": "Summer: cool from",
@@ -234,7 +261,6 @@
             },
             "data_description": {
               "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible.",
-              "season_threshold": "Automatic mode only: outdoor temperature below which winter mode applies (heating limit, usually 15 °C).",
               "target_absolute_humidity": "If indoor absolute humidity drops below this while ventilating, the day counts as sufficiently ventilated.",
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
@@ -243,31 +269,31 @@
             }
           },
           "notify": {
-            "name": "Notifications & absence",
+            "name": "Notifications",
+            "description": "Who is informed when, reports and vacation.",
             "data": {
               "notify_services": "Notify",
               "persons": "People",
               "quiet_start": "Quiet hours from",
               "quiet_end": "Quiet hours until",
-              "notification_cooldown": "Time between reminders",
               "weekly_report": "Weekly report",
+              "monthly_report": "Monthly report",
               "vacation_entity": "Vacation",
-              "vacation_keyword": "Calendar keyword",
-              "monthly_report": "Monthly report"
+              "vacation_keyword": "Calendar keyword"
             },
             "data_description": {
               "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
               "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
               "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
-              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
               "weekly_report": "A summary of the week on Sundays at 7 pm.",
+              "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year.",
               "vacation_entity": "Optional: calendar, switch or binary sensor. No reminders during vacation, only mould warnings.",
-              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event.",
-              "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
+              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event."
             }
           },
           "devices": {
-            "name": "Heating, dehumidifier & costs",
+            "name": "Heating & devices",
+            "description": "Optional: thermostats, dehumidifier and cost estimate.",
             "data": {
               "climate_entities": "Lower thermostats",
               "dehumidifier_entity": "Dehumidifier",
@@ -278,26 +304,58 @@
               "dehumidifier_entity": "Optional: switch or dehumidifier. Runs when it is humid and ventilating is not possible right now.",
               "energy_price": "For the cost estimate, e.g. gas ≈ 0.12 €/kWh, heat pump ≈ 0.10 €/kWh."
             }
+          },
+          "advanced": {
+            "name": "Fine-tuning",
+            "description": "Rarely needed – the defaults suit most homes.",
+            "data": {
+              "season_threshold": "Winter below",
+              "notification_cooldown": "Time between reminders",
+              "wind_is_from": "Wind direction is where the wind comes from",
+              "use_sun": "Consider sun position",
+              "sun_entity": "Sun",
+              "min_sun_elevation": "Minimum sun elevation"
+            },
+            "data_description": {
+              "season_threshold": "Automatic mode only: outdoor temperature below which winter mode applies (heating limit, usually 15 °C).",
+              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
+              "wind_is_from": "Usual for weather stations: 270° = wind from the west. Turn off only if your sensor reports the direction it blows to.",
+              "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
+              "sun_entity": "Usually “sun.sun”.",
+              "min_sun_elevation": "Below this the sun does not count as shining directly."
+            }
+          },
+          "messages": {
+            "name": "Notifications",
+            "description": "One combined notification for all rooms.",
+            "data": {
+              "combine_notifications": "Combined notification",
+              "notify_services": "Notify",
+              "persons": "People",
+              "quiet_start": "Quiet hours from",
+              "quiet_end": "Quiet hours until",
+              "notification_cooldown": "Time between reminders"
+            },
+            "data_description": {
+              "combine_notifications": "One notification for all rooms instead of one per room.",
+              "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
+              "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
+              "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
+              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time."
+            }
+          },
+          "reports": {
+            "name": "Reports",
+            "description": "Weekly and monthly summary of all rooms.",
+            "data": {
+              "weekly_report": "Weekly report",
+              "monthly_report": "Monthly report"
+            },
+            "data_description": {
+              "weekly_report": "A summary of the week on Sundays at 7 pm.",
+              "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
+            }
           }
-        },
-        "data": {
-          "combine_notifications": "Combined notification",
-          "notify_services": "Notify",
-          "persons": "People",
-          "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until",
-          "notification_cooldown": "Time between reminders",
-          "weekly_report": "Weekly report",
-          "monthly_report": "Monthly report"
-        },
-        "data_description": {
-          "combine_notifications": "One notification for all rooms instead of one per room.",
-          "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
-          "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
-          "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
-          "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
-          "weekly_report": "A summary of the week on Sundays at 7 pm.",
-          "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
         }
       }
     }
@@ -358,7 +416,11 @@
         "name": "Notification status"
       },
       "ventilation_running": {
-        "name": "Ventilating"
+        "name": "Ventilating",
+        "state": {
+          "running": "Running",
+          "idle": "Idle"
+        }
       },
       "ventilation_progress": {
         "name": "Ventilation progress"

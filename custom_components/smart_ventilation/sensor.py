@@ -74,7 +74,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.2.0",
+            sw_version="2.3.0",
         )
 
     async def async_added_to_hass(self):
@@ -223,12 +223,14 @@ class NotificationStatusSensor(BaseSensor):
 
 
 class VentilationRunningSensor(BaseSensor):
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["running", "idle"]
     def __init__(self, c):
         super().__init__(c, "ventilation_running", "Lüftung läuft")
 
     @property
     def native_value(self):
-        return "Läuft" if self.coordinator.session else "Aus"
+        return "running" if self.coordinator.session else "idle"
 
     @property
     def extra_state_attributes(self):
@@ -308,7 +310,6 @@ class SunAzimuthSensor(BaseSensor):
 class PeriodSensor(BaseSensor):
     """Anzahl Lüftungen im Zeitraum; Details als Attribute."""
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
-    _attr_icon = "mdi:window-open-variant"
 
     def __init__(self, c, period, name):
         super().__init__(c, f"stats_{period}", name)
@@ -337,7 +338,6 @@ class PeriodSensor(BaseSensor):
 
 class CurrentDurationSensor(BaseSensor):
     _attr_device_class = SensorDeviceClass.DURATION
-    _attr_icon = "mdi:timer-outline"
 
     def __init__(self, c): super().__init__(c, "current_duration", "Aktuelle Lüftungsdauer")
     @property
@@ -348,7 +348,6 @@ class CurrentDurationSensor(BaseSensor):
 
 class MaxDurationSensor(BaseSensor):
     _attr_device_class = SensorDeviceClass.DURATION
-    _attr_icon = "mdi:timer-star-outline"
 
     def __init__(self, c): super().__init__(c, "max_duration", "Längste Lüftung")
     @property
@@ -368,9 +367,6 @@ class SeasonSensor(BaseSensor):
     def native_value(self):
         return "winter" if self.coordinator.season == "winter" else "summer"
 
-    @property
-    def icon(self):
-        return "mdi:snowflake" if self.coordinator.season == "winter" else "mdi:white-balance-sunny"
 
     @property
     def extra_state_attributes(self):
@@ -381,7 +377,6 @@ class SeasonSensor(BaseSensor):
 class BestTimeSensor(BaseSensor):
     """Bester Lüftungszeitpunkt der nächsten 24 h (Zeitstempel -> 'in 3 Stunden')."""
     _attr_device_class = SensorDeviceClass.TIMESTAMP
-    _attr_icon = "mdi:clock-check-outline"
 
     def __init__(self, c): super().__init__(c, "best_time", "Bester Lüftungszeitpunkt")
 
@@ -399,7 +394,6 @@ class WallTemperatureSensor(BaseSensor):
     """Geschätzte Temperatur an der kältesten Wandstelle (Außenecke, hinter Möbeln)."""
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_icon = "mdi:wall"
 
     def __init__(self, c): super().__init__(c, "wall_temperature", "Wandtemperatur (geschätzt)")
     @property
@@ -427,7 +421,6 @@ class WallHumiditySensor(BaseSensor):
 class AirQualitySensor(BaseSensor):
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = ["good", "moderate", "poor"]
-    _attr_icon = "mdi:molecule-co2"
 
     def __init__(self, c): super().__init__(c, "air_quality", "Luftqualität")
     @property
@@ -441,7 +434,6 @@ class HeatLossTodaySensor(BaseSensor):
     """Geschätzter Wärmeverlust durch Lüften heute."""
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
-    _attr_icon = "mdi:fire-alert"
 
     def __init__(self, c): super().__init__(c, "heat_loss_today", "Wärmeverlust Lüften heute")
     @property
@@ -454,7 +446,6 @@ class CostMonthSensor(BaseSensor):
     """Geschätzte Heizkosten durch Lüften im laufenden Monat."""
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.TOTAL
-    _attr_icon = "mdi:currency-eur"
 
     def __init__(self, c): super().__init__(c, "cost_month", "Lüftungskosten Monat")
     @property
@@ -479,7 +470,7 @@ class OverviewBase(SensorEntity):
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.2.0",
+            sw_version="2.3.0",
         )
 
     async def async_added_to_hass(self):
@@ -493,7 +484,6 @@ class OverviewBase(SensorEntity):
 
 
 class MostUrgentRoomSensor(OverviewBase):
-    _attr_icon = "mdi:home-alert-outline"
 
     def __init__(self, c): super().__init__(c, "most_urgent", "Dringendster Raum")
     @property
@@ -501,7 +491,6 @@ class MostUrgentRoomSensor(OverviewBase):
 
 
 class RoomsNeedingSensor(OverviewBase):
-    _attr_icon = "mdi:window-open-variant"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, c): super().__init__(c, "rooms_needing", "Räume mit Lüftungsbedarf")
@@ -514,7 +503,6 @@ class RoomsNeedingSensor(OverviewBase):
 class MoldStreakSensor(BaseSensor):
     """Kritische Tage in Folge (Wand ≥ 6 h/Tag über 80 % Feuchte)."""
     _unrecorded_attributes = frozenset({"letzte_14_tage_h"})
-    _attr_icon = "mdi:wall"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, c): super().__init__(c, "mold_streak", "Kritische Schimmeltage in Folge")
@@ -534,7 +522,6 @@ class MoldStreakSensor(BaseSensor):
 class NeedMonthSensor(BaseSensor):
     """Stunden mit Lüftungsbedarf im laufenden Monat, Attribute: Vergleich des letzten Monats."""
     _unrecorded_attributes = frozenset({"verlauf", "letzter_monat"})
-    _attr_icon = "mdi:chart-timeline-variant"
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_device_class = SensorDeviceClass.DURATION
 
