@@ -5,6 +5,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 
@@ -28,7 +29,7 @@ class BaseBinary(BinarySensorEntity):
     def __init__(self, coordinator, key, name):
         self.coordinator = coordinator
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
-        self._attr_name = name
+        self._attr_translation_key = key
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.entry.entry_id)},
         )
@@ -81,6 +82,7 @@ class CoolingDownSensor(BaseBinary):
 
 
 class QuietHoursSensor(BaseBinary):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     """An während der Ruhezeit (keine Lüft-Erinnerungen)."""
     _attr_icon = "mdi:sleep"
 

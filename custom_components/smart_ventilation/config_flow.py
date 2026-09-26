@@ -1,8 +1,9 @@
-"""Einrichtung als Assistent (Raum oder Übersicht), Optionen als Menü."""
+"""Einrichtung und Einstellungen als ein Formular mit aufklappbaren Bereichen."""
 from __future__ import annotations
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import selector
 
@@ -27,24 +28,40 @@ from .const import (
     CONF_DEHUMIDIFIER, CONF_WEEKLY_REPORT,
 )
 
-ROOM_SECTIONS = ["sensors", "behavior", "notify", "heating"]
+# Reihenfolge der Bereiche im Formular
+SECTIONS = ["room", "indoor", "outdoor", "behavior", "notify", "devices"]
+# Bei der Ersteinrichtung offen (enthalten Pflichtfelder), der Rest zugeklappt
+OPEN_ON_SETUP = {"room", "indoor", "outdoor"}
 
-# Optionale Felder je Abschnitt: werden beim Speichern geleert, wenn der Nutzer sie entfernt
-OPTIONAL_KEYS = {
-    "sensors": {CONF_CO2: "", CONF_WEATHER: "", CONF_SHOWER: ""},
-    "behavior": {CONF_VACATION: "", CONF_VACATION_KEYWORD: ""},
-    "notify": {CONF_NOTIFY_SERVICES: [], CONF_PERSONS: []},
-    "heating": {CONF_CLIMATES: [], CONF_DEHUMIDIFIER: ""},
-    "overview": {CONF_NOTIFY_SERVICES: [], CONF_PERSONS: []},
+# Optionale Felder: werden leer gespeichert, wenn der Nutzer sie entfernt
+OPTIONAL_EMPTY = {
+    CONF_CO2: "", CONF_SHOWER: "", CONF_WEATHER: "", CONF_VACATION: "",
+    CONF_VACATION_KEYWORD: "", CONF_NOTIFY_SERVICES: [], CONF_PERSONS: [],
+    CONF_CLIMATES: [], CONF_DEHUMIDIFIER: "",
 }
 
 
 # ----------------------------------------------------------------------
-# Hilfen
+# Bausteine
 # ----------------------------------------------------------------------
 def _entity(domain, multiple=False):
-    return selector.EntitySelector(
-        selector.EntitySelectorConfig(domain=domain, multiple=multiple)
+    return selector.EntitySelector(selector.EntitySelectorConfig(domain=domain, multiple=multiple))
+
+
+def _number(minimum, maximum, step, unit=None):
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=minimum, max=maximum, step=step, unit_of_measurement=unit,
+            mode=selector.NumberSelectorMode.BOX,
+        )
+    )
+
+
+def _select(options, key):
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=options, translation_key=key, mode=selector.SelectSelectorMode.DROPDOWN
+        )
     )
 
 
@@ -71,10 +88,7 @@ def _notify_selector(hass: HomeAssistant, current: list[str]):
         for name in hass.services.async_services_for_domain("notify")
         if name not in ("notify", "persistent_notification", "send_message")
     ]
-    services = sorted(
-        set(services) | set(current),
-        key=lambda s: (not s.startswith("notify.mobile_app_"), s),
-    )
+    services = sorted(set(services) | set(current), key=lambda s: (not s.startswith("notify.mobile_app_"), s))
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=[selector.SelectOptionDict(value=s, label=_notify_label(s)) for s in services],
@@ -99,113 +113,128 @@ def _windows(d: dict) -> list[str]:
     return list(value or [])
 
 
-def _select(options, key):
-    return selector.SelectSelector(
-        selector.SelectSelectorConfig(
-            options=options, translation_key=key, mode=selector.SelectSelectorMode.DROPDOWN
-        )
-    )
-
-
 # ----------------------------------------------------------------------
-# Formulare je Abschnitt
+# Felder je Bereich
 # ----------------------------------------------------------------------
-def schema_sensors(d: dict, with_name: bool) -> vol.Schema:
-    sensor = _entity(["sensor"])
-    fields = {}
-    if with_name:
-        fields[_req(CONF_NAME, d.get(CONF_NAME, "Schlafzimmer"))] = str
-    fields.update({
-        _req(CONF_WINDOW, _windows(d)): _entity(["binary_sensor", "sensor"], multiple=True),
-        _req(CONF_INDOOR_HUMIDITY, d.get(CONF_INDOOR_HUMIDITY)): sensor,
-        _req(CONF_INDOOR_TEMP, d.get(CONF_INDOOR_TEMP)): sensor,
-        _req(CONF_OUTDOOR_HUMIDITY, d.get(CONF_OUTDOOR_HUMIDITY)): sensor,
-        _req(CONF_OUTDOOR_TEMP, d.get(CONF_OUTDOOR_TEMP)): sensor,
-        _req(CONF_WIND_SPEED, d.get(CONF_WIND_SPEED)): sensor,
-        _req(CONF_WIND_DIRECTION, d.get(CONF_WIND_DIRECTION)): sensor,
-        vol.Required(CONF_WIND_IS_FROM, default=d.get(CONF_WIND_IS_FROM, True)): bool,
-        _req(CONF_RAIN, d.get(CONF_RAIN)): _entity(["binary_sensor", "sensor"]),
-        _opt(CONF_CO2, d.get(CONF_CO2)): sensor,
-        _opt(CONF_WEATHER, d.get(CONF_WEATHER)): _entity("weather"),
-        _opt(CONF_SHOWER, d.get(CONF_SHOWER)): _entity(["binary_sensor", "input_boolean"]),
-        vol.Required(CONF_SHOWER_DETECT, default=d.get(CONF_SHOWER_DETECT, False)): bool,
-        vol.Required(CONF_VOLUME, default=d.get(CONF_VOLUME, 44.8)): vol.All(
-            vol.Coerce(float), vol.Range(min=1, max=2000)
-        ),
-        vol.Required(CONF_WINDOW_DIRECTION, default=d.get(CONF_WINDOW_DIRECTION, 106)): vol.All(
-            vol.Coerce(float), vol.Range(min=0, max=360)
-        ),
-    })
-    return vol.Schema(fields)
+def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) -> dict:
+    sensor = _entity("sensor")
+    g = d.get
+
+    if name == "room":
+        fields = {}
+        if with_name:
+            fields[_req(CONF_NAME, g(CONF_NAME))] = str
+        fields.update({
+            _req(CONF_WINDOW, _windows(d)): _entity(["binary_sensor", "sensor"], multiple=True),
+            vol.Required(CONF_VOLUME, default=g(CONF_VOLUME, 40.0)): _number(1, 2000, 0.1, "m³"),
+            vol.Required(CONF_WINDOW_DIRECTION, default=g(CONF_WINDOW_DIRECTION, 180)): _number(0, 359, 1, "°"),
+        })
+        return fields
+
+    if name == "indoor":
+        return {
+            _req(CONF_INDOOR_TEMP, g(CONF_INDOOR_TEMP)): sensor,
+            _req(CONF_INDOOR_HUMIDITY, g(CONF_INDOOR_HUMIDITY)): sensor,
+            _opt(CONF_CO2, g(CONF_CO2)): sensor,
+            _opt(CONF_SHOWER, g(CONF_SHOWER)): _entity(["binary_sensor", "input_boolean"]),
+            vol.Required(CONF_SHOWER_DETECT, default=g(CONF_SHOWER_DETECT, False)): bool,
+        }
+
+    if name == "outdoor":
+        return {
+            _req(CONF_OUTDOOR_TEMP, g(CONF_OUTDOOR_TEMP)): sensor,
+            _req(CONF_OUTDOOR_HUMIDITY, g(CONF_OUTDOOR_HUMIDITY)): sensor,
+            _req(CONF_RAIN, g(CONF_RAIN)): _entity(["binary_sensor", "sensor"]),
+            _req(CONF_WIND_SPEED, g(CONF_WIND_SPEED)): sensor,
+            _req(CONF_WIND_DIRECTION, g(CONF_WIND_DIRECTION)): sensor,
+            vol.Required(CONF_WIND_IS_FROM, default=g(CONF_WIND_IS_FROM, True)): bool,
+            _opt(CONF_WEATHER, g(CONF_WEATHER)): _entity("weather"),
+            vol.Required(CONF_USE_SUN, default=g(CONF_USE_SUN, True)): bool,
+            vol.Required(CONF_SUN_ENTITY, default=g(CONF_SUN_ENTITY, DEFAULT_SUN_ENTITY)): _entity("sun"),
+            vol.Required(
+                CONF_MIN_SUN_ELEVATION, default=g(CONF_MIN_SUN_ELEVATION, DEFAULT_MIN_SUN_ELEVATION)
+            ): _number(0, 90, 1, "°"),
+        }
+
+    if name == "behavior":
+        return {
+            vol.Required(CONF_SEASON_MODE, default=g(CONF_SEASON_MODE, DEFAULT_SEASON_MODE)): _select(
+                [SEASON_AUTO, SEASON_SUMMER, SEASON_WINTER], "season_mode"
+            ),
+            vol.Required(
+                CONF_SEASON_THRESHOLD, default=g(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD)
+            ): _number(5, 25, 0.5, "°C"),
+            vol.Required(CONF_TARGET_ABS, default=g(CONF_TARGET_ABS, DEFAULT_TARGET_ABS)): _number(5, 20, 0.1, "g/m³"),
+            vol.Required(CONF_MAX_TEMP_DIFF, default=g(CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF)): _number(0, 30, 0.5, "°C"),
+            vol.Required(CONF_COMFORT_TEMP, default=g(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)): _number(16, 30, 0.5, "°C"),
+            vol.Required(CONF_COOL_LIMIT, default=g(CONF_COOL_LIMIT, DEFAULT_COOL_LIMIT)): _number(0, 25, 0.5, "°C"),
+            vol.Required(CONF_BUILDING, default=g(CONF_BUILDING, DEFAULT_BUILDING)): _select(
+                list(U_VALUES), "building_standard"
+            ),
+        }
+
+    if name == "notify":
+        current = _current_notify(d)
+        return {
+            vol.Optional(CONF_NOTIFY_SERVICES, default=current): _notify_selector(hass, current),
+            _opt(CONF_PERSONS, g(CONF_PERSONS, [])): _entity("person", multiple=True),
+            vol.Required(CONF_QUIET_START, default=g(CONF_QUIET_START, DEFAULT_QUIET_START)): selector.TimeSelector(),
+            vol.Required(CONF_QUIET_END, default=g(CONF_QUIET_END, DEFAULT_QUIET_END)): selector.TimeSelector(),
+            vol.Required(
+                CONF_NOTIFICATION_COOLDOWN, default=g(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
+            ): _number(5, 1440, 5, "min"),
+            vol.Required(CONF_WEEKLY_REPORT, default=g(CONF_WEEKLY_REPORT, True)): bool,
+            _opt(CONF_VACATION, g(CONF_VACATION)): _entity(["calendar", "input_boolean", "binary_sensor"]),
+            _opt(CONF_VACATION_KEYWORD, g(CONF_VACATION_KEYWORD)): str,
+        }
+
+    if name == "devices":
+        return {
+            _opt(CONF_CLIMATES, g(CONF_CLIMATES, [])): _entity("climate", multiple=True),
+            _opt(CONF_DEHUMIDIFIER, g(CONF_DEHUMIDIFIER)): _entity(["switch", "humidifier"]),
+            vol.Required(CONF_ENERGY_PRICE, default=g(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE)): _number(0, 2, 0.01, "€/kWh"),
+        }
+
+    raise ValueError(name)
 
 
-def schema_behavior(d: dict) -> vol.Schema:
+def room_schema(hass: HomeAssistant, d: dict, setup: bool) -> vol.Schema:
+    """Ein Formular, jeder Bereich aufklappbar."""
     return vol.Schema({
-        vol.Required(CONF_TARGET_ABS, default=d.get(CONF_TARGET_ABS, DEFAULT_TARGET_ABS)): vol.All(
-            vol.Coerce(float), vol.Range(min=5, max=20)
-        ),
-        vol.Required(CONF_SEASON_MODE, default=d.get(CONF_SEASON_MODE, DEFAULT_SEASON_MODE)): _select(
-            [SEASON_AUTO, SEASON_SUMMER, SEASON_WINTER], "season_mode"
-        ),
-        vol.Required(
-            CONF_SEASON_THRESHOLD, default=d.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD)
-        ): vol.All(vol.Coerce(float), vol.Range(min=5, max=25)),
-        vol.Required(CONF_MAX_TEMP_DIFF, default=d.get(CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF)): vol.All(
-            vol.Coerce(float), vol.Range(min=0, max=30)
-        ),
-        vol.Required(CONF_BUILDING, default=d.get(CONF_BUILDING, DEFAULT_BUILDING)): _select(
-            list(U_VALUES), "building_standard"
-        ),
-        vol.Required(CONF_COOL_LIMIT, default=d.get(CONF_COOL_LIMIT, DEFAULT_COOL_LIMIT)): vol.All(
-            vol.Coerce(float), vol.Range(min=0, max=25)
-        ),
-        vol.Required(CONF_COMFORT_TEMP, default=d.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)): vol.All(
-            vol.Coerce(float), vol.Range(min=16, max=30)
-        ),
-        _opt(CONF_VACATION, d.get(CONF_VACATION)): _entity(["calendar", "input_boolean", "binary_sensor"]),
-        _opt(CONF_VACATION_KEYWORD, d.get(CONF_VACATION_KEYWORD)): str,
-        vol.Required(CONF_USE_SUN, default=d.get(CONF_USE_SUN, True)): bool,
-        vol.Required(
-            CONF_MIN_SUN_ELEVATION, default=d.get(CONF_MIN_SUN_ELEVATION, DEFAULT_MIN_SUN_ELEVATION)
-        ): vol.All(vol.Coerce(float), vol.Range(min=0, max=90)),
-        vol.Required(CONF_SUN_ENTITY, default=d.get(CONF_SUN_ENTITY, DEFAULT_SUN_ENTITY)): _entity("sun"),
+        vol.Required(name): section(
+            vol.Schema(_section_fields(name, hass, d, with_name=setup)),
+            {"collapsed": not (setup and name in OPEN_ON_SETUP)},
+        )
+        for name in SECTIONS
     })
 
 
-def schema_notify(hass: HomeAssistant, d: dict, with_combine: bool = False) -> vol.Schema:
+def overview_schema(hass: HomeAssistant, d: dict) -> vol.Schema:
     current = _current_notify(d)
-    fields = {}
-    if with_combine:
-        fields[vol.Required(CONF_COMBINE, default=d.get(CONF_COMBINE, True))] = bool
-    fields.update({
+    return vol.Schema({
+        vol.Required(CONF_COMBINE, default=d.get(CONF_COMBINE, True)): bool,
         vol.Optional(CONF_NOTIFY_SERVICES, default=current): _notify_selector(hass, current),
-        vol.Required(CONF_WEEKLY_REPORT, default=d.get(CONF_WEEKLY_REPORT, True)): bool,
         _opt(CONF_PERSONS, d.get(CONF_PERSONS, [])): _entity("person", multiple=True),
-        vol.Required(
-            CONF_NOTIFICATION_COOLDOWN, default=d.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
-        ): vol.All(vol.Coerce(int), vol.Range(min=5, max=1440)),
         vol.Required(CONF_QUIET_START, default=d.get(CONF_QUIET_START, DEFAULT_QUIET_START)): selector.TimeSelector(),
         vol.Required(CONF_QUIET_END, default=d.get(CONF_QUIET_END, DEFAULT_QUIET_END)): selector.TimeSelector(),
-    })
-    return vol.Schema(fields)
-
-
-def schema_heating(d: dict) -> vol.Schema:
-    return vol.Schema({
-        _opt(CONF_CLIMATES, d.get(CONF_CLIMATES, [])): _entity("climate", multiple=True),
-        _opt(CONF_DEHUMIDIFIER, d.get(CONF_DEHUMIDIFIER)): _entity(["switch", "humidifier"]),
-        vol.Required(CONF_ENERGY_PRICE, default=d.get(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE)): vol.All(
-            vol.Coerce(float), vol.Range(min=0, max=2)
-        ),
+        vol.Required(
+            CONF_NOTIFICATION_COOLDOWN, default=d.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
+        ): _number(5, 1440, 5, "min"),
+        vol.Required(CONF_WEEKLY_REPORT, default=d.get(CONF_WEEKLY_REPORT, True)): bool,
     })
 
 
-def _fill_optional(section: str, user_input: dict) -> dict:
-    data = dict(user_input)
-    for key, empty in OPTIONAL_KEYS.get(section, {}).items():
+def flatten(user_input: dict) -> dict:
+    """{bereich: {feld: wert}} -> {feld: wert}; entfernte optionale Felder leer speichern."""
+    data = {}
+    for key, value in user_input.items():
+        if key in SECTIONS and isinstance(value, dict):
+            data.update(value)
+        else:
+            data[key] = value
+    for key, empty in OPTIONAL_EMPTY.items():
         data.setdefault(key, empty)
-    if section == "notify":
-        data[CONF_NOTIFY_SERVICE] = ""  # altes Textfeld ablösen
+    data[CONF_NOTIFY_SERVICE] = ""  # altes Textfeld aus Version < 1.7 ablösen
     return data
 
 
@@ -215,52 +244,27 @@ def _fill_optional(section: str, user_input: dict) -> dict:
 class SmartVentilationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
-    def __init__(self) -> None:
-        self._data: dict = {}
-
     async def async_step_user(self, user_input=None):
-        return self.async_show_menu(step_id="user", menu_options=["sensors", "overview"])
+        return self.async_show_menu(step_id="user", menu_options=["room", "overview"])
 
-    # --- Raum: vier Schritte ---
-    async def async_step_sensors(self, user_input=None):
+    async def async_step_room(self, user_input=None):
         if user_input is not None:
-            await self.async_set_unique_id(user_input[CONF_NAME].strip().lower())
+            data = flatten(user_input)
+            await self.async_set_unique_id(data[CONF_NAME].strip().lower())
             self._abort_if_unique_id_configured()
-            self._data.update(_fill_optional("sensors", user_input))
-            self._data[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
-            return await self.async_step_behavior()
-        return self.async_show_form(step_id="sensors", data_schema=schema_sensors(self._data, True))
+            data[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
+            return self.async_create_entry(title=data[CONF_NAME], data=data)
+        return self.async_show_form(step_id="room", data_schema=room_schema(self.hass, {}, setup=True))
 
-    async def async_step_behavior(self, user_input=None):
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_notify()
-        return self.async_show_form(step_id="behavior", data_schema=schema_behavior(self._data))
-
-    async def async_step_notify(self, user_input=None):
-        if user_input is not None:
-            self._data.update(_fill_optional("notify", user_input))
-            return await self.async_step_heating()
-        return self.async_show_form(step_id="notify", data_schema=schema_notify(self.hass, self._data))
-
-    async def async_step_heating(self, user_input=None):
-        if user_input is not None:
-            self._data.update(_fill_optional("heating", user_input))
-            return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
-        return self.async_show_form(step_id="heating", data_schema=schema_heating(self._data))
-
-    # --- Übersicht ---
     async def async_step_overview(self, user_input=None):
         if user_input is not None:
             await self.async_set_unique_id("overview")
             self._abort_if_unique_id_configured()
-            data = _fill_optional("overview", user_input)
+            data = flatten(user_input)
             data[CONF_ENTRY_TYPE] = ENTRY_TYPE_OVERVIEW
             data[CONF_NAME] = "Lüften Übersicht"
             return self.async_create_entry(title="Lüften Übersicht", data=data)
-        return self.async_show_form(
-            step_id="overview", data_schema=schema_notify(self.hass, {}, with_combine=True)
-        )
+        return self.async_show_form(step_id="overview", data_schema=overview_schema(self.hass, {}))
 
     @staticmethod
     @callback
@@ -269,51 +273,23 @@ class SmartVentilationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 # ----------------------------------------------------------------------
-# Optionen: Menü, jeder Abschnitt wird sofort gespeichert
+# Einstellungen: ein Formular, einmal speichern
 # ----------------------------------------------------------------------
 class SmartVentilationOptionsFlow(config_entries.OptionsFlow):
     """Einstellungen nachträglich ändern – das Gelernte bleibt erhalten."""
 
-    @property
-    def _current(self) -> dict:
-        return {**self.config_entry.data, **self.config_entry.options}
-
-    @property
-    def _is_overview(self) -> bool:
-        return self.config_entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_OVERVIEW
-
-    def _save(self, section: str, user_input: dict):
-        options = {**self.config_entry.options, **_fill_optional(section, user_input)}
-        return self.async_create_entry(title="", data=options)
-
     async def async_step_init(self, user_input=None):
-        if self._is_overview:
-            return await self.async_step_overview()
-        return self.async_show_menu(step_id="init", menu_options=ROOM_SECTIONS)
+        current = {**self.config_entry.data, **self.config_entry.options}
+        overview = self.config_entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_OVERVIEW
 
-    async def async_step_sensors(self, user_input=None):
         if user_input is not None:
-            return self._save("sensors", user_input)
-        return self.async_show_form(step_id="sensors", data_schema=schema_sensors(self._current, False))
+            return self.async_create_entry(
+                title="", data={**self.config_entry.options, **flatten(user_input)}
+            )
 
-    async def async_step_behavior(self, user_input=None):
-        if user_input is not None:
-            return self._save("behavior", user_input)
-        return self.async_show_form(step_id="behavior", data_schema=schema_behavior(self._current))
-
-    async def async_step_notify(self, user_input=None):
-        if user_input is not None:
-            return self._save("notify", user_input)
-        return self.async_show_form(step_id="notify", data_schema=schema_notify(self.hass, self._current))
-
-    async def async_step_heating(self, user_input=None):
-        if user_input is not None:
-            return self._save("heating", user_input)
-        return self.async_show_form(step_id="heating", data_schema=schema_heating(self._current))
-
-    async def async_step_overview(self, user_input=None):
-        if user_input is not None:
-            return self._save("overview", user_input)
+        schema = overview_schema(self.hass, current) if overview else room_schema(self.hass, current, setup=False)
         return self.async_show_form(
-            step_id="overview", data_schema=schema_notify(self.hass, self._current, with_combine=True)
+            step_id="init",
+            data_schema=schema,
+            description_placeholders={"name": str(current.get(CONF_NAME, ""))},
         )

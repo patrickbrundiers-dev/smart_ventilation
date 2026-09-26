@@ -1,176 +1,295 @@
 {
   "config": {
     "step": {
-      "sensors": {
-        "title": "Sensoren & Raum",
-        "description": "Welche Sensoren gehören zu diesem Raum?",
-        "data": {
-          "name": "Raumname",
-          "window": "Fensterkontakt(e) – mehrere für Querlüften",
-          "indoor_absolute_humidity": "Absolute Feuchte innen (g/m³)",
-          "indoor_temperature": "Temperatur innen",
-          "outdoor_absolute_humidity": "Absolute Feuchte außen (g/m³)",
-          "outdoor_temperature": "Temperatur außen",
-          "wind_speed": "Windgeschwindigkeit",
-          "wind_direction": "Windrichtung",
-          "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
-          "rain": "Regensensor (Binär oder mm/h)",
-          "co2_sensor": "CO₂-Sensor (optional)",
-          "weather_entity": "Wetter-Entität für den besten Zeitpunkt (optional)",
-          "volume": "Raumvolumen (m³)",
-          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)",
-          "shower_sensor": "Dusch-Sensor (optional, für den Bad-Modus)",
-          "shower_detect": "Duschen an starkem Feuchteanstieg erkennen (für Bäder ohne Dusch-Sensor)"
-        }
-      },
-      "behavior": {
-        "title": "Verhalten",
-        "description": "Wann und wie soll gelüftet werden?",
-        "data": {
-          "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)",
-          "season_mode": "Sommer/Winter-Modus",
-          "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
-          "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
-          "building_standard": "Dämmstandard der Außenwände (für Schimmelrisiko)",
-          "cool_limit": "Auskühl-Warnung unter (°C) – 0 = aus",
-          "use_sun": "Sonnenstand berücksichtigen",
-          "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
-          "sun_entity": "Sonnen-Entität",
-          "comfort_temperature": "Sommer: kühlen per Lüften, wenn es drinnen wärmer ist als (°C)",
-          "vacation_entity": "Urlaub (Kalender, Schalter oder Binärsensor – optional)",
-          "vacation_keyword": "Nur Kalendertermine mit diesem Wort zählen als Urlaub (optional, z. B. Urlaub)"
-        }
-      },
-      "notify": {
-        "title": "Benachrichtigungen",
-        "description": "Wer soll wann benachrichtigt werden?",
-        "data": {
-          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
-          "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
-          "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
-          "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
-          "quiet_end": "Ruhezeit bis",
-          "weekly_report": "Wochenbericht sonntags um 19 Uhr"
-        }
-      },
-      "heating": {
-        "title": "Heizung, Entfeuchter & Energie",
-        "description": "Optional: Heizung beim Lüften absenken, Entfeuchter schalten, wenn Lüften nicht geht, und Kosten schätzen.",
-        "data": {
-          "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
-          "energy_price": "Wärmepreis für Kostenschätzung (€/kWh)",
-          "dehumidifier_entity": "Luftentfeuchter (Steckdose oder Entfeuchter – optional)"
-        }
-      },
-      "overview": {
-        "title": "Übersicht aller Räume",
-        "description": "Zeigt den dringendsten Raum und fasst Erinnerungen aller Räume in einer Nachricht zusammen.",
-        "data": {
-          "combine_notifications": "Sammel-Benachrichtigung statt einzelner Raum-Meldungen",
-          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
-          "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
-          "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
-          "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
-          "quiet_end": "Ruhezeit bis",
-          "weekly_report": "Wochenbericht sonntags um 19 Uhr"
-        }
-      },
       "user": {
         "title": "Smart Ventilation",
         "description": "Was möchtest du einrichten?",
         "menu_options": {
-          "sensors": "Raum hinzufügen",
+          "room": "Raum hinzufügen",
           "overview": "Übersicht aller Räume"
         }
-      }
-    },
-    "abort": {
-      "already_configured": "Dies ist bereits eingerichtet."
-    }
-  },
-  "options": {
-    "step": {
-      "sensors": {
-        "title": "Sensoren & Raum",
-        "description": "Welche Sensoren gehören zu diesem Raum?",
-        "data": {
-          "window": "Fensterkontakt(e) – mehrere für Querlüften",
-          "indoor_absolute_humidity": "Absolute Feuchte innen (g/m³)",
-          "indoor_temperature": "Temperatur innen",
-          "outdoor_absolute_humidity": "Absolute Feuchte außen (g/m³)",
-          "outdoor_temperature": "Temperatur außen",
-          "wind_speed": "Windgeschwindigkeit",
-          "wind_direction": "Windrichtung",
-          "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
-          "rain": "Regensensor (Binär oder mm/h)",
-          "co2_sensor": "CO₂-Sensor (optional)",
-          "weather_entity": "Wetter-Entität für den besten Zeitpunkt (optional)",
-          "volume": "Raumvolumen (m³)",
-          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)",
-          "shower_sensor": "Dusch-Sensor (optional, für den Bad-Modus)",
-          "shower_detect": "Duschen an starkem Feuchteanstieg erkennen (für Bäder ohne Dusch-Sensor)"
-        }
       },
-      "behavior": {
-        "title": "Verhalten",
-        "description": "Wann und wie soll gelüftet werden?",
-        "data": {
-          "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)",
-          "season_mode": "Sommer/Winter-Modus",
-          "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
-          "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
-          "building_standard": "Dämmstandard der Außenwände (für Schimmelrisiko)",
-          "cool_limit": "Auskühl-Warnung unter (°C) – 0 = aus",
-          "use_sun": "Sonnenstand berücksichtigen",
-          "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
-          "sun_entity": "Sonnen-Entität",
-          "comfort_temperature": "Sommer: kühlen per Lüften, wenn es drinnen wärmer ist als (°C)",
-          "vacation_entity": "Urlaub (Kalender, Schalter oder Binärsensor – optional)",
-          "vacation_keyword": "Nur Kalendertermine mit diesem Wort zählen als Urlaub (optional, z. B. Urlaub)"
-        }
-      },
-      "notify": {
-        "title": "Benachrichtigungen",
-        "description": "Wer soll wann benachrichtigt werden?",
-        "data": {
-          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
-          "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
-          "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
-          "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
-          "quiet_end": "Ruhezeit bis",
-          "weekly_report": "Wochenbericht sonntags um 19 Uhr"
-        }
-      },
-      "heating": {
-        "title": "Heizung, Entfeuchter & Energie",
-        "description": "Optional: Heizung beim Lüften absenken, Entfeuchter schalten, wenn Lüften nicht geht, und Kosten schätzen.",
-        "data": {
-          "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
-          "energy_price": "Wärmepreis für Kostenschätzung (€/kWh)",
-          "dehumidifier_entity": "Luftentfeuchter (Steckdose oder Entfeuchter – optional)"
+      "room": {
+        "title": "Raum einrichten",
+        "description": "Die ersten drei Bereiche enthalten die Pflichtangaben. Alles andere lässt sich später unter „Konfigurieren“ ändern.",
+        "sections": {
+          "room": {
+            "name": "Raum & Fenster",
+            "data": {
+              "name": "Name des Raums",
+              "window": "Fensterkontakte",
+              "volume": "Raumvolumen",
+              "window_direction": "Fensterausrichtung"
+            },
+            "data_description": {
+              "name": "Erscheint in Nachrichten und als Gerätename, z. B. „Schlafzimmer“.",
+              "window": "Ein oder mehrere Kontakte. Sind zwei oder mehr gleichzeitig offen, wird Querlüften erkannt und getrennt gelernt.",
+              "volume": "Grundfläche × Deckenhöhe, z. B. 16 m² × 2,5 m = 40 m³. Wird für Wärmeverlust und Kosten verwendet.",
+              "window_direction": "Himmelsrichtung, in die das Fenster zeigt: 0° Nord, 90° Ost, 180° Süd, 270° West."
+            }
+          },
+          "indoor": {
+            "name": "Sensoren im Raum",
+            "data": {
+              "indoor_temperature": "Temperatur",
+              "indoor_absolute_humidity": "Absolute Luftfeuchte",
+              "co2_sensor": "CO₂-Sensor",
+              "shower_sensor": "Dusch-Sensor",
+              "shower_detect": "Duschen automatisch erkennen"
+            },
+            "data_description": {
+              "indoor_temperature": "Raumtemperatur.",
+              "indoor_absolute_humidity": "Sensor mit der absoluten Feuchte im Raum in g/m³.",
+              "co2_sensor": "Optional. Ab 1000 ppm wird auch wegen verbrauchter Luft gelüftet.",
+              "shower_sensor": "Optional, für Bäder: Nach dem Duschen kommt sofort ein Lüft-Hinweis, nach 30 Minuten ggf. eine Erinnerung.",
+              "shower_detect": "Für Bäder ohne Dusch-Sensor: erkennt Duschen an einem schnellen Feuchteanstieg (+1,5 g/m³ in 10 Minuten)."
+            }
+          },
+          "outdoor": {
+            "name": "Außen & Wetter",
+            "data": {
+              "outdoor_temperature": "Außentemperatur",
+              "outdoor_absolute_humidity": "Absolute Außenfeuchte",
+              "rain": "Regensensor",
+              "wind_speed": "Windgeschwindigkeit",
+              "wind_direction": "Windrichtung",
+              "wind_is_from": "Windrichtung gibt die Herkunft an",
+              "weather_entity": "Wettervorhersage",
+              "use_sun": "Sonnenstand berücksichtigen",
+              "sun_entity": "Sonne",
+              "min_sun_elevation": "Mindest-Sonnenhöhe"
+            },
+            "data_description": {
+              "outdoor_absolute_humidity": "Absolute Feuchte draußen in g/m³.",
+              "rain": "Binärsensor oder Regenrate in mm/h. Bei Regen wird nicht zum Lüften geraten.",
+              "wind_speed": "km/h oder m/s – wird automatisch umgerechnet.",
+              "wind_direction": "In Grad (0–360).",
+              "wind_is_from": "Üblich bei Wetterstationen: 270° = Wind aus Westen. Nur ausschalten, wenn dein Sensor die Zugrichtung meldet.",
+              "weather_entity": "Optional. Mit stündlicher Vorhersage werden der beste Lüftungszeitpunkt und im Sommer ein Nachtkühlplan berechnet.",
+              "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
+              "sun_entity": "Meist „sun.sun“.",
+              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend."
+            }
+          },
+          "behavior": {
+            "name": "Lüftungsverhalten",
+            "data": {
+              "season_mode": "Sommer-/Wintermodus",
+              "season_threshold": "Winter unterhalb von",
+              "target_absolute_humidity": "Tagesziel Luftfeuchte",
+              "max_temperature_difference": "Sommer: Hitzesperre ab",
+              "comfort_temperature": "Sommer: kühlen ab",
+              "cool_limit": "Auskühl-Warnung unter",
+              "building_standard": "Dämmstandard der Außenwände"
+            },
+            "data_description": {
+              "season_mode": "Winter: kurzes Stoßlüften, nie Kippfenster. Sommer: nicht lüften, wenn es draußen wärmer ist; Kühlen per Lüften möglich.",
+              "season_threshold": "Nur im Automatikmodus: Außentemperatur, unter der auf Winter umgeschaltet wird (Heizgrenze, üblich 15 °C).",
+              "target_absolute_humidity": "Sinkt die absolute Feuchte innen beim Lüften unter diesen Wert, gilt der Tag als ausreichend gelüftet.",
+              "max_temperature_difference": "Nicht lüften, wenn es draußen um mehr als diesen Wert wärmer ist als drinnen.",
+              "comfort_temperature": "Ist es drinnen wärmer und draußen mindestens 2 °C kühler, wird Lüften zum Abkühlen empfohlen.",
+              "cool_limit": "Warnt, wenn der Raum bei offenem Fenster kälter wird. 0 = aus.",
+              "building_standard": "Bestimmt die geschätzte Temperatur an der kältesten Wandstelle und damit das Schimmelrisiko."
+            }
+          },
+          "notify": {
+            "name": "Benachrichtigungen & Abwesenheit",
+            "data": {
+              "notify_services": "Benachrichtigen",
+              "persons": "Personen",
+              "quiet_start": "Ruhezeit von",
+              "quiet_end": "Ruhezeit bis",
+              "notification_cooldown": "Abstand zwischen Erinnerungen",
+              "weekly_report": "Wochenbericht",
+              "vacation_entity": "Urlaub",
+              "vacation_keyword": "Stichwort im Kalender"
+            },
+            "data_description": {
+              "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
+              "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
+              "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
+              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
+              "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
+              "vacation_entity": "Optional: Kalender, Schalter oder Binärsensor. Im Urlaub keine Erinnerungen, nur Schimmelwarnungen.",
+              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin."
+            }
+          },
+          "devices": {
+            "name": "Heizung, Entfeuchter & Kosten",
+            "data": {
+              "climate_entities": "Thermostate absenken",
+              "dehumidifier_entity": "Luftentfeuchter",
+              "energy_price": "Wärmepreis"
+            },
+            "data_description": {
+              "climate_entities": "Optional. Nach 1 Minute offenem Fenster aus bzw. auf Minimum, danach zurück. Leer lassen, wenn die Thermostate selbst eine Fenster-offen-Erkennung haben.",
+              "dehumidifier_entity": "Optional: Steckdose oder Entfeuchter. Läuft, wenn es feucht ist und gerade nicht gelüftet werden kann.",
+              "energy_price": "Für die Kostenschätzung, z. B. Gas ≈ 0,12 €/kWh, Wärmepumpe ≈ 0,10 €/kWh."
+            }
+          }
         }
       },
       "overview": {
         "title": "Übersicht aller Räume",
-        "description": "Zeigt den dringendsten Raum und fasst Erinnerungen aller Räume in einer Nachricht zusammen.",
+        "description": "Zeigt den dringendsten Raum und fasst Erinnerungen und Wochenberichte aller Räume in einer Nachricht zusammen.",
         "data": {
-          "combine_notifications": "Sammel-Benachrichtigung statt einzelner Raum-Meldungen",
-          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
-          "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
-          "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
-          "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
+          "combine_notifications": "Sammel-Benachrichtigung",
+          "notify_services": "Benachrichtigen",
+          "persons": "Personen",
+          "quiet_start": "Ruhezeit von",
           "quiet_end": "Ruhezeit bis",
-          "weekly_report": "Wochenbericht sonntags um 19 Uhr"
+          "notification_cooldown": "Abstand zwischen Erinnerungen",
+          "weekly_report": "Wochenbericht"
+        },
+        "data_description": {
+          "combine_notifications": "Eine Nachricht für alle Räume statt einer pro Raum.",
+          "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
+          "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
+          "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
+          "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
+          "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche."
         }
-      },
+      }
+    },
+    "abort": {
+      "already_configured": "Das ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
       "init": {
-        "title": "Einstellungen",
-        "description": "Welchen Bereich möchtest du ändern? Gelernte Werte bleiben erhalten.",
-        "menu_options": {
-          "sensors": "Sensoren & Raum",
-          "behavior": "Verhalten",
-          "notify": "Benachrichtigungen",
-          "heating": "Heizung, Entfeuchter & Energie"
+        "title": "Einstellungen: {name}",
+        "description": "Bereich aufklappen, ändern und einmal speichern. Gelernte Werte und Statistik bleiben erhalten.",
+        "sections": {
+          "room": {
+            "name": "Raum & Fenster",
+            "data": {
+              "window": "Fensterkontakte",
+              "volume": "Raumvolumen",
+              "window_direction": "Fensterausrichtung"
+            },
+            "data_description": {
+              "window": "Ein oder mehrere Kontakte. Sind zwei oder mehr gleichzeitig offen, wird Querlüften erkannt und getrennt gelernt.",
+              "volume": "Grundfläche × Deckenhöhe, z. B. 16 m² × 2,5 m = 40 m³. Wird für Wärmeverlust und Kosten verwendet.",
+              "window_direction": "Himmelsrichtung, in die das Fenster zeigt: 0° Nord, 90° Ost, 180° Süd, 270° West."
+            }
+          },
+          "indoor": {
+            "name": "Sensoren im Raum",
+            "data": {
+              "indoor_temperature": "Temperatur",
+              "indoor_absolute_humidity": "Absolute Luftfeuchte",
+              "co2_sensor": "CO₂-Sensor",
+              "shower_sensor": "Dusch-Sensor",
+              "shower_detect": "Duschen automatisch erkennen"
+            },
+            "data_description": {
+              "indoor_temperature": "Raumtemperatur.",
+              "indoor_absolute_humidity": "Sensor mit der absoluten Feuchte im Raum in g/m³.",
+              "co2_sensor": "Optional. Ab 1000 ppm wird auch wegen verbrauchter Luft gelüftet.",
+              "shower_sensor": "Optional, für Bäder: Nach dem Duschen kommt sofort ein Lüft-Hinweis, nach 30 Minuten ggf. eine Erinnerung.",
+              "shower_detect": "Für Bäder ohne Dusch-Sensor: erkennt Duschen an einem schnellen Feuchteanstieg (+1,5 g/m³ in 10 Minuten)."
+            }
+          },
+          "outdoor": {
+            "name": "Außen & Wetter",
+            "data": {
+              "outdoor_temperature": "Außentemperatur",
+              "outdoor_absolute_humidity": "Absolute Außenfeuchte",
+              "rain": "Regensensor",
+              "wind_speed": "Windgeschwindigkeit",
+              "wind_direction": "Windrichtung",
+              "wind_is_from": "Windrichtung gibt die Herkunft an",
+              "weather_entity": "Wettervorhersage",
+              "use_sun": "Sonnenstand berücksichtigen",
+              "sun_entity": "Sonne",
+              "min_sun_elevation": "Mindest-Sonnenhöhe"
+            },
+            "data_description": {
+              "outdoor_absolute_humidity": "Absolute Feuchte draußen in g/m³.",
+              "rain": "Binärsensor oder Regenrate in mm/h. Bei Regen wird nicht zum Lüften geraten.",
+              "wind_speed": "km/h oder m/s – wird automatisch umgerechnet.",
+              "wind_direction": "In Grad (0–360).",
+              "wind_is_from": "Üblich bei Wetterstationen: 270° = Wind aus Westen. Nur ausschalten, wenn dein Sensor die Zugrichtung meldet.",
+              "weather_entity": "Optional. Mit stündlicher Vorhersage werden der beste Lüftungszeitpunkt und im Sommer ein Nachtkühlplan berechnet.",
+              "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
+              "sun_entity": "Meist „sun.sun“.",
+              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend."
+            }
+          },
+          "behavior": {
+            "name": "Lüftungsverhalten",
+            "data": {
+              "season_mode": "Sommer-/Wintermodus",
+              "season_threshold": "Winter unterhalb von",
+              "target_absolute_humidity": "Tagesziel Luftfeuchte",
+              "max_temperature_difference": "Sommer: Hitzesperre ab",
+              "comfort_temperature": "Sommer: kühlen ab",
+              "cool_limit": "Auskühl-Warnung unter",
+              "building_standard": "Dämmstandard der Außenwände"
+            },
+            "data_description": {
+              "season_mode": "Winter: kurzes Stoßlüften, nie Kippfenster. Sommer: nicht lüften, wenn es draußen wärmer ist; Kühlen per Lüften möglich.",
+              "season_threshold": "Nur im Automatikmodus: Außentemperatur, unter der auf Winter umgeschaltet wird (Heizgrenze, üblich 15 °C).",
+              "target_absolute_humidity": "Sinkt die absolute Feuchte innen beim Lüften unter diesen Wert, gilt der Tag als ausreichend gelüftet.",
+              "max_temperature_difference": "Nicht lüften, wenn es draußen um mehr als diesen Wert wärmer ist als drinnen.",
+              "comfort_temperature": "Ist es drinnen wärmer und draußen mindestens 2 °C kühler, wird Lüften zum Abkühlen empfohlen.",
+              "cool_limit": "Warnt, wenn der Raum bei offenem Fenster kälter wird. 0 = aus.",
+              "building_standard": "Bestimmt die geschätzte Temperatur an der kältesten Wandstelle und damit das Schimmelrisiko."
+            }
+          },
+          "notify": {
+            "name": "Benachrichtigungen & Abwesenheit",
+            "data": {
+              "notify_services": "Benachrichtigen",
+              "persons": "Personen",
+              "quiet_start": "Ruhezeit von",
+              "quiet_end": "Ruhezeit bis",
+              "notification_cooldown": "Abstand zwischen Erinnerungen",
+              "weekly_report": "Wochenbericht",
+              "vacation_entity": "Urlaub",
+              "vacation_keyword": "Stichwort im Kalender"
+            },
+            "data_description": {
+              "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
+              "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
+              "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
+              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
+              "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
+              "vacation_entity": "Optional: Kalender, Schalter oder Binärsensor. Im Urlaub keine Erinnerungen, nur Schimmelwarnungen.",
+              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin."
+            }
+          },
+          "devices": {
+            "name": "Heizung, Entfeuchter & Kosten",
+            "data": {
+              "climate_entities": "Thermostate absenken",
+              "dehumidifier_entity": "Luftentfeuchter",
+              "energy_price": "Wärmepreis"
+            },
+            "data_description": {
+              "climate_entities": "Optional. Nach 1 Minute offenem Fenster aus bzw. auf Minimum, danach zurück. Leer lassen, wenn die Thermostate selbst eine Fenster-offen-Erkennung haben.",
+              "dehumidifier_entity": "Optional: Steckdose oder Entfeuchter. Läuft, wenn es feucht ist und gerade nicht gelüftet werden kann.",
+              "energy_price": "Für die Kostenschätzung, z. B. Gas ≈ 0,12 €/kWh, Wärmepumpe ≈ 0,10 €/kWh."
+            }
+          }
+        },
+        "data": {
+          "combine_notifications": "Sammel-Benachrichtigung",
+          "notify_services": "Benachrichtigen",
+          "persons": "Personen",
+          "quiet_start": "Ruhezeit von",
+          "quiet_end": "Ruhezeit bis",
+          "notification_cooldown": "Abstand zwischen Erinnerungen",
+          "weekly_report": "Wochenbericht"
+        },
+        "data_description": {
+          "combine_notifications": "Eine Nachricht für alle Räume statt einer pro Raum.",
+          "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
+          "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
+          "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
+          "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
+          "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche."
         }
       }
     }
@@ -179,16 +298,150 @@
     "season_mode": {
       "options": {
         "auto": "Automatisch (nach Außentemperatur)",
-        "summer": "Sommer",
-        "winter": "Winter"
+        "summer": "Immer Sommer",
+        "winter": "Immer Winter"
       }
     },
     "building_standard": {
       "options": {
-        "old": "Altbau, ungedämmt",
-        "average": "60er–90er Jahre",
-        "insulated": "Gedämmt (ab ca. 2000)",
-        "passive": "Neubau / Passivhaus"
+        "old": "Altbau, ungedämmt (U ≈ 1,4)",
+        "average": "1960–1990er (U ≈ 1,0)",
+        "insulated": "Gedämmt, ab ca. 2000 (U ≈ 0,35)",
+        "passive": "Neubau / Passivhaus (U ≈ 0,15)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "recommendation": {
+        "name": "Empfehlung"
+      },
+      "minutes": {
+        "name": "Empfohlene Dauer"
+      },
+      "humidity_difference": {
+        "name": "Feuchteunterschied innen/außen"
+      },
+      "temperature_difference": {
+        "name": "Temperaturunterschied innen/außen"
+      },
+      "indoor_rh": {
+        "name": "Relative Luftfeuchte"
+      },
+      "outdoor_rh": {
+        "name": "Relative Außenfeuchte"
+      },
+      "indoor_dew_point": {
+        "name": "Taupunkt"
+      },
+      "outdoor_dew_point": {
+        "name": "Taupunkt außen"
+      },
+      "mold_risk": {
+        "name": "Schimmelrisiko",
+        "state": {
+          "low": "Niedrig",
+          "elevated": "Erhöht",
+          "high": "Hoch",
+          "unknown": "Unbekannt"
+        }
+      },
+      "notification_status": {
+        "name": "Benachrichtigungsstatus"
+      },
+      "ventilation_running": {
+        "name": "Lüftung läuft"
+      },
+      "ventilation_progress": {
+        "name": "Lüftungsfortschritt"
+      },
+      "learned_ach": {
+        "name": "Gelernter Luftwechsel"
+      },
+      "learning_samples": {
+        "name": "Lernvorgänge"
+      },
+      "context_model_ach": {
+        "name": "Luftwechsel aktuelle Bedingungen"
+      },
+      "sun_elevation": {
+        "name": "Sonnenhöhe"
+      },
+      "sun_azimuth": {
+        "name": "Sonnenrichtung"
+      },
+      "stats_day": {
+        "name": "Lüftungen heute"
+      },
+      "stats_week": {
+        "name": "Lüftungen diese Woche"
+      },
+      "stats_month": {
+        "name": "Lüftungen diesen Monat"
+      },
+      "stats_total": {
+        "name": "Lüftungen gesamt"
+      },
+      "current_duration": {
+        "name": "Aktuelle Lüftungsdauer"
+      },
+      "max_duration": {
+        "name": "Längste Lüftung"
+      },
+      "season": {
+        "name": "Jahreszeit",
+        "state": {
+          "summer": "Sommer",
+          "winter": "Winter"
+        }
+      },
+      "best_time": {
+        "name": "Bester Lüftungszeitpunkt"
+      },
+      "wall_temperature": {
+        "name": "Wandtemperatur (geschätzt)"
+      },
+      "wall_humidity": {
+        "name": "Feuchte an der Wand"
+      },
+      "air_quality": {
+        "name": "Luftqualität",
+        "state": {
+          "good": "Gut",
+          "moderate": "Mäßig",
+          "poor": "Schlecht"
+        }
+      },
+      "heat_loss_today": {
+        "name": "Wärmeverlust durch Lüften heute"
+      },
+      "cost_month": {
+        "name": "Lüftungskosten diesen Monat"
+      },
+      "most_urgent": {
+        "name": "Dringendster Raum"
+      },
+      "rooms_needing": {
+        "name": "Räume mit Lüftungsbedarf"
+      }
+    },
+    "binary_sensor": {
+      "ventilated_today": {
+        "name": "Heute gelüftet"
+      },
+      "recommended": {
+        "name": "Lüften empfohlen"
+      },
+      "cooling_down": {
+        "name": "Raum kühlt aus"
+      },
+      "quiet_hours": {
+        "name": "Ruhezeit"
+      }
+    },
+    "button": {
+      "reset_learning": {
+        "name": "Lernen zurücksetzen"
       }
     }
   },

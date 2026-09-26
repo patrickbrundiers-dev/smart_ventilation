@@ -6,6 +6,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 
@@ -64,13 +65,14 @@ class BaseSensor(SensorEntity):
     def __init__(self, coordinator, key, name):
         self.coordinator = coordinator
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
-        self._attr_name = name
+        # Name kommt aus translations/<sprache>.json (entity.sensor.<key>.name)
+        self._attr_translation_key = key
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.entry.entry_id)},
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.1.0",
+            sw_version="2.1.1",
         )
 
     async def async_added_to_hass(self):
@@ -131,6 +133,7 @@ class HumidityDifferenceSensor(BaseSensor):
 
 
 class TemperatureDifferenceSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
     def __init__(self, c): super().__init__(c, "temperature_difference", "Temperaturdifferenz")
     @property
@@ -152,6 +155,7 @@ class IndoorRHSensor(BaseSensor):
 
 
 class OutdoorRHSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_device_class = SensorDeviceClass.HUMIDITY
     def __init__(self, c): super().__init__(c, "outdoor_rh", "Berechnete Außenfeuchte")
@@ -164,6 +168,7 @@ class OutdoorRHSensor(BaseSensor):
 
 
 class IndoorDewPointSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     def __init__(self, c): super().__init__(c, "indoor_dew_point", "Taupunkt innen")
@@ -176,6 +181,7 @@ class IndoorDewPointSensor(BaseSensor):
 
 
 class OutdoorDewPointSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     def __init__(self, c): super().__init__(c, "outdoor_dew_point", "Taupunkt außen")
@@ -189,13 +195,15 @@ class OutdoorDewPointSensor(BaseSensor):
 
 class MoldRiskSensor(BaseSensor):
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ["niedrig", "erhöht", "hoch", "unbekannt"]
+    _attr_options = ["low", "elevated", "high", "unknown"]
     def __init__(self, c): super().__init__(c, "mold_risk", "Schimmelrisiko")
     @property
-    def native_value(self): return self.coordinator.mold_risk
+    def native_value(self):
+        return {"niedrig": "low", "erhöht": "elevated", "hoch": "high"}.get(self.coordinator.mold_risk, "unknown")
 
 
 class NotificationStatusSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     def __init__(self, c):
         super().__init__(c, "notification_status", "Benachrichtigung")
 
@@ -245,6 +253,7 @@ class VentilationProgressSensor(BaseSensor):
 
 
 class ACHSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
     def __init__(self, c): super().__init__(c, "learned_ach", "Gelernter Luftwechsel")
     @property
@@ -254,12 +263,14 @@ class ACHSensor(BaseSensor):
 
 
 class SamplesSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     def __init__(self, c): super().__init__(c, "learning_samples", "Lernvorgänge")
     @property
     def native_value(self): return self.coordinator.samples
 
 
 class ModelSamplesSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
     def __init__(self, c): super().__init__(c, "context_model_ach", "Kontext-Luftwechsel")
     @property
@@ -269,6 +280,7 @@ class ModelSamplesSensor(BaseSensor):
 
 
 class SunElevationSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     def __init__(self, c): super().__init__(c, "sun_elevation", "Sonnenhöhe")
     @property
     def native_value(self):
@@ -280,6 +292,7 @@ class SunElevationSensor(BaseSensor):
 
 
 class SunAzimuthSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     def __init__(self, c): super().__init__(c, "sun_azimuth", "Sonnenrichtung")
     @property
     def native_value(self):
@@ -345,13 +358,13 @@ class MaxDurationSensor(BaseSensor):
 class SeasonSensor(BaseSensor):
     """Aktiver Modus: Sommer oder Winter."""
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ["Sommer", "Winter"]
+    _attr_options = ["summer", "winter"]
 
     def __init__(self, c): super().__init__(c, "season", "Jahreszeit-Modus")
 
     @property
     def native_value(self):
-        return "Winter" if self.coordinator.season == "winter" else "Sommer"
+        return "winter" if self.coordinator.season == "winter" else "summer"
 
     @property
     def icon(self):
@@ -411,14 +424,15 @@ class WallHumiditySensor(BaseSensor):
 
 class AirQualitySensor(BaseSensor):
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ["gut", "mäßig", "schlecht"]
+    _attr_options = ["good", "moderate", "poor"]
     _attr_icon = "mdi:molecule-co2"
 
     def __init__(self, c): super().__init__(c, "air_quality", "Luftqualität")
     @property
     def available(self): return bool(self.coordinator.data.get("co2_sensor"))
     @property
-    def native_value(self): return self.coordinator.air_quality
+    def native_value(self):
+        return {"gut": "good", "mäßig": "moderate", "schlecht": "poor"}.get(self.coordinator.air_quality)
 
 
 class HeatLossTodaySensor(BaseSensor):
@@ -457,13 +471,13 @@ class OverviewBase(SensorEntity):
     def __init__(self, coordinator, key, name):
         self.coordinator = coordinator
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
-        self._attr_name = name
+        self._attr_translation_key = key
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.entry.entry_id)},
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.1.0",
+            sw_version="2.1.1",
         )
 
     async def async_added_to_hass(self):

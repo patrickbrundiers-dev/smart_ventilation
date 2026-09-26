@@ -1,86 +1,153 @@
 {
   "config": {
     "step": {
-      "sensors": {
-        "title": "Sensors & room",
-        "description": "Which sensors belong to this room?",
-        "data": {
-          "name": "Room name",
-          "window": "Window contact(s) – several for cross ventilation",
-          "indoor_absolute_humidity": "Indoor absolute humidity (g/m³)",
-          "indoor_temperature": "Indoor temperature",
-          "outdoor_absolute_humidity": "Outdoor absolute humidity (g/m³)",
-          "outdoor_temperature": "Outdoor temperature",
-          "wind_speed": "Wind speed",
-          "wind_direction": "Wind direction",
-          "wind_is_from": "Wind direction means where the wind comes FROM",
-          "rain": "Rain sensor (binary or mm/h)",
-          "co2_sensor": "CO₂ sensor (optional)",
-          "weather_entity": "Weather entity for best time (optional)",
-          "volume": "Room volume (m³)",
-          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)",
-          "shower_sensor": "Shower sensor (optional, bathroom mode)",
-          "shower_detect": "Detect showers by a sharp humidity rise (bathrooms without sensor)"
-        }
-      },
-      "behavior": {
-        "title": "Behaviour",
-        "description": "When and how should the room be ventilated?",
-        "data": {
-          "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)",
-          "season_mode": "Summer/winter mode",
-          "season_threshold": "Auto: winter below this outdoor temperature (°C)",
-          "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
-          "building_standard": "Wall insulation standard (for mould risk)",
-          "cool_limit": "Cooling warning below (°C) – 0 = off",
-          "use_sun": "Use sun position",
-          "min_sun_elevation": "Min. sun elevation for direct sun (°)",
-          "sun_entity": "Sun entity",
-          "comfort_temperature": "Summer: cool by ventilating when warmer inside than (°C)",
-          "vacation_entity": "Vacation (calendar, switch or binary sensor – optional)",
-          "vacation_keyword": "Only calendar events containing this word count as vacation (optional)"
-        }
-      },
-      "notify": {
-        "title": "Notifications",
-        "description": "Who should be notified and when?",
-        "data": {
-          "notify_services": "Notify (phones with the Home Assistant app)",
-          "persons": "People (notify only those at home, reminder on arrival)",
-          "notification_cooldown": "Minimum time between reminders (minutes)",
-          "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until",
-          "weekly_report": "Weekly report on Sundays at 7 pm"
-        }
-      },
-      "heating": {
-        "title": "Heating, dehumidifier & energy",
-        "description": "Optional: lower heating while ventilating, run a dehumidifier when ventilating is not possible, and estimate costs.",
-        "data": {
-          "climate_entities": "Lower heating while ventilating (thermostats, optional)",
-          "energy_price": "Heat price for cost estimate (€/kWh)",
-          "dehumidifier_entity": "Dehumidifier (switch or humidifier – optional)"
-        }
-      },
-      "overview": {
-        "title": "Overview of all rooms",
-        "description": "Shows the most urgent room and combines reminders into one notification.",
-        "data": {
-          "combine_notifications": "One combined notification instead of per room",
-          "notify_services": "Notify (phones with the Home Assistant app)",
-          "persons": "People (notify only those at home, reminder on arrival)",
-          "notification_cooldown": "Minimum time between reminders (minutes)",
-          "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until",
-          "weekly_report": "Weekly report on Sundays at 7 pm"
-        }
-      },
       "user": {
         "title": "Smart Ventilation",
         "description": "What would you like to set up?",
         "menu_options": {
-          "sensors": "Add a room",
+          "room": "Add a room",
           "overview": "Overview of all rooms"
+        }
+      },
+      "room": {
+        "title": "Set up room",
+        "description": "The first three sections contain the required settings. Everything else can be changed later via “Configure”.",
+        "sections": {
+          "room": {
+            "name": "Room & windows",
+            "data": {
+              "name": "Room name",
+              "window": "Window contacts",
+              "volume": "Room volume",
+              "window_direction": "Window orientation"
+            },
+            "data_description": {
+              "name": "Used in notifications and as device name, e.g. “Bedroom”.",
+              "window": "One or more contacts. Two or more open at the same time are detected as cross ventilation and learned separately.",
+              "volume": "Floor area × ceiling height, e.g. 16 m² × 2.5 m = 40 m³. Used for heat loss and costs.",
+              "window_direction": "Direction the window faces: 0° north, 90° east, 180° south, 270° west."
+            }
+          },
+          "indoor": {
+            "name": "Sensors in the room",
+            "data": {
+              "indoor_temperature": "Temperature",
+              "indoor_absolute_humidity": "Absolute humidity",
+              "co2_sensor": "CO₂ sensor",
+              "shower_sensor": "Shower sensor",
+              "shower_detect": "Detect showers automatically"
+            },
+            "data_description": {
+              "indoor_temperature": "Room temperature.",
+              "indoor_absolute_humidity": "Sensor with the absolute humidity in the room (g/m³).",
+              "co2_sensor": "Optional. Ventilation is also recommended above 1000 ppm.",
+              "shower_sensor": "Optional, for bathrooms: immediate hint after showering, reminder after 30 minutes if still humid.",
+              "shower_detect": "For bathrooms without a shower sensor: detects a fast humidity rise (+1.5 g/m³ within 10 minutes)."
+            }
+          },
+          "outdoor": {
+            "name": "Outdoor & weather",
+            "data": {
+              "outdoor_temperature": "Outdoor temperature",
+              "outdoor_absolute_humidity": "Outdoor absolute humidity",
+              "rain": "Rain sensor",
+              "wind_speed": "Wind speed",
+              "wind_direction": "Wind direction",
+              "wind_is_from": "Wind direction is where the wind comes from",
+              "weather_entity": "Weather forecast",
+              "use_sun": "Consider sun position",
+              "sun_entity": "Sun",
+              "min_sun_elevation": "Minimum sun elevation"
+            },
+            "data_description": {
+              "outdoor_absolute_humidity": "Absolute humidity outside (g/m³).",
+              "rain": "Binary sensor or rain rate in mm/h. No ventilation is recommended while it rains.",
+              "wind_speed": "km/h or m/s – converted automatically.",
+              "wind_direction": "In degrees (0–360).",
+              "wind_is_from": "Usual for weather stations: 270° = wind from the west. Turn off only if your sensor reports the direction it blows to.",
+              "weather_entity": "Optional. With an hourly forecast the best ventilation time and a summer night-cooling plan are calculated.",
+              "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
+              "sun_entity": "Usually “sun.sun”.",
+              "min_sun_elevation": "Below this the sun does not count as shining directly."
+            }
+          },
+          "behavior": {
+            "name": "Ventilation behaviour",
+            "data": {
+              "season_mode": "Summer/winter mode",
+              "season_threshold": "Winter below",
+              "target_absolute_humidity": "Daily humidity target",
+              "max_temperature_difference": "Summer: heat lock from",
+              "comfort_temperature": "Summer: cool from",
+              "cool_limit": "Cooling warning below",
+              "building_standard": "Wall insulation standard"
+            },
+            "data_description": {
+              "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible.",
+              "season_threshold": "Automatic mode only: outdoor temperature below which winter mode applies (heating limit, usually 15 °C).",
+              "target_absolute_humidity": "If indoor absolute humidity drops below this while ventilating, the day counts as sufficiently ventilated.",
+              "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
+              "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
+              "cool_limit": "Warns when the room gets colder than this while a window is open. 0 = off.",
+              "building_standard": "Determines the estimated temperature at the coldest wall spot and therefore the mould risk."
+            }
+          },
+          "notify": {
+            "name": "Notifications & absence",
+            "data": {
+              "notify_services": "Notify",
+              "persons": "People",
+              "quiet_start": "Quiet hours from",
+              "quiet_end": "Quiet hours until",
+              "notification_cooldown": "Time between reminders",
+              "weekly_report": "Weekly report",
+              "vacation_entity": "Vacation",
+              "vacation_keyword": "Calendar keyword"
+            },
+            "data_description": {
+              "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
+              "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
+              "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
+              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
+              "weekly_report": "A summary of the week on Sundays at 7 pm.",
+              "vacation_entity": "Optional: calendar, switch or binary sensor. No reminders during vacation, only mould warnings.",
+              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event."
+            }
+          },
+          "devices": {
+            "name": "Heating, dehumidifier & costs",
+            "data": {
+              "climate_entities": "Lower thermostats",
+              "dehumidifier_entity": "Dehumidifier",
+              "energy_price": "Heat price"
+            },
+            "data_description": {
+              "climate_entities": "Optional. Off or minimum after 1 minute with an open window, restored afterwards. Leave empty if your thermostats have their own open-window detection.",
+              "dehumidifier_entity": "Optional: switch or dehumidifier. Runs when it is humid and ventilating is not possible right now.",
+              "energy_price": "For the cost estimate, e.g. gas ≈ 0.12 €/kWh, heat pump ≈ 0.10 €/kWh."
+            }
+          }
+        }
+      },
+      "overview": {
+        "title": "Overview of all rooms",
+        "description": "Shows the most urgent room and combines reminders and weekly reports of all rooms into one notification.",
+        "data": {
+          "combine_notifications": "Combined notification",
+          "notify_services": "Notify",
+          "persons": "People",
+          "quiet_start": "Quiet hours from",
+          "quiet_end": "Quiet hours until",
+          "notification_cooldown": "Time between reminders",
+          "weekly_report": "Weekly report"
+        },
+        "data_description": {
+          "combine_notifications": "One notification for all rooms instead of one per room.",
+          "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
+          "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
+          "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
+          "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
+          "weekly_report": "A summary of the week on Sundays at 7 pm."
         }
       }
     },
@@ -90,87 +157,139 @@
   },
   "options": {
     "step": {
-      "sensors": {
-        "title": "Sensors & room",
-        "description": "Which sensors belong to this room?",
-        "data": {
-          "window": "Window contact(s) – several for cross ventilation",
-          "indoor_absolute_humidity": "Indoor absolute humidity (g/m³)",
-          "indoor_temperature": "Indoor temperature",
-          "outdoor_absolute_humidity": "Outdoor absolute humidity (g/m³)",
-          "outdoor_temperature": "Outdoor temperature",
-          "wind_speed": "Wind speed",
-          "wind_direction": "Wind direction",
-          "wind_is_from": "Wind direction means where the wind comes FROM",
-          "rain": "Rain sensor (binary or mm/h)",
-          "co2_sensor": "CO₂ sensor (optional)",
-          "weather_entity": "Weather entity for best time (optional)",
-          "volume": "Room volume (m³)",
-          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)",
-          "shower_sensor": "Shower sensor (optional, bathroom mode)",
-          "shower_detect": "Detect showers by a sharp humidity rise (bathrooms without sensor)"
-        }
-      },
-      "behavior": {
-        "title": "Behaviour",
-        "description": "When and how should the room be ventilated?",
-        "data": {
-          "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)",
-          "season_mode": "Summer/winter mode",
-          "season_threshold": "Auto: winter below this outdoor temperature (°C)",
-          "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
-          "building_standard": "Wall insulation standard (for mould risk)",
-          "cool_limit": "Cooling warning below (°C) – 0 = off",
-          "use_sun": "Use sun position",
-          "min_sun_elevation": "Min. sun elevation for direct sun (°)",
-          "sun_entity": "Sun entity",
-          "comfort_temperature": "Summer: cool by ventilating when warmer inside than (°C)",
-          "vacation_entity": "Vacation (calendar, switch or binary sensor – optional)",
-          "vacation_keyword": "Only calendar events containing this word count as vacation (optional)"
-        }
-      },
-      "notify": {
-        "title": "Notifications",
-        "description": "Who should be notified and when?",
-        "data": {
-          "notify_services": "Notify (phones with the Home Assistant app)",
-          "persons": "People (notify only those at home, reminder on arrival)",
-          "notification_cooldown": "Minimum time between reminders (minutes)",
-          "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until",
-          "weekly_report": "Weekly report on Sundays at 7 pm"
-        }
-      },
-      "heating": {
-        "title": "Heating, dehumidifier & energy",
-        "description": "Optional: lower heating while ventilating, run a dehumidifier when ventilating is not possible, and estimate costs.",
-        "data": {
-          "climate_entities": "Lower heating while ventilating (thermostats, optional)",
-          "energy_price": "Heat price for cost estimate (€/kWh)",
-          "dehumidifier_entity": "Dehumidifier (switch or humidifier – optional)"
-        }
-      },
-      "overview": {
-        "title": "Overview of all rooms",
-        "description": "Shows the most urgent room and combines reminders into one notification.",
-        "data": {
-          "combine_notifications": "One combined notification instead of per room",
-          "notify_services": "Notify (phones with the Home Assistant app)",
-          "persons": "People (notify only those at home, reminder on arrival)",
-          "notification_cooldown": "Minimum time between reminders (minutes)",
-          "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until",
-          "weekly_report": "Weekly report on Sundays at 7 pm"
-        }
-      },
       "init": {
-        "title": "Settings",
-        "description": "Which section do you want to change? Learned values are kept.",
-        "menu_options": {
-          "sensors": "Sensors & room",
-          "behavior": "Behaviour",
-          "notify": "Notifications",
-          "heating": "Heating, dehumidifier & energy"
+        "title": "Settings: {name}",
+        "description": "Expand a section, change it and save once. Learned values and statistics are kept.",
+        "sections": {
+          "room": {
+            "name": "Room & windows",
+            "data": {
+              "window": "Window contacts",
+              "volume": "Room volume",
+              "window_direction": "Window orientation"
+            },
+            "data_description": {
+              "window": "One or more contacts. Two or more open at the same time are detected as cross ventilation and learned separately.",
+              "volume": "Floor area × ceiling height, e.g. 16 m² × 2.5 m = 40 m³. Used for heat loss and costs.",
+              "window_direction": "Direction the window faces: 0° north, 90° east, 180° south, 270° west."
+            }
+          },
+          "indoor": {
+            "name": "Sensors in the room",
+            "data": {
+              "indoor_temperature": "Temperature",
+              "indoor_absolute_humidity": "Absolute humidity",
+              "co2_sensor": "CO₂ sensor",
+              "shower_sensor": "Shower sensor",
+              "shower_detect": "Detect showers automatically"
+            },
+            "data_description": {
+              "indoor_temperature": "Room temperature.",
+              "indoor_absolute_humidity": "Sensor with the absolute humidity in the room (g/m³).",
+              "co2_sensor": "Optional. Ventilation is also recommended above 1000 ppm.",
+              "shower_sensor": "Optional, for bathrooms: immediate hint after showering, reminder after 30 minutes if still humid.",
+              "shower_detect": "For bathrooms without a shower sensor: detects a fast humidity rise (+1.5 g/m³ within 10 minutes)."
+            }
+          },
+          "outdoor": {
+            "name": "Outdoor & weather",
+            "data": {
+              "outdoor_temperature": "Outdoor temperature",
+              "outdoor_absolute_humidity": "Outdoor absolute humidity",
+              "rain": "Rain sensor",
+              "wind_speed": "Wind speed",
+              "wind_direction": "Wind direction",
+              "wind_is_from": "Wind direction is where the wind comes from",
+              "weather_entity": "Weather forecast",
+              "use_sun": "Consider sun position",
+              "sun_entity": "Sun",
+              "min_sun_elevation": "Minimum sun elevation"
+            },
+            "data_description": {
+              "outdoor_absolute_humidity": "Absolute humidity outside (g/m³).",
+              "rain": "Binary sensor or rain rate in mm/h. No ventilation is recommended while it rains.",
+              "wind_speed": "km/h or m/s – converted automatically.",
+              "wind_direction": "In degrees (0–360).",
+              "wind_is_from": "Usual for weather stations: 270° = wind from the west. Turn off only if your sensor reports the direction it blows to.",
+              "weather_entity": "Optional. With an hourly forecast the best ventilation time and a summer night-cooling plan are calculated.",
+              "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
+              "sun_entity": "Usually “sun.sun”.",
+              "min_sun_elevation": "Below this the sun does not count as shining directly."
+            }
+          },
+          "behavior": {
+            "name": "Ventilation behaviour",
+            "data": {
+              "season_mode": "Summer/winter mode",
+              "season_threshold": "Winter below",
+              "target_absolute_humidity": "Daily humidity target",
+              "max_temperature_difference": "Summer: heat lock from",
+              "comfort_temperature": "Summer: cool from",
+              "cool_limit": "Cooling warning below",
+              "building_standard": "Wall insulation standard"
+            },
+            "data_description": {
+              "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible.",
+              "season_threshold": "Automatic mode only: outdoor temperature below which winter mode applies (heating limit, usually 15 °C).",
+              "target_absolute_humidity": "If indoor absolute humidity drops below this while ventilating, the day counts as sufficiently ventilated.",
+              "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
+              "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
+              "cool_limit": "Warns when the room gets colder than this while a window is open. 0 = off.",
+              "building_standard": "Determines the estimated temperature at the coldest wall spot and therefore the mould risk."
+            }
+          },
+          "notify": {
+            "name": "Notifications & absence",
+            "data": {
+              "notify_services": "Notify",
+              "persons": "People",
+              "quiet_start": "Quiet hours from",
+              "quiet_end": "Quiet hours until",
+              "notification_cooldown": "Time between reminders",
+              "weekly_report": "Weekly report",
+              "vacation_entity": "Vacation",
+              "vacation_keyword": "Calendar keyword"
+            },
+            "data_description": {
+              "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
+              "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
+              "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
+              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
+              "weekly_report": "A summary of the week on Sundays at 7 pm.",
+              "vacation_entity": "Optional: calendar, switch or binary sensor. No reminders during vacation, only mould warnings.",
+              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event."
+            }
+          },
+          "devices": {
+            "name": "Heating, dehumidifier & costs",
+            "data": {
+              "climate_entities": "Lower thermostats",
+              "dehumidifier_entity": "Dehumidifier",
+              "energy_price": "Heat price"
+            },
+            "data_description": {
+              "climate_entities": "Optional. Off or minimum after 1 minute with an open window, restored afterwards. Leave empty if your thermostats have their own open-window detection.",
+              "dehumidifier_entity": "Optional: switch or dehumidifier. Runs when it is humid and ventilating is not possible right now.",
+              "energy_price": "For the cost estimate, e.g. gas ≈ 0.12 €/kWh, heat pump ≈ 0.10 €/kWh."
+            }
+          }
+        },
+        "data": {
+          "combine_notifications": "Combined notification",
+          "notify_services": "Notify",
+          "persons": "People",
+          "quiet_start": "Quiet hours from",
+          "quiet_end": "Quiet hours until",
+          "notification_cooldown": "Time between reminders",
+          "weekly_report": "Weekly report"
+        },
+        "data_description": {
+          "combine_notifications": "One notification for all rooms instead of one per room.",
+          "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
+          "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
+          "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
+          "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
+          "weekly_report": "A summary of the week on Sundays at 7 pm."
         }
       }
     }
@@ -179,16 +298,150 @@
     "season_mode": {
       "options": {
         "auto": "Automatic (by outdoor temperature)",
-        "summer": "Summer",
-        "winter": "Winter"
+        "summer": "Always summer",
+        "winter": "Always winter"
       }
     },
     "building_standard": {
       "options": {
-        "old": "Old building, uninsulated",
-        "average": "1960s–1990s",
-        "insulated": "Insulated (approx. 2000+)",
-        "passive": "New build / passive house"
+        "old": "Old building, uninsulated (U ≈ 1.4)",
+        "average": "1960s–1990s (U ≈ 1.0)",
+        "insulated": "Insulated, approx. 2000+ (U ≈ 0.35)",
+        "passive": "New build / passive house (U ≈ 0.15)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "recommendation": {
+        "name": "Recommendation"
+      },
+      "minutes": {
+        "name": "Recommended duration"
+      },
+      "humidity_difference": {
+        "name": "Humidity difference in/out"
+      },
+      "temperature_difference": {
+        "name": "Temperature difference in/out"
+      },
+      "indoor_rh": {
+        "name": "Relative humidity"
+      },
+      "outdoor_rh": {
+        "name": "Outdoor relative humidity"
+      },
+      "indoor_dew_point": {
+        "name": "Dew point"
+      },
+      "outdoor_dew_point": {
+        "name": "Outdoor dew point"
+      },
+      "mold_risk": {
+        "name": "Mould risk",
+        "state": {
+          "low": "Low",
+          "elevated": "Elevated",
+          "high": "High",
+          "unknown": "Unknown"
+        }
+      },
+      "notification_status": {
+        "name": "Notification status"
+      },
+      "ventilation_running": {
+        "name": "Ventilating"
+      },
+      "ventilation_progress": {
+        "name": "Ventilation progress"
+      },
+      "learned_ach": {
+        "name": "Learned air change rate"
+      },
+      "learning_samples": {
+        "name": "Learning samples"
+      },
+      "context_model_ach": {
+        "name": "Air change rate current conditions"
+      },
+      "sun_elevation": {
+        "name": "Sun elevation"
+      },
+      "sun_azimuth": {
+        "name": "Sun azimuth"
+      },
+      "stats_day": {
+        "name": "Ventilations today"
+      },
+      "stats_week": {
+        "name": "Ventilations this week"
+      },
+      "stats_month": {
+        "name": "Ventilations this month"
+      },
+      "stats_total": {
+        "name": "Ventilations total"
+      },
+      "current_duration": {
+        "name": "Current ventilation time"
+      },
+      "max_duration": {
+        "name": "Longest ventilation"
+      },
+      "season": {
+        "name": "Season",
+        "state": {
+          "summer": "Summer",
+          "winter": "Winter"
+        }
+      },
+      "best_time": {
+        "name": "Best ventilation time"
+      },
+      "wall_temperature": {
+        "name": "Wall temperature (estimated)"
+      },
+      "wall_humidity": {
+        "name": "Humidity at the wall"
+      },
+      "air_quality": {
+        "name": "Air quality",
+        "state": {
+          "good": "Good",
+          "moderate": "Moderate",
+          "poor": "Poor"
+        }
+      },
+      "heat_loss_today": {
+        "name": "Heat loss from ventilation today"
+      },
+      "cost_month": {
+        "name": "Ventilation costs this month"
+      },
+      "most_urgent": {
+        "name": "Most urgent room"
+      },
+      "rooms_needing": {
+        "name": "Rooms needing ventilation"
+      }
+    },
+    "binary_sensor": {
+      "ventilated_today": {
+        "name": "Ventilated today"
+      },
+      "recommended": {
+        "name": "Ventilation recommended"
+      },
+      "cooling_down": {
+        "name": "Room cooling down"
+      },
+      "quiet_hours": {
+        "name": "Quiet hours"
+      }
+    },
+    "button": {
+      "reset_learning": {
+        "name": "Reset learning"
       }
     }
   },

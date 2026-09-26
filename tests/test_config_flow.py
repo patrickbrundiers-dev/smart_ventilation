@@ -8,49 +8,49 @@ from custom_components.smart_ventilation.const import DOMAIN
 
 from .conftest import ROOM_DATA, set_room_states, setup_room
 
-SENSOR_INPUT = {
-    "name": "Schlafzimmer",
-    "window": ["binary_sensor.fenster_1"],
-    "indoor_absolute_humidity": "sensor.innen_ah",
-    "indoor_temperature": "sensor.innen_t",
-    "outdoor_absolute_humidity": "sensor.aussen_ah",
-    "outdoor_temperature": "sensor.aussen_t",
-    "wind_speed": "sensor.wind",
-    "wind_direction": "sensor.windrichtung",
-    "rain": "sensor.regen",
+ROOM_INPUT = {
+    "room": {"name": "Schlafzimmer", "window": ["binary_sensor.fenster_1"]},
+    "indoor": {"indoor_temperature": "sensor.innen_t", "indoor_absolute_humidity": "sensor.innen_ah"},
+    "outdoor": {
+        "outdoor_temperature": "sensor.aussen_t",
+        "outdoor_absolute_humidity": "sensor.aussen_ah",
+        "rain": "sensor.regen",
+        "wind_speed": "sensor.wind",
+        "wind_direction": "sensor.windrichtung",
+    },
+    "behavior": {},
+    "notify": {},
+    "devices": {},
 }
 
 
-async def test_room_wizard(hass: HomeAssistant) -> None:
+async def test_room_form_with_sections(hass: HomeAssistant) -> None:
+    """Ein Formular mit Bereichen – einmal absenden, fertig."""
     set_room_states(hass)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     assert result["type"] is FlowResultType.MENU
-
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "sensors"})
-    assert result["step_id"] == "sensors"
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], SENSOR_INPUT)
-    assert result["step_id"] == "behavior"
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
-    assert result["step_id"] == "notify"
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
-    assert result["step_id"] == "heating"
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    assert result["step_id"] == "room"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], ROOM_INPUT)
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     data = result["data"]
     assert data["entry_type"] == "room"
+    assert data["name"] == "Schlafzimmer"
     assert data["window"] == ["binary_sensor.fenster_1"]
-    assert data["season_mode"] == "auto"
+    assert data["indoor_temperature"] == "sensor.innen_t"
+    assert data["season_mode"] == "auto"          # Standard aus zugeklapptem Bereich
     assert data["co2_sensor"] == ""
     assert data["climate_entities"] == []
+    assert "room" not in data and "behavior" not in data  # flach gespeichert
     await hass.async_block_till_done()
 
 
 async def test_room_twice_aborts(hass: HomeAssistant) -> None:
     await setup_room(hass)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "sensors"})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], SENSOR_INPUT)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], ROOM_INPUT)
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
 
@@ -65,28 +65,43 @@ async def test_overview_wizard(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
 
-async def test_options_menu_saves_section(hass: HomeAssistant) -> None:
+def _options_input(entry, **changes):
+    """Aktuelle Werte als Bereichs-Eingabe (wie das Formular sie abschickt)."""
+    from custom_components.smart_ventilation.config_flow import SECTIONS, _section_fields
+    current = {**entry.data, **entry.options}
+    user_input = {}
+    for name in SECTIONS:
+        keys = [str(k) for k in _section_fields(name, None, current, with_name=False) if name != "notify"] \
+            if name != "notify" else ["notify_services", "persons", "quiet_start", "quiet_end",
+                                      "notification_cooldown", "weekly_report", "vacation_entity", "vacation_keyword"]
+        user_input[name] = {k: current[k] for k in keys if k in current and current[k] not in ("", None)}
+        user_input[name].update({k: v for k, v in changes.items() if k in keys})
+    return user_input
+
+
+async def test_options_one_form_saves_all(hass: HomeAssistant) -> None:
     entry = await setup_room(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["type"] is FlowResultType.MENU
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
 
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "behavior"})
-    assert result["step_id"] == "behavior"
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"season_mode": "summer", "cool_limit": 17.0}
+        result["flow_id"], _options_input(entry, season_mode="summer", cool_limit=17.0, energy_price=0.3)
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     assert entry.options["season_mode"] == "summer"
     assert entry.options["cool_limit"] == 17.0
+    assert entry.options["energy_price"] == 0.3
 
 
 async def test_options_clear_optional_field(hass: HomeAssistant) -> None:
     """Entfernte optionale Felder (z. B. Thermostate) müssen wirklich leer gespeichert werden."""
     entry = await setup_room(hass, climate_entities=["climate.wz"])
+    user_input = _options_input(entry)
+    user_input["devices"].pop("climate_entities", None)
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "heating"})
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {"energy_price": 0.1})
+    result = await hass.config_entries.options.async_configure(result["flow_id"], user_input)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     assert entry.options["climate_entities"] == []

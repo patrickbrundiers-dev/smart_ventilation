@@ -23,7 +23,7 @@ class ResetLearningButton(ButtonEntity):
     def __init__(self, coordinator):
         self.coordinator = coordinator
         self._attr_unique_id = f"{coordinator.entry.entry_id}_reset_learning"
-        self._attr_name = "Lernen zurücksetzen"
+        self._attr_translation_key = "reset_learning"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.entry.entry_id)},
         )

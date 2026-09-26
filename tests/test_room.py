@@ -30,7 +30,7 @@ async def test_entities_and_recommendation(hass: HomeAssistant, berlin) -> None:
     assert "Stoßlüften" in rec.state and "Querlüften" in rec.state  # Winter + 2 Fenster
     assert "karte" in rec.attributes
     assert hass.states.get(eid(hass, "binary_sensor", entry, "recommended")).state == "on"
-    assert hass.states.get(eid(hass, "sensor", entry, "season")).state == "Winter"
+    assert hass.states.get(eid(hass, "sensor", entry, "season")).state == "winter"
     wall = float(hass.states.get(eid(hass, "sensor", entry, "wall_temperature")).state)
     assert 10 < wall < 20.5
     assert hass.states.get(eid(hass, "button", entry, "reset_learning")) is not None

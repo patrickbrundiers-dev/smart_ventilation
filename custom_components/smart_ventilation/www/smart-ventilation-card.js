@@ -236,7 +236,8 @@ const STYLE = `
           background: color-mix(in srgb, var(--primary-text-color) 5%, transparent); }
   .cell span { font-size: 11px; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: .04em; }
   .cell b { font-size: 16px; font-weight: 600; }
-  .cell small { font-size: 12px; color: var(--secondary-text-color); }
+  .cell small { font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cell b { white-space: nowrap; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
   .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 4px 10px; border-radius: 999px;
           background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); color: var(--secondary-text-color); }
