@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smart Ventilation – set up room",
+        "description": "One entry per room.",
+        "data": {
+          "name": "Room name",
+          "volume": "Room volume (m³)",
+          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)",
+          "indoor_absolute_humidity": "Indoor absolute humidity (g/m³)",
+          "outdoor_absolute_humidity": "Outdoor absolute humidity (g/m³)",
+          "indoor_temperature": "Indoor temperature",
+          "outdoor_temperature": "Outdoor temperature",
+          "wind_speed": "Wind speed",
+          "wind_direction": "Wind direction",
+          "rain": "Rain sensor (binary or mm/h)",
+          "window": "Window contact",
+          "wind_is_from": "Wind direction means where the wind comes FROM",
+          "max_temperature_difference": "Max. indoor/outdoor temperature difference (°C)",
+          "use_sun": "Use sun position",
+          "min_sun_elevation": "Min. sun elevation for direct sun (°)",
+          "sun_entity": "Sun entity",
+          "notify_service": "Notify service (e.g. notify.mobile_app_x, empty = off)",
+          "notification_cooldown": "Minimum time between notifications (minutes)",
+          "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This room is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Change settings",
+        "description": "Learned values are kept.",
+        "data": {
+          "volume": "Room volume (m³)",
+          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)",
+          "indoor_absolute_humidity": "Indoor absolute humidity (g/m³)",
+          "outdoor_absolute_humidity": "Outdoor absolute humidity (g/m³)",
+          "indoor_temperature": "Indoor temperature",
+          "outdoor_temperature": "Outdoor temperature",
+          "wind_speed": "Wind speed",
+          "wind_direction": "Wind direction",
+          "rain": "Rain sensor (binary or mm/h)",
+          "window": "Window contact",
+          "wind_is_from": "Wind direction means where the wind comes FROM",
+          "max_temperature_difference": "Max. indoor/outdoor temperature difference (°C)",
+          "use_sun": "Use sun position",
+          "min_sun_elevation": "Min. sun elevation for direct sun (°)",
+          "sun_entity": "Sun entity",
+          "notify_service": "Notify service (e.g. notify.mobile_app_x, empty = off)",
+          "notification_cooldown": "Minimum time between notifications (minutes)",
+          "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)"
+        }
+      }
+    }
+  }
+}

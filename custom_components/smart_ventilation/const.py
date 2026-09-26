@@ -1,0 +1,36 @@
+DOMAIN = "smart_ventilation"
+
+CONF_NAME = "name"
+CONF_VOLUME = "volume"
+CONF_WINDOW_DIRECTION = "window_direction"
+CONF_INDOOR_HUMIDITY = "indoor_absolute_humidity"
+CONF_OUTDOOR_HUMIDITY = "outdoor_absolute_humidity"
+CONF_INDOOR_TEMP = "indoor_temperature"
+CONF_OUTDOOR_TEMP = "outdoor_temperature"
+CONF_WIND_SPEED = "wind_speed"
+CONF_WIND_DIRECTION = "wind_direction"
+CONF_WIND_IS_FROM = "wind_is_from"
+CONF_RAIN = "rain"
+CONF_WINDOW = "window"
+CONF_MAX_TEMP_DIFF = "max_temperature_difference"
+CONF_USE_SUN = "use_sun"
+CONF_MIN_SUN_ELEVATION = "min_sun_elevation"
+CONF_SUN_ENTITY = "sun_entity"
+CONF_NOTIFY_SERVICE = "notify_service"
+CONF_NOTIFICATION_COOLDOWN = "notification_cooldown"
+
+DEFAULT_START_DIFF = 0.7
+DEFAULT_TARGET_DIFF = 0.5
+DEFAULT_MIN_SESSION = 120
+DEFAULT_MAX_SESSION = 7200
+DEFAULT_MAX_TEMP_DIFF = 10.0
+DEFAULT_MIN_SUN_ELEVATION = 15.0
+DEFAULT_SUN_ENTITY = "sun.sun"
+DEFAULT_NOTIFICATION_COOLDOWN = 180  # Minuten
+MIN_FINAL_DIFF = 0.1  # Untergrenze, wenn bis unter Außenniveau gelüftet wurde
+
+STORE_VERSION = 1
+STORE_KEY = "smart_ventilation_learning"
+
+CONF_TARGET_ABS = "target_absolute_humidity"
+DEFAULT_TARGET_ABS = 11.5  # g/m³ – Tagesziel absolute Feuchte innen

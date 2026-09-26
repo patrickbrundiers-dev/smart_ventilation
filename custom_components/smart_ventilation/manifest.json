@@ -1,0 +1,12 @@
+{
+  "domain": "smart_ventilation",
+  "name": "Smart Ventilation",
+  "codeowners": ["@patrickbrundiers-dev"],
+  "config_flow": true,
+  "documentation": "https://github.com/patrickbrundiers-dev/smart_ventilation",
+  "integration_type": "device",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/patrickbrundiers-dev/smart_ventilation/issues",
+  "requirements": [],
+  "version": "1.6.0"
+}

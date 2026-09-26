@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smart Ventilation – Raum einrichten",
+        "description": "Ein Eintrag pro Raum.",
+        "data": {
+          "name": "Raumname",
+          "volume": "Raumvolumen (m³)",
+          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)",
+          "indoor_absolute_humidity": "Absolute Feuchte innen (g/m³)",
+          "outdoor_absolute_humidity": "Absolute Feuchte außen (g/m³)",
+          "indoor_temperature": "Temperatur innen",
+          "outdoor_temperature": "Temperatur außen",
+          "wind_speed": "Windgeschwindigkeit",
+          "wind_direction": "Windrichtung",
+          "rain": "Regensensor (Binär oder mm/h)",
+          "window": "Fensterkontakt",
+          "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
+          "max_temperature_difference": "Max. Temperaturdifferenz innen/außen (°C) – Tipp: 25",
+          "use_sun": "Sonnenstand berücksichtigen",
+          "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
+          "sun_entity": "Sonnen-Entität",
+          "notify_service": "Benachrichtigungsdienst (z. B. notify.mobile_app_patrick, leer = aus)",
+          "notification_cooldown": "Mindestabstand zwischen Benachrichtigungen (Minuten)",
+          "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Dieser Raum ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Einstellungen ändern",
+        "description": "Gelernte Werte bleiben erhalten.",
+        "data": {
+          "volume": "Raumvolumen (m³)",
+          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)",
+          "indoor_absolute_humidity": "Absolute Feuchte innen (g/m³)",
+          "outdoor_absolute_humidity": "Absolute Feuchte außen (g/m³)",
+          "indoor_temperature": "Temperatur innen",
+          "outdoor_temperature": "Temperatur außen",
+          "wind_speed": "Windgeschwindigkeit",
+          "wind_direction": "Windrichtung",
+          "rain": "Regensensor (Binär oder mm/h)",
+          "window": "Fensterkontakt",
+          "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
+          "max_temperature_difference": "Max. Temperaturdifferenz innen/außen (°C) – Tipp: 25",
+          "use_sun": "Sonnenstand berücksichtigen",
+          "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
+          "sun_entity": "Sonnen-Entität",
+          "notify_service": "Benachrichtigungsdienst (z. B. notify.mobile_app_patrick, leer = aus)",
+          "notification_cooldown": "Mindestabstand zwischen Benachrichtigungen (Minuten)",
+          "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)"
+        }
+      }
+    }
+  }
+}
