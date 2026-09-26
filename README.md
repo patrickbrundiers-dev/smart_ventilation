@@ -53,6 +53,9 @@ Die Sätze liegen in `/config/custom_sentences/de/smart_ventilation.yaml` und k�
 | `sensor.wohnzimmer_luftqualitat` | gut / mäßig / schlecht (nur mit CO₂-Sensor) |
 | `sensor.wohnzimmer_warmeverlust_luften_heute` | Geschätzter Wärmeverlust durchs Lüften (kWh) |
 | `sensor.wohnzimmer_luftungskosten_monat` | Geschätzte Kosten im Monat (€) |
+| `sensor.wohnzimmer_kritische_schimmeltage_in_folge` | Tage in Folge mit ≥ 6 h Wandfeuchte über 80 % |
+| `binary_sensor.wohnzimmer_schimmelgefahr` | An ab 3 kritischen Tagen in Folge |
+| `sensor.wohnzimmer_luftungsbedarf_diesen_monat` | Stunden mit Lüftungsbedarf; Attribut `letzter_monat` mit Vormonats-/Vorjahresvergleich |
 | `sensor.luften_ubersicht_dringendster_raum` | Übersicht: Raum mit dem größten Bedarf, Attribut `raeume` |
 
 Eine Lüftung zählt ab 30 Sekunden. **Erfolgreich** ist sie, wenn sie mindestens 2 Minuten dauerte und das Ziel erreicht wurde
@@ -106,6 +109,12 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.2.0
+
+- **Schimmel-Frühwarnung über mehrere Tage**: Ein Tag gilt als kritisch, wenn die Wand mindestens 6 Stunden über 80 % Feuchte liegt. Ab 3 kritischen Tagen in Folge kommt eine Warnung mit Tipps (nicht in der Ruhezeit, bei anhaltender Lage erneut nach einer Woche). Neue Entitäten „Kritische Schimmeltage in Folge“ und „Schimmelgefahr“, Hinweis in der Karte.
+- **Monats- und Jahresvergleich**: Stunden mit Lüftungsbedarf werden erfasst, jeder Monat wird archiviert (3 Jahre). Am 1. des Monats kommt ein **Monatsbericht** mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr. In der Übersicht mit Rangfolge der Räume.
+- **Fix**: Einstellungen ließen sich nicht speichern, wenn ein optionales Feld (z. B. CO₂-Sensor) leer war.
 
 ### Version 2.1.1
 
