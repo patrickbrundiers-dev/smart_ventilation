@@ -65,11 +65,11 @@ Eine Lüftung zählt ab 30 Sekunden. **Erfolgreich** ist sie, wenn sie mindesten
 3. **Smart Ventilation** suchen → **Herunterladen**
 4. Home Assistant neu starten
 5. **Einstellungen → Geräte & Dienste → Integration hinzufügen → Smart Ventilation**
-6. **Raum hinzufügen** wählen und die vier Schritte durchgehen: Sensoren & Raum → Verhalten → Benachrichtigungen → Heizung & Energie
+6. **Raum hinzufügen** wählen und die ersten drei Bereiche ausfüllen (Raum & Fenster, Sensoren im Raum, Außen & Wetter). Die übrigen Bereiche sind zugeklappt und haben sinnvolle Standardwerte.
 
 Für jeden Raum einen eigenen Eintrag anlegen. Optional zusätzlich einmal **Übersicht aller Räume** – dann gibt es eine gemeinsame Nachricht statt einer pro Raum.
 
-Einstellungen später ändern: Gerät öffnen → **Konfigurieren** → Bereich wählen. Gelernte Werte bleiben erhalten.
+Einstellungen später ändern: Gerät öffnen → **Konfigurieren** → Bereich aufklappen → einmal speichern. Gelernte Werte bleiben erhalten.
 
 ## Dashboard-Karte
 
@@ -106,6 +106,15 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.1.1
+
+- **Einstellungen als ein Formular** mit aufklappbaren Bereichen – alles an einer Stelle ändern und einmal speichern
+- Neue Reihenfolge: Raum & Fenster → Sensoren im Raum → Außen & Wetter → Lüftungsverhalten → Benachrichtigungen & Abwesenheit → Heizung, Entfeuchter & Kosten
+- Zu jedem Feld eine kurze Erklärung, Zahlenfelder mit Einheit
+- Entitätsnamen und Zustände (Schimmelrisiko, Luftqualität, Jahreszeit) übersetzt (Deutsch/Englisch)
+- Technische Werte (Luftwechsel, Sonnenstand, Taupunkte …) unter „Diagnose“ einsortiert
+- Karte: Werte brechen nicht mehr um
 
 ### Version 2.1.0
 
