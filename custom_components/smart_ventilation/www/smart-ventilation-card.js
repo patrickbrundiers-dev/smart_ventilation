@@ -94,16 +94,20 @@ class SmartVentilationCard extends HTMLElement {
   }
 
   static getStubConfig(hass) {
-    const id = Object.keys(hass.states).find((e) => hass.states[e].attributes?.karte);
-    const device = id && hass.entities?.[id]?.device_id;
-    return device ? { device } : id ? { entity: id } : {};
+    try {
+      const states = hass?.states || {};
+      const id = Object.keys(states).find((e) => states[e]?.attributes?.karte);
+      const device = id && hass?.entities?.[id]?.device_id;
+      return device ? { device } : id ? { entity: id } : { device: "" };
+    } catch (err) {
+      console.error("smart-ventilation-card getStubConfig", err);
+      return { device: "" };
+    }
   }
 
   setConfig(config) {
-    if (!config || (!config.device && !config.entity)) {
-      throw new Error("Bitte einen Raum oder die Übersicht auswählen");
-    }
-    this._config = { show_details: true, show_chart: true, ...config };
+    // Keine Ausnahme werfen: ohne Auswahl einen Hinweis zeigen (sonst bleibt die Vorschau leer)
+    this._config = { show_details: true, show_chart: true, ...(config || {}) };
     this._uid = `sv${++UID}`;
     this._last = undefined;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
@@ -112,14 +116,30 @@ class SmartVentilationCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (!this._config) return;
-    const entityId = this._findEntity();
-    const state = entityId ? hass.states[entityId] : undefined;
-    const key = state ? JSON.stringify([state.attributes.karte, state.attributes.raeume, state.state]) : "none";
-    if (key === this._last) return;
-    this._last = key;
-    this._entityId = entityId;
-    this._render(state);
+    if (!this._config || !hass) return;
+    try {
+      const entityId = this._findEntity();
+      const state = entityId ? hass.states?.[entityId] : undefined;
+      const key = state ? JSON.stringify([state.attributes?.karte, state.attributes?.raeume, state.state]) : "none";
+      if (key === this._last) return;
+      this._last = key;
+      this._entityId = entityId;
+      this._render(state);
+    } catch (err) {
+      // Fehler sichtbar machen statt einer leeren Fläche
+      console.error("smart-ventilation-card", err);
+      this._last = undefined;
+      this._showError(err);
+    }
+  }
+
+  _showError(err) {
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    const msg = `${err?.name || "Fehler"}: ${err?.message || err}`;
+    const where = String(err?.stack || "").split("\n").slice(1, 3).map((l) => l.trim()).join(" | ");
+    this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card><div class="alert tone-bad">
+      <ha-icon icon="mdi:alert-circle-outline"></ha-icon><div><b>Smart Ventilation: Karte konnte nicht angezeigt werden</b>
+      <span>${esc(msg)}</span><span class="err-where">${esc(where)}</span></div></div></ha-card>`;
   }
 
   getCardSize() {
@@ -133,6 +153,7 @@ class SmartVentilationCard extends HTMLElement {
   _findEntity() {
     const { entity, device } = this._config;
     if (entity) return entity;
+    if (!device) return undefined;
     const entities = this._hass.entities || {};
     const own = Object.keys(entities).filter((e) => entities[e].device_id === device);
     return (
@@ -150,8 +171,11 @@ class SmartVentilationCard extends HTMLElement {
     let body;
     this._chartData = null;
     if (!state) {
+      const chosen = this._config.device || this._config.entity;
       body = `<div class="empty"><ha-icon icon="mdi:home-search-outline"></ha-icon>
-        <div><b>Nicht gefunden</b><span>Im Karten-Editor einen Raum oder die Übersicht auswählen.</span></div></div>`;
+        <div><b>${chosen ? "Raum nicht gefunden" : "Raum auswählen"}</b><span>${chosen
+          ? "Das gewählte Gerät liefert keine Daten – ist die Integration geladen?"
+          : "Im Karten-Editor einen Raum oder die Übersicht auswählen."}</span></div></div>`;
     } else if (state.attributes.karte) {
       body = this._room(state.attributes.karte);
     } else {
@@ -492,6 +516,7 @@ const STYLE = `
 
   .empty { display: flex; gap: 12px; align-items: center; color: var(--sv-text-2); font-size: 13px; }
   .empty div { display: flex; flex-direction: column; } .empty b { color: var(--sv-text); }
+  .err-where { font-size: 11px; opacity: .7; word-break: break-all; }
 
   @container (max-width: 340px) {
     .tile { padding: 9px 10px; }

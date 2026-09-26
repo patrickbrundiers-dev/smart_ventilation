@@ -114,6 +114,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.1
+
+- Karte fehlertolerant: kann nicht mehr „leer hängen bleiben“; bei einem Problem zeigt sie die Fehlermeldung direkt an
+- Karte ohne Auswahl zeigt einen Hinweis statt eines Fehlers (Vorschau in der Kartenauswahl funktioniert immer)
+
 ### Version 2.3.0
 
 - **Neue Dashboard-Karte**: klare Statusanzeige mit Badge, verständliche Überschrift („Stoßlüften“, „Lüftung läuft“, „Raumklima in Ordnung“), Kacheln mit Füllstandsbalken für Wandfeuchte und CO₂, Hinweis-Banner, Verlauf nur der Feuchte (eine Achse) mit Tooltip beim Antippen, Kacheln öffnen den jeweiligen Sensor. Passt sich schmalen Spalten an, unterstützt Tastatur und „Bewegung reduzieren“.
