@@ -40,7 +40,10 @@ jobs:
       - name: Tests
         run: |
           set -o pipefail
-          pytest -v 2>&1 | tee pytest.log
+          pytest -v -rf --tb=short 2>&1 | tee pytest.log
       - name: Ergebnis
         if: always()
-        run: echo "::notice title=Ergebnis::$(tail -n 1 pytest.log)"
+        run: |
+          echo "::notice title=Ergebnis::$(tail -n 1 pytest.log)"
+          grep -E "^(FAILED|ERROR) " pytest.log | while read -r line; do echo "::error title=Test::${line:0:900}"; done || true
+          grep -E "^E  " pytest.log | head -n 15 | while read -r line; do echo "::error title=Detail::${line:0:900}"; done || true
