@@ -17,13 +17,15 @@
           "rain": "Rain sensor (binary or mm/h)",
           "window": "Window contact",
           "wind_is_from": "Wind direction means where the wind comes FROM",
-          "max_temperature_difference": "Max. indoor/outdoor temperature difference (°C)",
+          "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
           "use_sun": "Use sun position",
           "min_sun_elevation": "Min. sun elevation for direct sun (°)",
           "sun_entity": "Sun entity",
-          "notify_service": "Notify service (e.g. notify.mobile_app_x, empty = off)",
           "notification_cooldown": "Minimum time between notifications (minutes)",
-          "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)"
+          "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)",
+          "season_mode": "Summer/winter mode",
+          "season_threshold": "Auto: winter below this outdoor temperature (°C)",
+          "notify_services": "Notify (phones with the Home Assistant app)"
         }
       }
     },
@@ -48,14 +50,25 @@
           "rain": "Rain sensor (binary or mm/h)",
           "window": "Window contact",
           "wind_is_from": "Wind direction means where the wind comes FROM",
-          "max_temperature_difference": "Max. indoor/outdoor temperature difference (°C)",
+          "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
           "use_sun": "Use sun position",
           "min_sun_elevation": "Min. sun elevation for direct sun (°)",
           "sun_entity": "Sun entity",
-          "notify_service": "Notify service (e.g. notify.mobile_app_x, empty = off)",
           "notification_cooldown": "Minimum time between notifications (minutes)",
-          "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)"
+          "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)",
+          "season_mode": "Summer/winter mode",
+          "season_threshold": "Auto: winter below this outdoor temperature (°C)",
+          "notify_services": "Notify (phones with the Home Assistant app)"
         }
+      }
+    }
+  },
+  "selector": {
+    "season_mode": {
+      "options": {
+        "auto": "Automatic (by outdoor temperature)",
+        "summer": "Summer",
+        "winter": "Winter"
       }
     }
   }

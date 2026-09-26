@@ -39,6 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         PeriodSensor(coordinator, "total", "Lüftungen gesamt"),
         CurrentDurationSensor(coordinator),
         MaxDurationSensor(coordinator),
+        SeasonSensor(coordinator),
     ])
 
 
@@ -57,7 +58,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="1.6.1",
+            sw_version="1.7.0",
         )
 
     async def async_added_to_hass(self):
@@ -176,8 +177,12 @@ class NotificationStatusSensor(BaseSensor):
         super().__init__(c, "notification_status", "Benachrichtigung")
 
     @property
+    def extra_state_attributes(self):
+        return {"empfaenger": self.coordinator.notify_targets}
+
+    @property
     def native_value(self):
-        if not self.coordinator.data.get("notify_service"):
+        if not self.coordinator.notify_targets:
             return "Nicht konfiguriert"
         if self.coordinator.recommended_minutes > 0:
             return "Lüften empfohlen"
@@ -308,3 +313,24 @@ class MaxDurationSensor(BaseSensor):
     def native_value(self): return self.coordinator.max_duration_minutes
     @property
     def native_unit_of_measurement(self): return "min"
+
+
+class SeasonSensor(BaseSensor):
+    """Aktiver Modus: Sommer oder Winter."""
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["Sommer", "Winter"]
+
+    def __init__(self, c): super().__init__(c, "season", "Jahreszeit-Modus")
+
+    @property
+    def native_value(self):
+        return "Winter" if self.coordinator.season == "winter" else "Sommer"
+
+    @property
+    def icon(self):
+        return "mdi:snowflake" if self.coordinator.season == "winter" else "mdi:white-balance-sunny"
+
+    @property
+    def extra_state_attributes(self):
+        mode = self.coordinator.data.get("season_mode", "auto")
+        return {"einstellung": {"auto": "Automatisch", "summer": "Sommer", "winter": "Winter"}.get(mode, mode)}

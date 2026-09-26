@@ -99,6 +99,7 @@ class SmartVentilationCoordinator:
         self.last_notification_at = None
         self._listeners = []
         self.stats = {}
+        self._auto_season = None
 
     # ------------------------------------------------------------------
     # Statistik
@@ -345,24 +346,44 @@ class SmartVentilationCoordinator:
             return
         self._target_notified = True
 
-        service = (self.data.get(CONF_NOTIFY_SERVICE) or "").strip()
-        if service.startswith("notify."):
-            minutes = max(1, round(self.current_duration_seconds / 60))
-            _, _, service_name = service.partition(".")
-            await self.hass.services.async_call(
-                "notify",
-                service_name,
-                {
-                    "title": f"Lüften fertig: {self.data[CONF_NAME]}",
-                    "message": (
-                        f"Das Lüftungsziel ist erreicht. "
-                        f"Feuchteunterschied nur noch {current_diff:.1f} g/m³. "
-                        f"Gelüftet seit ca. {minutes} Minuten. Fenster kann zu."
-                    ),
-                    "data": {"tag": f"smart_ventilation_{self.entry.entry_id}"},
-                },
-                blocking=False,
-            )
+        minutes = max(1, round(self.current_duration_seconds / 60))
+        await self._send(
+            f"Lüften fertig: {self.data[CONF_NAME]}",
+            (
+                f"Das Lüftungsziel ist erreicht. "
+                f"Feuchteunterschied nur noch {current_diff:.1f} g/m³. "
+                f"Gelüftet seit ca. {minutes} Minuten. Fenster kann zu."
+            ),
+            f"smart_ventilation_{self.entry.entry_id}",
+        )
+
+    @property
+    def notify_targets(self):
+        """Gewählte notify-Dienste; ältere Einträge nutzen noch das Textfeld."""
+        targets = self.data.get(CONF_NOTIFY_SERVICES)
+        if targets is None:
+            legacy = (self.data.get(CONF_NOTIFY_SERVICE) or "").strip()
+            targets = [legacy] if legacy else []
+        return [t for t in targets if isinstance(t, str) and t.startswith("notify.")]
+
+    async def _send(self, title, message, tag):
+        """An alle gewählten Empfänger senden; ein fehlerhafter Dienst stoppt die anderen nicht."""
+        sent = False
+        for target in self.notify_targets:
+            service_name = target.partition(".")[2]
+            if not self.hass.services.has_service("notify", service_name):
+                continue
+            try:
+                await self.hass.services.async_call(
+                    "notify",
+                    service_name,
+                    {"title": title, "message": message, "data": {"tag": tag}},
+                    blocking=False,
+                )
+                sent = True
+            except Exception:  # noqa: BLE001 – ein Handy offline darf nichts blockieren
+                continue
+        return sent
 
     def _record_stats(self, elapsed, success):
         self._roll_periods()
@@ -413,26 +434,18 @@ class SmartVentilationCoordinator:
         if initial_diff <= MIN_FINAL_DIFF or final_diff >= initial_diff:
             return
 
-        service = (self.data.get(CONF_NOTIFY_SERVICE) or "").strip()
-        if service.startswith("notify."):
-            _, _, service_name = service.partition(".")
-            duration_min = elapsed / 60
-            reduction = max(0.0, 1 - (raw_final / initial_diff))
-            status = "Ziel erreicht" if raw_final <= DEFAULT_TARGET_DIFF else "vor Ziel beendet"
-            await self.hass.services.async_call(
-                "notify",
-                service_name,
-                {
-                    "title": f"Lüftung abgeschlossen: {self.data[CONF_NAME]}",
-                    "message": (
-                        f"{status}. Dauer: {duration_min:.1f} Minuten. "
-                        f"Feuchteunterschied: {initial_diff:.1f} → "
-                        f"{raw_final:.1f} g/m³ ({min(reduction, 1) * 100:.0f}% reduziert)."
-                    ),
-                    "data": {"tag": f"smart_ventilation_{self.entry.entry_id}_result"},
-                },
-                blocking=False,
-            )
+        duration_min = elapsed / 60
+        reduction = max(0.0, 1 - (raw_final / initial_diff))
+        status = "Ziel erreicht" if raw_final <= DEFAULT_TARGET_DIFF else "vor Ziel beendet"
+        await self._send(
+            f"Lüftung abgeschlossen: {self.data[CONF_NAME]}",
+            (
+                f"{status}. Dauer: {duration_min:.1f} Minuten. "
+                f"Feuchteunterschied: {initial_diff:.1f} → "
+                f"{raw_final:.1f} g/m³ ({min(reduction, 1) * 100:.0f}% reduziert)."
+            ),
+            f"smart_ventilation_{self.entry.entry_id}_result",
+        )
 
         if _is_raining(self.hass, self.data[CONF_RAIN]):
             return
@@ -462,21 +475,50 @@ class SmartVentilationCoordinator:
         await self._save()
         self._notify_listeners()
 
+    @property
+    def season(self):
+        """'summer' oder 'winter' – manuell gesetzt oder automatisch per Außentemperatur."""
+        mode = self.data.get(CONF_SEASON_MODE, DEFAULT_SEASON_MODE)
+        if mode in (SEASON_SUMMER, SEASON_WINTER):
+            return mode
+
+        outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
+        threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
+        if outdoor is None:
+            return self._auto_season or SEASON_WINTER
+        # Hysterese: erst deutlich über/unter der Schwelle umschalten
+        if outdoor < threshold - SEASON_HYSTERESIS:
+            self._auto_season = SEASON_WINTER
+        elif outdoor > threshold + SEASON_HYSTERESIS:
+            self._auto_season = SEASON_SUMMER
+        elif self._auto_season is None:
+            self._auto_season = SEASON_WINTER if outdoor < threshold else SEASON_SUMMER
+        return self._auto_season
+
     def _temperature_block(self):
+        """Winter: nie sperren (Stoßlüften). Sommer: sperren, wenn draußen deutlich wärmer."""
+        if self.season == SEASON_WINTER:
+            return False, ""
+
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         if indoor is None or outdoor is None:
             return False, ""
 
-        difference = abs(indoor - outdoor)
+        warmer = outdoor - indoor
         maximum = float(self.data.get(CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF))
-
-        if difference > maximum:
-            return True, (
-                f"Temperaturdifferenz {difference:.1f} °C "
-                f"> Grenzwert {maximum:.1f} °C"
-            )
+        if warmer > maximum:
+            return True, f"Draußen {warmer:.1f} °C wärmer als drinnen"
         return False, ""
+
+    def _winter_max_minutes(self):
+        """Stoßlüften: je kälter, desto kürzer (Richtwerte Verbraucherzentrale)."""
+        outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
+        if outdoor is None or outdoor < 5:
+            return 5
+        if outdoor < 10:
+            return 10
+        return 15
 
     def _sun_info(self):
         if not self.data.get(CONF_USE_SUN, True):
@@ -527,8 +569,7 @@ class SmartVentilationCoordinator:
         return f"{self.recommended_mode}|{self.block_reason}"
 
     async def _send_notification_if_needed(self):
-        service = (self.data.get(CONF_NOTIFY_SERVICE) or "").strip()
-        if not service or self.recommended_minutes <= 0:
+        if not self.notify_targets or self.recommended_minutes <= 0:
             return
 
         if self.block_reason and "Sonne" not in self.block_reason:
@@ -554,31 +595,18 @@ class SmartVentilationCoordinator:
         ):
             return
 
-        domain, _, service_name = service.partition(".")
-        if domain != "notify" or not service_name:
-            return
-
-        try:
-            await self.hass.services.async_call(
-                "notify",
-                service_name,
-                {
-                    "title": f"Lüften: {self.data[CONF_NAME]}",
-                    "message": (
-                        f"Jetzt wäre ein guter Zeitpunkt zum Lüften – "
-                        f"{self.recommended_mode}, voraussichtlich "
-                        f"{self.recommended_minutes} Minuten."
-                    ),
-                    "data": {
-                        "tag": f"smart_ventilation_{self.entry.entry_id}",
-                    },
-                },
-                blocking=False,
-            )
+        sent = await self._send(
+            f"Lüften: {self.data[CONF_NAME]}",
+            (
+                f"Jetzt wäre ein guter Zeitpunkt zum Lüften – "
+                f"{self.recommended_mode}, voraussichtlich "
+                f"{self.recommended_minutes} Minuten."
+            ),
+            f"smart_ventilation_{self.entry.entry_id}",
+        )
+        if sent:
             self.last_notification_key = key
             self.last_notification_at = now
-        except Exception:
-            return
 
     def _update_recommendation(self):
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
@@ -608,7 +636,7 @@ class SmartVentilationCoordinator:
 
         temp_block, temp_reason = self._temperature_block()
         if temp_block:
-            self.recommendation = "Nicht lüften – Temperaturdifferenz"
+            self.recommendation = "Nicht lüften – draußen zu warm"
             self.recommended_minutes = 0
             self.recommended_mode = "Geschlossen"
             self.block_reason = temp_reason
@@ -633,7 +661,11 @@ class SmartVentilationCoordinator:
         minutes = -60 / effective_ach * math.log(ratio)
         minutes = max(2, min(60, minutes))
 
-        if direct_sun:
+        if self.season == SEASON_WINTER:
+            # Winter: nie kippen (kühlt Wände aus), kurz und komplett öffnen
+            minutes = min(minutes, self._winter_max_minutes())
+            mode = "Stoßlüften"
+        elif direct_sun:
             minutes = min(minutes, 5)
             mode = "Kurz komplett öffnen"
             self.block_reason = sun_reason

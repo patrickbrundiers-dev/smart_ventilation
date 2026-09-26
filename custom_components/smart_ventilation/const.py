@@ -23,7 +23,7 @@ DEFAULT_START_DIFF = 0.7
 DEFAULT_TARGET_DIFF = 0.5
 DEFAULT_MIN_SESSION = 120
 DEFAULT_MAX_SESSION = 7200
-DEFAULT_MAX_TEMP_DIFF = 10.0
+DEFAULT_MAX_TEMP_DIFF = 3.0  # Sommer: nicht lüften, wenn draußen so viel wärmer
 DEFAULT_MIN_SUN_ELEVATION = 15.0
 DEFAULT_SUN_ENTITY = "sun.sun"
 DEFAULT_NOTIFICATION_COOLDOWN = 180  # Minuten
@@ -34,3 +34,16 @@ STORE_KEY = "smart_ventilation_learning"
 
 CONF_TARGET_ABS = "target_absolute_humidity"
 DEFAULT_TARGET_ABS = 11.5  # g/m³ – Tagesziel absolute Feuchte innen
+
+# Jahreszeit-Modus
+CONF_SEASON_MODE = "season_mode"
+CONF_SEASON_THRESHOLD = "season_threshold"
+SEASON_AUTO = "auto"
+SEASON_SUMMER = "summer"
+SEASON_WINTER = "winter"
+DEFAULT_SEASON_MODE = SEASON_AUTO
+DEFAULT_SEASON_THRESHOLD = 15.0  # °C – Heizgrenztemperatur
+SEASON_HYSTERESIS = 1.0  # °C – verhindert ständiges Hin- und Herspringen
+
+# Benachrichtigungen: Liste von notify-Diensten (ersetzt das alte Textfeld)
+CONF_NOTIFY_SERVICES = "notify_services"

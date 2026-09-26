@@ -17,13 +17,15 @@
           "rain": "Regensensor (Binär oder mm/h)",
           "window": "Fensterkontakt",
           "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
-          "max_temperature_difference": "Max. Temperaturdifferenz innen/außen (°C) – Tipp: 25",
+          "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
           "use_sun": "Sonnenstand berücksichtigen",
           "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
           "sun_entity": "Sonnen-Entität",
-          "notify_service": "Benachrichtigungsdienst (z. B. notify.mobile_app_patrick, leer = aus)",
           "notification_cooldown": "Mindestabstand zwischen Benachrichtigungen (Minuten)",
-          "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)"
+          "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)",
+          "season_mode": "Sommer/Winter-Modus",
+          "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
+          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)"
         }
       }
     },
@@ -48,14 +50,25 @@
           "rain": "Regensensor (Binär oder mm/h)",
           "window": "Fensterkontakt",
           "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
-          "max_temperature_difference": "Max. Temperaturdifferenz innen/außen (°C) – Tipp: 25",
+          "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
           "use_sun": "Sonnenstand berücksichtigen",
           "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
           "sun_entity": "Sonnen-Entität",
-          "notify_service": "Benachrichtigungsdienst (z. B. notify.mobile_app_patrick, leer = aus)",
           "notification_cooldown": "Mindestabstand zwischen Benachrichtigungen (Minuten)",
-          "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)"
+          "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)",
+          "season_mode": "Sommer/Winter-Modus",
+          "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
+          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)"
         }
+      }
+    }
+  },
+  "selector": {
+    "season_mode": {
+      "options": {
+        "auto": "Automatisch (nach Außentemperatur)",
+        "summer": "Sommer",
+        "winter": "Winter"
       }
     }
   }

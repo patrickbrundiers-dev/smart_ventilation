@@ -58,12 +58,23 @@ Home Assistant **2024.11** oder neuer.
 
 ## Tipps
 
-- **Max. Temperaturdifferenz** auf ca. **25 °C** setzen, sonst wird im Winter nie gelüftet.
+- **Sommer/Winter-Modus** auf „Automatisch“ lassen – im Winter wird dann kurz stoßgelüftet statt blockiert.
+- **Sommer-Grenze** (Standard 3 °C): Ist es draußen um mehr als diesen Wert wärmer, wird nicht gelüftet.
 - **Fensterausrichtung**: Richtung, in die das Fenster zeigt (0 = Nord, 90 = Ost, 180 = Süd, 270 = West).
 
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 1.7.0
+
+- **Sommer/Winter-Modus** (Automatisch, Sommer, Winter)
+  - Winter: keine Temperatursperre mehr, stattdessen Stoßlüften mit Höchstdauer je nach Außentemperatur (unter 5 °C: 5 Min., unter 10 °C: 10 Min., sonst 15 Min.), nie Kippfenster
+  - Sommer: nicht lüften, wenn es draußen deutlich wärmer ist als drinnen (Standard 3 °C)
+  - Automatik schaltet nach Außentemperatur um (Standard 15 °C, mit 1 °C Hysterese)
+  - Neuer Sensor „Jahreszeit-Modus“
+- **Empfänger per Auswahlliste**: alle Handys mit Home-Assistant-App ankreuzen, mehrere möglich. Ein offline Handy blockiert die anderen nicht.
+- Bestehende Einträge übernehmen den bisher eingetragenen notify-Dienst automatisch
 
 ### Version 1.6.1
 

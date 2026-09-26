@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .const import (
@@ -13,12 +13,48 @@ from .const import (
     CONF_MAX_TEMP_DIFF, CONF_USE_SUN, CONF_MIN_SUN_ELEVATION,
     CONF_SUN_ENTITY, DEFAULT_MAX_TEMP_DIFF, DEFAULT_MIN_SUN_ELEVATION,
     DEFAULT_SUN_ENTITY, DEFAULT_NOTIFICATION_COOLDOWN,
-    CONF_NOTIFY_SERVICE, CONF_NOTIFICATION_COOLDOWN,
+    CONF_NOTIFY_SERVICE, CONF_NOTIFY_SERVICES, CONF_NOTIFICATION_COOLDOWN,
     CONF_TARGET_ABS, DEFAULT_TARGET_ABS,
+    CONF_SEASON_MODE, CONF_SEASON_THRESHOLD, DEFAULT_SEASON_MODE,
+    DEFAULT_SEASON_THRESHOLD, SEASON_AUTO, SEASON_SUMMER, SEASON_WINTER,
 )
 
 
-def _schema(defaults: dict, include_name: bool) -> vol.Schema:
+def _notify_label(service: str) -> str:
+    """notify.mobile_app_patrick_handy -> 'Patrick Handy (App)'."""
+    name = service.removeprefix("notify.")
+    if name.startswith("mobile_app_"):
+        return name.removeprefix("mobile_app_").replace("_", " ").title() + " (App)"
+    return name.replace("_", " ").title()
+
+
+def _notify_options(hass: HomeAssistant, current: list[str]) -> list[selector.SelectOptionDict]:
+    """Alle notify-Dienste zur Auswahl – Handys mit der HA-App zuerst."""
+    services = [
+        f"notify.{name}"
+        for name in hass.services.async_services_for_domain("notify")
+        if name not in ("notify", "persistent_notification", "send_message")
+    ]
+    # Bereits gewählte Dienste behalten, auch wenn sie gerade fehlen
+    services = sorted(
+        set(services) | set(current),
+        key=lambda s: (not s.startswith("notify.mobile_app_"), s),
+    )
+    return [
+        selector.SelectOptionDict(value=s, label=_notify_label(s)) for s in services
+    ]
+
+
+def _current_notify(defaults: dict) -> list[str]:
+    """Neue Liste oder – für ältere Einträge – das frühere Textfeld übernehmen."""
+    targets = defaults.get(CONF_NOTIFY_SERVICES)
+    if targets is None:
+        legacy = (defaults.get(CONF_NOTIFY_SERVICE) or "").strip()
+        targets = [legacy] if legacy.startswith("notify.") else []
+    return list(targets)
+
+
+def _schema(hass: HomeAssistant, defaults: dict, include_name: bool) -> vol.Schema:
     """Gemeinsames Formular für Einrichtung und Optionen."""
     d = defaults.get
     entity = selector.EntitySelector(
@@ -26,6 +62,21 @@ def _schema(defaults: dict, include_name: bool) -> vol.Schema:
     )
     sun_entity = selector.EntitySelector(
         selector.EntitySelectorConfig(domain=["sun"])
+    )
+    season = selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[SEASON_AUTO, SEASON_SUMMER, SEASON_WINTER],
+            translation_key="season_mode",
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+    current_notify = _current_notify(defaults)
+    notify = selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=_notify_options(hass, current_notify),
+            multiple=True,
+            mode=selector.SelectSelectorMode.LIST,
+        )
     )
 
     fields = {}
@@ -53,10 +104,18 @@ def _schema(defaults: dict, include_name: bool) -> vol.Schema:
             CONF_TARGET_ABS, default=d(CONF_TARGET_ABS, DEFAULT_TARGET_ABS)
         ): vol.All(vol.Coerce(float), vol.Range(min=5, max=20)),
 
-        vol.Required(CONF_WIND_IS_FROM, default=d(CONF_WIND_IS_FROM, True)): bool,
+        vol.Required(
+            CONF_SEASON_MODE, default=d(CONF_SEASON_MODE, DEFAULT_SEASON_MODE)
+        ): season,
+        vol.Required(
+            CONF_SEASON_THRESHOLD,
+            default=d(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD),
+        ): vol.All(vol.Coerce(float), vol.Range(min=5, max=25)),
         vol.Required(
             CONF_MAX_TEMP_DIFF, default=d(CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF)
-        ): vol.Coerce(float),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0, max=30)),
+
+        vol.Required(CONF_WIND_IS_FROM, default=d(CONF_WIND_IS_FROM, True)): bool,
         vol.Required(CONF_USE_SUN, default=d(CONF_USE_SUN, True)): bool,
         vol.Required(
             CONF_MIN_SUN_ELEVATION,
@@ -66,14 +125,20 @@ def _schema(defaults: dict, include_name: bool) -> vol.Schema:
             CONF_SUN_ENTITY, default=d(CONF_SUN_ENTITY, DEFAULT_SUN_ENTITY)
         ): sun_entity,
 
-        # Optional, z. B. notify.mobile_app_patrick – leer = keine Push-Nachrichten
-        vol.Optional(CONF_NOTIFY_SERVICE, default=d(CONF_NOTIFY_SERVICE, "")): str,
+        vol.Optional(CONF_NOTIFY_SERVICES, default=current_notify): notify,
         vol.Required(
             CONF_NOTIFICATION_COOLDOWN,
             default=d(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN),
         ): vol.All(vol.Coerce(int), vol.Range(min=5, max=1440)),
     })
     return vol.Schema(fields)
+
+
+def _clean(user_input: dict) -> dict:
+    """Altes Textfeld entfernen, sobald die neue Auswahl gespeichert wird."""
+    data = dict(user_input)
+    data[CONF_NOTIFY_SERVICE] = ""
+    return data
 
 
 class SmartVentilationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -85,10 +150,12 @@ class SmartVentilationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
             return self.async_create_entry(
                 title=user_input[CONF_NAME],
-                data=user_input,
+                data=_clean(user_input),
             )
 
-        return self.async_show_form(step_id="user", data_schema=_schema({}, True))
+        return self.async_show_form(
+            step_id="user", data_schema=_schema(self.hass, {}, True)
+        )
 
     @staticmethod
     @callback
@@ -101,9 +168,9 @@ class SmartVentilationOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data=_clean(user_input))
 
         current = {**self.config_entry.data, **self.config_entry.options}
         return self.async_show_form(
-            step_id="init", data_schema=_schema(current, False)
+            step_id="init", data_schema=_schema(self.hass, current, False)
         )
