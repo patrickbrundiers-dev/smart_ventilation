@@ -25,7 +25,8 @@
           "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)",
           "season_mode": "Summer/winter mode",
           "season_threshold": "Auto: winter below this outdoor temperature (°C)",
-          "notify_services": "Notify (phones with the Home Assistant app)"
+          "notify_services": "Notify (phones with the Home Assistant app)",
+          "weather_entity": "Weather entity for the best ventilation time (optional)"
         }
       }
     },
@@ -58,7 +59,8 @@
           "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)",
           "season_mode": "Summer/winter mode",
           "season_threshold": "Auto: winter below this outdoor temperature (°C)",
-          "notify_services": "Notify (phones with the Home Assistant app)"
+          "notify_services": "Notify (phones with the Home Assistant app)",
+          "weather_entity": "Weather entity for the best ventilation time (optional)"
         }
       }
     }

@@ -27,6 +27,8 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 | `sensor.wohnzimmer_aktuelle_luftungsdauer` | Sekunden seit Öffnen |
 | `sensor.wohnzimmer_langste_luftung` | Rekord in Minuten |
 | `sensor.wohnzimmer_empfehlung` | Klartext-Empfehlung |
+| `sensor.wohnzimmer_bester_luftungszeitpunkt` | Zeitstempel der besten Stunde (nächste 24 h); Attribut `text` z. B. „Heute 14:00 Uhr“ |
+| `sensor.wohnzimmer_jahreszeit_modus` | Sommer / Winter |
 
 Eine Lüftung zählt ab 30 Sekunden. **Erfolgreich** ist sie, wenn sie mindestens 2 Minuten dauerte und das Ziel erreicht wurde
 (Feuchteunterschied ≤ 0,5 g/m³ **oder** innen ≤ Tagesziel, Standard 11,5 g/m³).
@@ -65,6 +67,15 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 1.8.0
+
+- **Bester Lüftungszeitpunkt** aus der stündlichen Wettervorhersage (optional, Wetter-Entität in den Einstellungen wählen)
+  - bewertet die nächsten 24 h zwischen 7 und 22 Uhr
+  - rechnet die absolute Außenfeuchte aus Taupunkt oder Temperatur + Luftfeuchte
+  - schließt Regenstunden und im Sommer zu heiße Stunden aus, bevorzugt im Winter mildere Stunden, Wind gibt einen Bonus
+  - aktualisiert sich alle 30 Minuten
+- Voraussetzung: Der Wetterdienst muss eine **stündliche** Vorhersage mit Luftfeuchte oder Taupunkt liefern (z. B. Met.no, OpenWeatherMap, DWD)
 
 ### Version 1.7.0
 

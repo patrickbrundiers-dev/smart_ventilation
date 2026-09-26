@@ -40,6 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         CurrentDurationSensor(coordinator),
         MaxDurationSensor(coordinator),
         SeasonSensor(coordinator),
+        BestTimeSensor(coordinator),
     ])
 
 
@@ -58,7 +59,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="1.7.0",
+            sw_version="1.8.0",
         )
 
     async def async_added_to_hass(self):
@@ -334,3 +335,20 @@ class SeasonSensor(BaseSensor):
     def extra_state_attributes(self):
         mode = self.coordinator.data.get("season_mode", "auto")
         return {"einstellung": {"auto": "Automatisch", "summer": "Sommer", "winter": "Winter"}.get(mode, mode)}
+
+
+class BestTimeSensor(BaseSensor):
+    """Bester Lüftungszeitpunkt der nächsten 24 h (Zeitstempel -> 'in 3 Stunden')."""
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:clock-check-outline"
+
+    def __init__(self, c): super().__init__(c, "best_time", "Bester Lüftungszeitpunkt")
+
+    @property
+    def native_value(self):
+        return self.coordinator.best_time
+
+    @property
+    def extra_state_attributes(self):
+        info = {k: v for k, v in self.coordinator.best_info.items() if k != "ok"}
+        return {"text": self.coordinator.best_reason, **info}

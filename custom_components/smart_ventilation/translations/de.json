@@ -25,7 +25,8 @@
           "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)",
           "season_mode": "Sommer/Winter-Modus",
           "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
-          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)"
+          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
+          "weather_entity": "Wetter-Entität für den besten Lüftungszeitpunkt (optional)"
         }
       }
     },
@@ -58,7 +59,8 @@
           "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)",
           "season_mode": "Sommer/Winter-Modus",
           "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
-          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)"
+          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
+          "weather_entity": "Wetter-Entität für den besten Lüftungszeitpunkt (optional)"
         }
       }
     }

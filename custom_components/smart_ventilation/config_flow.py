@@ -17,6 +17,7 @@ from .const import (
     CONF_TARGET_ABS, DEFAULT_TARGET_ABS,
     CONF_SEASON_MODE, CONF_SEASON_THRESHOLD, DEFAULT_SEASON_MODE,
     DEFAULT_SEASON_THRESHOLD, SEASON_AUTO, SEASON_SUMMER, SEASON_WINTER,
+    CONF_WEATHER,
 )
 
 
@@ -100,6 +101,11 @@ def _schema(hass: HomeAssistant, defaults: dict, include_name: bool) -> vol.Sche
         ent(CONF_RAIN): entity,
         ent(CONF_WINDOW): entity,
 
+        # Optional – ohne Wetter-Entität gibt es keinen "besten Zeitpunkt"
+        vol.Optional(
+            CONF_WEATHER, description={"suggested_value": d(CONF_WEATHER)}
+        ): selector.EntitySelector(selector.EntitySelectorConfig(domain="weather")),
+
         vol.Required(
             CONF_TARGET_ABS, default=d(CONF_TARGET_ABS, DEFAULT_TARGET_ABS)
         ): vol.All(vol.Coerce(float), vol.Range(min=5, max=20)),
@@ -138,6 +144,7 @@ def _clean(user_input: dict) -> dict:
     """Altes Textfeld entfernen, sobald die neue Auswahl gespeichert wird."""
     data = dict(user_input)
     data[CONF_NOTIFY_SERVICE] = ""
+    data.setdefault(CONF_WEATHER, "")
     return data
 
 

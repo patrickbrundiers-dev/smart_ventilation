@@ -47,3 +47,14 @@ SEASON_HYSTERESIS = 1.0  # °C – verhindert ständiges Hin- und Herspringen
 
 # Benachrichtigungen: Liste von notify-Diensten (ersetzt das alte Textfeld)
 CONF_NOTIFY_SERVICES = "notify_services"
+
+# Bester Lüftungszeitpunkt (Wettervorhersage)
+CONF_WEATHER = "weather_entity"
+FORECAST_REFRESH_MINUTES = 30
+FORECAST_RETRY_MINUTES = 5
+FORECAST_HOURS = 24
+FORECAST_DAY_START = 7   # keine Empfehlungen vor 7 Uhr ...
+FORECAST_DAY_END = 22    # ... und nicht ab 22 Uhr
+FORECAST_MIN_GAIN = 1.0  # g/m³ – darunter lohnt sich Lüften kaum
+FORECAST_MAX_RAIN_MM = 0.2
+FORECAST_MAX_RAIN_PROB = 50

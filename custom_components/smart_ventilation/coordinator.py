@@ -63,6 +63,27 @@ def _relative_humidity_from_absolute(absolute_humidity, temperature_c):
     return max(0.0, min(100.0, 100.0 * vapor_pressure / saturation))
 
 
+def _absolute_humidity(temperature_c, rh=None, dew_point=None):
+    """Absolute Feuchte in g/m³ aus Taupunkt (bevorzugt) oder Temperatur + rel. Feuchte."""
+    if temperature_c is None:
+        return None
+    if dew_point is not None:
+        vapor = 6.112 * math.exp((17.62 * dew_point) / (243.12 + dew_point))
+    elif rh is not None:
+        vapor = rh / 100.0 * 6.112 * math.exp((17.62 * temperature_c) / (243.12 + temperature_c))
+    else:
+        return None
+    return 216.7 * vapor / (273.15 + temperature_c)
+
+
+def _num(value):
+    try:
+        v = float(value)
+        return v if math.isfinite(v) else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _dew_point(temperature_c, rh):
     if temperature_c is None or rh is None or rh <= 0:
         return None
@@ -100,6 +121,10 @@ class SmartVentilationCoordinator:
         self._listeners = []
         self.stats = {}
         self._auto_season = None
+        self.best_time = None
+        self.best_info = {}
+        self.best_reason = "Keine Wetter-Entität gewählt"
+        self._forecast_checked = None
 
     # ------------------------------------------------------------------
     # Statistik
@@ -199,6 +224,8 @@ class SmartVentilationCoordinator:
             self.hass, self._feedback_tick, timedelta(seconds=30)
         )
         self._update_recommendation()
+        if self.data.get(CONF_WEATHER):
+            self.hass.async_create_task(self._update_forecast())
 
     async def _save(self):
         await self.store.async_save({
@@ -330,6 +357,8 @@ class SmartVentilationCoordinator:
     async def _feedback_tick(self, _now=None):
         if self._roll_periods():
             await self._save()
+        if self._forecast_due():
+            await self._update_forecast()
         self._update_recommendation()
         self._notify_listeners()
         if not self.session:
@@ -355,6 +384,126 @@ class SmartVentilationCoordinator:
                 f"Gelüftet seit ca. {minutes} Minuten. Fenster kann zu."
             ),
             f"smart_ventilation_{self.entry.entry_id}",
+        )
+
+    # ------------------------------------------------------------------
+    # Bester Lüftungszeitpunkt aus der stündlichen Wettervorhersage
+    # ------------------------------------------------------------------
+    def _forecast_due(self):
+        if not self.data.get(CONF_WEATHER):
+            return False
+        if self._forecast_checked is None:
+            return True
+        wait = FORECAST_REFRESH_MINUTES if self.best_info.get("ok") else FORECAST_RETRY_MINUTES
+        return (dt_util.now() - self._forecast_checked).total_seconds() >= wait * 60
+
+    async def _fetch_hourly_forecast(self, entity_id):
+        response = await self.hass.services.async_call(
+            "weather",
+            "get_forecasts",
+            {"entity_id": entity_id, "type": "hourly"},
+            blocking=True,
+            return_response=True,
+        )
+        return (response or {}).get(entity_id, {}).get("forecast", [])
+
+    async def _update_forecast(self):
+        self._forecast_checked = dt_util.now()
+        entity_id = self.data.get(CONF_WEATHER)
+        try:
+            forecast = await self._fetch_hourly_forecast(entity_id)
+        except Exception:  # noqa: BLE001 – z. B. Dienst ohne Stundenvorhersage
+            self._set_best(None, "Wetterdaten nicht verfügbar (stündliche Vorhersage?)", {})
+            return
+        self._evaluate_forecast(forecast)
+        self._notify_listeners()
+
+    def _set_best(self, when, reason, info):
+        self.best_time = when
+        self.best_reason = reason
+        self.best_info = info
+
+    def _evaluate_forecast(self, forecast):
+        """Bewertet jede Stunde: Feuchtegewinn + Wind, abzüglich Regen/Hitze, Bonus für Wärme im Winter."""
+        indoor_ah = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        indoor_t = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+        if indoor_ah is None:
+            self._set_best(None, "Innenwerte fehlen", {})
+            return
+        if not forecast:
+            self._set_best(None, "Warte auf Wetterdaten", {})
+            return
+
+        now = dt_util.now()
+        season = self.season
+        max_warmer = float(self.data.get(CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF))
+        best = None
+        has_humidity = False
+
+        for item in forecast:
+            when = dt_util.parse_datetime(str(item.get("datetime", "")))
+            if when is None:
+                continue
+            when = dt_util.as_local(when)
+            if item.get("humidity") is not None or item.get("dew_point") is not None:
+                has_humidity = True
+            hours_ahead = (when - now).total_seconds() / 3600
+            if hours_ahead < -0.5 or hours_ahead > FORECAST_HOURS:
+                continue
+            if not FORECAST_DAY_START <= when.hour < FORECAST_DAY_END:
+                continue
+
+            temp = _num(item.get("temperature"))
+            outdoor_ah = _absolute_humidity(
+                temp, _num(item.get("humidity")), _num(item.get("dew_point"))
+            )
+            if outdoor_ah is None:
+                continue
+
+            rain = _num(item.get("precipitation")) or 0.0
+            rain_prob = _num(item.get("precipitation_probability")) or 0.0
+            if rain > FORECAST_MAX_RAIN_MM or rain_prob >= FORECAST_MAX_RAIN_PROB:
+                continue
+            if (
+                season == SEASON_SUMMER
+                and indoor_t is not None
+                and temp - indoor_t > max_warmer
+            ):
+                continue
+
+            gain = indoor_ah - outdoor_ah
+            if gain < FORECAST_MIN_GAIN:
+                continue
+
+            wind = _num(item.get("wind_speed")) or 0.0
+            score = gain + min(wind, 30) / 60
+            if season == SEASON_WINTER:
+                score += 0.15 * temp  # wärmere Stunde = weniger Wärmeverlust
+            elif indoor_t is not None:
+                score -= 0.3 * max(0.0, temp - indoor_t)
+
+            if best is None or score > best[0]:
+                best = (score, when, temp, outdoor_ah, gain, rain_prob)
+
+        if not has_humidity:
+            self._set_best(None, "Vorhersage enthält keine Luftfeuchte", {"ok": True})
+            return
+        if best is None:
+            self._set_best(None, "Heute kein geeigneter Zeitpunkt", {"ok": True})
+            return
+
+        _, when, temp, outdoor_ah, gain, rain_prob = best
+        day = "Heute" if when.date() == now.date() else "Morgen"
+        self._set_best(
+            when,
+            f"{day} {when.strftime('%H:%M')} Uhr",
+            {
+                "ok": True,
+                "aussen_temperatur": round(temp, 1),
+                "aussen_feuchte_abs": round(outdoor_ah, 1),
+                "feuchte_gewinn": round(gain, 1),
+                "regenwahrscheinlichkeit": round(rain_prob),
+            },
         )
 
     @property
