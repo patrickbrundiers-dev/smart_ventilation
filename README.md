@@ -16,6 +16,9 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 - Optionale Push-Benachrichtigungen mit Cooldown
 - Alle Einstellungen nachträglich änderbar, ohne Lerndaten zu verlieren
 - Lüftungsstatistik (heute / Woche / Monat / gesamt) und Tagesziel – ohne eigene Helfer oder Automationen
+- Schimmelrisiko an der kältesten Wandstelle (DIN 4108-2), optional CO₂, Wärmeverlust und Kosten pro Lüftung
+- Übersicht aller Räume mit Sammel-Benachrichtigung, Anwesenheitserkennung, Ruhezeiten
+- Eigene Dashboard-Karte – wird automatisch mitgeliefert
 
 ## Entitäten (Beispiel Raum „Wohnzimmer“)
 
@@ -32,6 +35,12 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 | `binary_sensor.wohnzimmer_raum_kuhlt_aus` | Fenster offen und Raum unter der Auskühl-Grenze |
 | `binary_sensor.wohnzimmer_ruhezeit` | Ruhezeit aktiv (keine Erinnerungen) |
 | `button.wohnzimmer_lernen_zurucksetzen` | Gelernten Luftwechsel verwerfen (Statistik bleibt) |
+| `sensor.wohnzimmer_wandtemperatur_geschatzt` | Temperatur an der kältesten Wandstelle |
+| `sensor.wohnzimmer_feuchte_an_der_wand` | Relative Feuchte dort – ab 80 % Schimmelgefahr |
+| `sensor.wohnzimmer_luftqualitat` | gut / mäßig / schlecht (nur mit CO₂-Sensor) |
+| `sensor.wohnzimmer_warmeverlust_luften_heute` | Geschätzter Wärmeverlust durchs Lüften (kWh) |
+| `sensor.wohnzimmer_luftungskosten_monat` | Geschätzte Kosten im Monat (€) |
+| `sensor.luften_ubersicht_dringendster_raum` | Übersicht: Raum mit dem größten Bedarf, Attribut `raeume` |
 
 Eine Lüftung zählt ab 30 Sekunden. **Erfolgreich** ist sie, wenn sie mindestens 2 Minuten dauerte und das Ziel erreicht wurde
 (Feuchteunterschied ≤ 0,5 g/m³ **oder** innen ≤ Tagesziel, Standard 11,5 g/m³).
@@ -43,8 +52,22 @@ Eine Lüftung zählt ab 30 Sekunden. **Erfolgreich** ist sie, wenn sie mindesten
 3. **Smart Ventilation** suchen → **Herunterladen**
 4. Home Assistant neu starten
 5. **Einstellungen → Geräte & Dienste → Integration hinzufügen → Smart Ventilation**
+6. **Raum hinzufügen** wählen und die vier Schritte durchgehen: Sensoren & Raum → Verhalten → Benachrichtigungen → Heizung & Energie
 
-Für jeden Raum einen eigenen Eintrag anlegen.
+Für jeden Raum einen eigenen Eintrag anlegen. Optional zusätzlich einmal **Übersicht aller Räume** – dann gibt es eine gemeinsame Nachricht statt einer pro Raum.
+
+Einstellungen später ändern: Gerät öffnen → **Konfigurieren** → Bereich wählen. Gelernte Werte bleiben erhalten.
+
+## Dashboard-Karte
+
+Die Karte wird mit der Integration installiert (ggf. Browser-Cache leeren / App neu laden).
+
+```yaml
+type: custom:smart-ventilation-card
+device: <Raum oder Übersicht im Editor auswählen>
+```
+
+Im Dashboard-Editor unter **Karte hinzufügen → Smart Ventilation** findest du sie auch direkt. Sie zeigt Status, Fortschritt beim Lüften, Innen-/Außen-/Wandwerte, CO₂, besten Zeitpunkt, heutige Statistik und Warnungen. Mit dem Gerät der Übersicht zeigt sie alle Räume.
 
 ### Manuelle Installation
 
@@ -70,6 +93,19 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.0.0
+
+- **Einrichtung als Assistent** in vier Schritten, Einstellungen als Menü (nur der gewählte Bereich wird geändert)
+- **Übersicht aller Räume** (eigener Eintrag): dringendster Raum, Anzahl Räume mit Bedarf, optional **eine Sammel-Nachricht** statt einer pro Raum
+- **Anwesenheit**: Personen auswählen – Erinnerungen nur an Anwesende, keine Erinnerung wenn alle weg sind, Hinweis beim Heimkommen
+- **Schimmelrisiko an der Wand**: Temperatur an der kältesten Stelle aus Außentemperatur und Dämmstandard (DIN 4108-2, Kriterium 80 %)
+- **CO₂-Sensor** (optional): Empfehlung auch bei schlechter Luft, bei sehr schlechter Luft kurz lüften trotz Sommerhitze
+- **Wärmeverlust und Kosten** pro Lüftung, Tag und Monat
+- **Reparatur-Hinweise**, wenn ein Sensor länger als 10 Minuten ausfällt
+- **Eigene Dashboard-Karte** für Räume und Übersicht
+- **Automatische Tests** gegen echtes Home Assistant (stabil, Beta und Entwicklungsversion)
+- Kompatibel mit Home Assistant 2026.10 (Umstellung von voluptuous auf probatio)
 
 ### Version 1.9.0
 
