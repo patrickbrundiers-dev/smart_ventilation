@@ -22,17 +22,19 @@ from .const import (
     DEFAULT_COOL_LIMIT, CONF_QUIET_START, CONF_QUIET_END, DEFAULT_QUIET_START,
     DEFAULT_QUIET_END, CONF_CLIMATES, CONF_CO2, CONF_BUILDING, DEFAULT_BUILDING, U_VALUES,
     CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE, CONF_PERSONS, CONF_ENTRY_TYPE,
-    ENTRY_TYPE_ROOM, ENTRY_TYPE_OVERVIEW, CONF_COMBINE,
+    ENTRY_TYPE_ROOM, ENTRY_TYPE_OVERVIEW, CONF_COMBINE, CONF_SHOWER, CONF_SHOWER_DETECT,
+    CONF_VACATION, CONF_VACATION_KEYWORD, CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP,
+    CONF_DEHUMIDIFIER, CONF_WEEKLY_REPORT,
 )
 
 ROOM_SECTIONS = ["sensors", "behavior", "notify", "heating"]
 
 # Optionale Felder je Abschnitt: werden beim Speichern geleert, wenn der Nutzer sie entfernt
 OPTIONAL_KEYS = {
-    "sensors": {CONF_CO2: "", CONF_WEATHER: ""},
-    "behavior": {},
+    "sensors": {CONF_CO2: "", CONF_WEATHER: "", CONF_SHOWER: ""},
+    "behavior": {CONF_VACATION: "", CONF_VACATION_KEYWORD: ""},
     "notify": {CONF_NOTIFY_SERVICES: [], CONF_PERSONS: []},
-    "heating": {CONF_CLIMATES: []},
+    "heating": {CONF_CLIMATES: [], CONF_DEHUMIDIFIER: ""},
     "overview": {CONF_NOTIFY_SERVICES: [], CONF_PERSONS: []},
 }
 
@@ -125,6 +127,8 @@ def schema_sensors(d: dict, with_name: bool) -> vol.Schema:
         _req(CONF_RAIN, d.get(CONF_RAIN)): _entity(["binary_sensor", "sensor"]),
         _opt(CONF_CO2, d.get(CONF_CO2)): sensor,
         _opt(CONF_WEATHER, d.get(CONF_WEATHER)): _entity("weather"),
+        _opt(CONF_SHOWER, d.get(CONF_SHOWER)): _entity(["binary_sensor", "input_boolean"]),
+        vol.Required(CONF_SHOWER_DETECT, default=d.get(CONF_SHOWER_DETECT, False)): bool,
         vol.Required(CONF_VOLUME, default=d.get(CONF_VOLUME, 44.8)): vol.All(
             vol.Coerce(float), vol.Range(min=1, max=2000)
         ),
@@ -155,6 +159,11 @@ def schema_behavior(d: dict) -> vol.Schema:
         vol.Required(CONF_COOL_LIMIT, default=d.get(CONF_COOL_LIMIT, DEFAULT_COOL_LIMIT)): vol.All(
             vol.Coerce(float), vol.Range(min=0, max=25)
         ),
+        vol.Required(CONF_COMFORT_TEMP, default=d.get(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)): vol.All(
+            vol.Coerce(float), vol.Range(min=16, max=30)
+        ),
+        _opt(CONF_VACATION, d.get(CONF_VACATION)): _entity(["calendar", "input_boolean", "binary_sensor"]),
+        _opt(CONF_VACATION_KEYWORD, d.get(CONF_VACATION_KEYWORD)): str,
         vol.Required(CONF_USE_SUN, default=d.get(CONF_USE_SUN, True)): bool,
         vol.Required(
             CONF_MIN_SUN_ELEVATION, default=d.get(CONF_MIN_SUN_ELEVATION, DEFAULT_MIN_SUN_ELEVATION)
@@ -170,6 +179,7 @@ def schema_notify(hass: HomeAssistant, d: dict, with_combine: bool = False) -> v
         fields[vol.Required(CONF_COMBINE, default=d.get(CONF_COMBINE, True))] = bool
     fields.update({
         vol.Optional(CONF_NOTIFY_SERVICES, default=current): _notify_selector(hass, current),
+        vol.Required(CONF_WEEKLY_REPORT, default=d.get(CONF_WEEKLY_REPORT, True)): bool,
         _opt(CONF_PERSONS, d.get(CONF_PERSONS, [])): _entity("person", multiple=True),
         vol.Required(
             CONF_NOTIFICATION_COOLDOWN, default=d.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
@@ -183,6 +193,7 @@ def schema_notify(hass: HomeAssistant, d: dict, with_combine: bool = False) -> v
 def schema_heating(d: dict) -> vol.Schema:
     return vol.Schema({
         _opt(CONF_CLIMATES, d.get(CONF_CLIMATES, [])): _entity("climate", multiple=True),
+        _opt(CONF_DEHUMIDIFIER, d.get(CONF_DEHUMIDIFIER)): _entity(["switch", "humidifier"]),
         vol.Required(CONF_ENERGY_PRICE, default=d.get(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE)): vol.All(
             vol.Coerce(float), vol.Range(min=0, max=2)
         ),

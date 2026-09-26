@@ -70,7 +70,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.0.0",
+            sw_version="2.1.0",
         )
 
     async def async_added_to_hass(self):
@@ -463,7 +463,7 @@ class OverviewBase(SensorEntity):
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.0.0",
+            sw_version="2.1.0",
         )
 
     async def async_added_to_hass(self):

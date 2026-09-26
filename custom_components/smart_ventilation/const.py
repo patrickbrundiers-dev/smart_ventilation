@@ -109,5 +109,37 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
+
+# Bad-Modus
+CONF_SHOWER = "shower_sensor"
+CONF_SHOWER_DETECT = "shower_detect"
+SHOWER_JUMP = 1.5                 # g/m³ Anstieg in ...
+SHOWER_WINDOW_MINUTES = 10        # ... so vielen Minuten = Duschen erkannt
+SHOWER_FOLLOWUP_MINUTES = 30      # danach nachfassen, wenn noch feucht
+
+# Urlaub
+CONF_VACATION = "vacation_entity"
+CONF_VACATION_KEYWORD = "vacation_keyword"
+
+# Sommer: Kühlen per Lüften
+CONF_COMFORT_TEMP = "comfort_temperature"
+DEFAULT_COMFORT_TEMP = 23.0
+COOL_MIN_DIFF = 2.0               # draußen mind. 2 °C kühler
+COOL_MAX_EXTRA_HUMIDITY = 1.0     # g/m³ – nicht kühlen, wenn draußen viel feuchter
+
+# Luftentfeuchter
+CONF_DEHUMIDIFIER = "dehumidifier_entity"
+DEHUM_ON_RH = 60.0
+DEHUM_OFF_RH = 55.0
+DEHUM_MIN_RUNTIME_MINUTES = 15
+
+# Wochenbericht
+CONF_WEEKLY_REPORT = "weekly_report"
+REPORT_WEEKDAY = 6                # Sonntag
+REPORT_HOUR = 19
+
+# Verlauf
+TRACE_MAX_POINTS = 240            # 2 h bei 30 s
+TRACE_CARD_POINTS = 60

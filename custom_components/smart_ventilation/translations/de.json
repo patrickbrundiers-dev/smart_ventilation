@@ -18,7 +18,9 @@
           "co2_sensor": "CO₂-Sensor (optional)",
           "weather_entity": "Wetter-Entität für den besten Zeitpunkt (optional)",
           "volume": "Raumvolumen (m³)",
-          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)"
+          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)",
+          "shower_sensor": "Dusch-Sensor (optional, für den Bad-Modus)",
+          "shower_detect": "Duschen an starkem Feuchteanstieg erkennen (für Bäder ohne Dusch-Sensor)"
         }
       },
       "behavior": {
@@ -33,7 +35,10 @@
           "cool_limit": "Auskühl-Warnung unter (°C) – 0 = aus",
           "use_sun": "Sonnenstand berücksichtigen",
           "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
-          "sun_entity": "Sonnen-Entität"
+          "sun_entity": "Sonnen-Entität",
+          "comfort_temperature": "Sommer: kühlen per Lüften, wenn es drinnen wärmer ist als (°C)",
+          "vacation_entity": "Urlaub (Kalender, Schalter oder Binärsensor – optional)",
+          "vacation_keyword": "Nur Kalendertermine mit diesem Wort zählen als Urlaub (optional, z. B. Urlaub)"
         }
       },
       "notify": {
@@ -44,15 +49,17 @@
           "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
           "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
           "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
-          "quiet_end": "Ruhezeit bis"
+          "quiet_end": "Ruhezeit bis",
+          "weekly_report": "Wochenbericht sonntags um 19 Uhr"
         }
       },
       "heating": {
-        "title": "Heizung & Energie",
-        "description": "Optional: Heizung beim Lüften absenken und Kosten schätzen.",
+        "title": "Heizung, Entfeuchter & Energie",
+        "description": "Optional: Heizung beim Lüften absenken, Entfeuchter schalten, wenn Lüften nicht geht, und Kosten schätzen.",
         "data": {
           "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
-          "energy_price": "Wärmepreis für Kostenschätzung (€/kWh)"
+          "energy_price": "Wärmepreis für Kostenschätzung (€/kWh)",
+          "dehumidifier_entity": "Luftentfeuchter (Steckdose oder Entfeuchter – optional)"
         }
       },
       "overview": {
@@ -64,7 +71,8 @@
           "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
           "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
           "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
-          "quiet_end": "Ruhezeit bis"
+          "quiet_end": "Ruhezeit bis",
+          "weekly_report": "Wochenbericht sonntags um 19 Uhr"
         }
       },
       "user": {
@@ -98,7 +106,9 @@
           "co2_sensor": "CO₂-Sensor (optional)",
           "weather_entity": "Wetter-Entität für den besten Zeitpunkt (optional)",
           "volume": "Raumvolumen (m³)",
-          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)"
+          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)",
+          "shower_sensor": "Dusch-Sensor (optional, für den Bad-Modus)",
+          "shower_detect": "Duschen an starkem Feuchteanstieg erkennen (für Bäder ohne Dusch-Sensor)"
         }
       },
       "behavior": {
@@ -113,7 +123,10 @@
           "cool_limit": "Auskühl-Warnung unter (°C) – 0 = aus",
           "use_sun": "Sonnenstand berücksichtigen",
           "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
-          "sun_entity": "Sonnen-Entität"
+          "sun_entity": "Sonnen-Entität",
+          "comfort_temperature": "Sommer: kühlen per Lüften, wenn es drinnen wärmer ist als (°C)",
+          "vacation_entity": "Urlaub (Kalender, Schalter oder Binärsensor – optional)",
+          "vacation_keyword": "Nur Kalendertermine mit diesem Wort zählen als Urlaub (optional, z. B. Urlaub)"
         }
       },
       "notify": {
@@ -124,15 +137,17 @@
           "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
           "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
           "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
-          "quiet_end": "Ruhezeit bis"
+          "quiet_end": "Ruhezeit bis",
+          "weekly_report": "Wochenbericht sonntags um 19 Uhr"
         }
       },
       "heating": {
-        "title": "Heizung & Energie",
-        "description": "Optional: Heizung beim Lüften absenken und Kosten schätzen.",
+        "title": "Heizung, Entfeuchter & Energie",
+        "description": "Optional: Heizung beim Lüften absenken, Entfeuchter schalten, wenn Lüften nicht geht, und Kosten schätzen.",
         "data": {
           "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
-          "energy_price": "Wärmepreis für Kostenschätzung (€/kWh)"
+          "energy_price": "Wärmepreis für Kostenschätzung (€/kWh)",
+          "dehumidifier_entity": "Luftentfeuchter (Steckdose oder Entfeuchter – optional)"
         }
       },
       "overview": {
@@ -144,7 +159,8 @@
           "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
           "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
           "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
-          "quiet_end": "Ruhezeit bis"
+          "quiet_end": "Ruhezeit bis",
+          "weekly_report": "Wochenbericht sonntags um 19 Uhr"
         }
       },
       "init": {
@@ -154,7 +170,7 @@
           "sensors": "Sensoren & Raum",
           "behavior": "Verhalten",
           "notify": "Benachrichtigungen",
-          "heating": "Heizung & Energie"
+          "heating": "Heizung, Entfeuchter & Energie"
         }
       }
     }
@@ -180,6 +196,12 @@
     "sensor_unavailable": {
       "title": "Smart Ventilation: Sensor fehlt ({room})",
       "description": "Der Sensor **{role}** (`{entity}`) im Raum **{room}** liefert seit mindestens {minutes} Minuten keine Werte. Ohne ihn kann die Lüftungsempfehlung nicht berechnet werden.\n\nPrüfe, ob das Gerät erreichbar ist (Batterie, Funk), oder wähle unter *Geräte & Dienste → Smart Ventilation → Konfigurieren* einen anderen Sensor. Der Hinweis verschwindet automatisch, sobald wieder Werte kommen."
+    }
+  },
+  "services": {
+    "status": {
+      "name": "Lüftungsstatus",
+      "description": "Sagt, ob und wo gelüftet werden sollte (auch für Assist und Automationen)."
     }
   }
 }

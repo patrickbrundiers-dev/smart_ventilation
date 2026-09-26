@@ -6,6 +6,7 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import CONF_ENTRY_TYPE, DOMAIN, ENTRY_TYPE_OVERVIEW
 from .coordinator import SmartVentilationCoordinator
+from .assist import async_setup_assist
 from .card import async_register_card
 from .overview import OverviewCoordinator
 
@@ -25,6 +26,7 @@ def _platforms(entry: ConfigEntry) -> list[str]:
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     await async_register_card(hass)
+    await async_setup_assist(hass)
     return True
 
 

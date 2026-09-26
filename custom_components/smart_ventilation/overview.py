@@ -17,6 +17,8 @@ from .const import (
     STORE_VERSION,
 )
 from . import notify_util
+from .const import CONF_WEEKLY_REPORT, REPORT_HOUR, REPORT_WEEKDAY
+from .extras import _week_key, de_num
 
 MOLD_WEIGHT = {"hoch": 3.0, "erhöht": 1.5}
 
@@ -34,11 +36,16 @@ class OverviewCoordinator:
         self.last_notification_at = None
         self._snooze_until = None
         self._skip_date = None
+        self._last_report = None
 
     # ------------------------------------------------------------------
     @property
     def combine(self):
         return bool(self.data.get(CONF_COMBINE, True))
+
+    @property
+    def weekly_report(self):
+        return bool(self.data.get(CONF_WEEKLY_REPORT))
 
     @property
     def persons(self):
@@ -94,6 +101,7 @@ class OverviewCoordinator:
         stored = await self.store.async_load() or {}
         if stored.get("last_notification_at"):
             self.last_notification_at = dt_util.parse_datetime(stored["last_notification_at"])
+        self._last_report = stored.get("last_report")
         self._unsubs.append(
             async_track_time_interval(self.hass, self._tick, timedelta(seconds=60))
         )
@@ -129,6 +137,7 @@ class OverviewCoordinator:
             update_callback()
         if self.combine:
             await self._send_combined()
+        await self._send_weekly_report()
 
     async def _send_combined(self):
         now = dt_util.now()
@@ -178,4 +187,37 @@ class OverviewCoordinator:
         )
         if sent:
             self.last_notification_at = now
-            await self.store.async_save({"last_notification_at": now.isoformat()})
+            await self._save()
+
+    async def _save(self):
+        await self.store.async_save({
+            "last_notification_at": self.last_notification_at.isoformat() if self.last_notification_at else None,
+            "last_report": self._last_report,
+        })
+
+    async def _send_weekly_report(self):
+        """Sonntagabend: eine Nachricht mit allen Räumen."""
+        now = dt_util.now()
+        if not self.weekly_report or not self.notify_targets:
+            return
+        if not (now.weekday() == REPORT_WEEKDAY and now.hour >= REPORT_HOUR and self._last_report != _week_key(now)):
+            return
+        self._last_report = _week_key(now)
+        await self._save()
+        rooms = [r.weekly_summary() for r in self.rooms()]
+        if not rooms:
+            return
+        total = sum(r["anzahl"] for r in rooms)
+        kwh = sum(r["kwh"] for r in rooms)
+        cost = sum(r["kosten"] for r in rooms)
+        lines = [f"Gesamt: {total}× gelüftet, {de_num(kwh, 1)} kWh ≈ {de_num(cost, 2)} €"]
+        for r in sorted(rooms, key=lambda x: (-x["schimmeltage"], -x["anzahl"])):
+            mold = f", Schimmelrisiko {r['schimmeltage']} T." if r["schimmeltage"] else ""
+            lines.append(f"• {r['raum']}: {r['anzahl']}×{mold}")
+        worst = max(rooms, key=lambda x: (x["schimmeltage"], x["anzahl"]))
+        if worst["schimmeltage"]:
+            lines.append(f"Am meisten Bedarf: {worst['raum']}")
+        await notify_util.send(
+            self.hass, self.notify_targets, "Lüften – Wochenbericht", "\n".join(lines),
+            f"smart_ventilation_{self.entry.entry_id}_report",
+        )

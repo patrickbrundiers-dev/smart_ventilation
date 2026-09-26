@@ -1,0 +1,150 @@
+"""Bad-Modus, Verlassen, Urlaub, Kühlen, Entfeuchter, Wochenbericht, Verlauf, Sprachsteuerung."""
+from __future__ import annotations
+
+from datetime import timedelta
+from pathlib import Path
+
+from freezegun.api import FrozenDateTimeFactory
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import intent
+from pytest_homeassistant_custom_component.common import async_fire_time_changed, async_mock_service
+
+from custom_components.smart_ventilation.const import DOMAIN
+
+from .conftest import eid, setup_room
+
+
+async def _tick(hass, freezer, minutes: float) -> None:
+    freezer.tick(timedelta(minutes=minutes))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+
+def _titles(calls):
+    return [c.data["title"] for c in calls]
+
+
+async def test_shower_sensor_and_followup(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    hass.states.async_set("binary_sensor.dusche", "off")
+    await setup_room(hass, shower_sensor="binary_sensor.dusche")
+    hass.states.async_set("binary_sensor.dusche", "on")
+    await hass.async_block_till_done()
+    hass.states.async_set("binary_sensor.dusche", "off")
+    await hass.async_block_till_done()
+    assert any(t.startswith("Nach dem Duschen") for t in _titles(pushes))
+
+    hass.states.async_set("sensor.innen_ah", 12.5)
+    await _tick(hass, freezer, 31)
+    assert any(t.startswith("Noch feucht") for t in _titles(pushes))
+
+
+async def test_shower_detected_by_humidity_jump(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    await setup_room(hass, shower_detect=True)
+    await _tick(hass, freezer, 1)
+    hass.states.async_set("sensor.innen_ah", 12.6)
+    await _tick(hass, freezer, 1)
+    assert sum(t.startswith("Nach dem Duschen") for t in _titles(pushes)) == 1
+
+
+async def test_everyone_left_with_window_open(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    hass.states.async_set("person.patrick", "home")
+    await setup_room(hass, persons=["person.patrick"])
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    hass.states.async_set("person.patrick", "not_home")
+    await hass.async_block_till_done()
+    assert any(t.startswith("Fenster offen") for t in _titles(pushes))
+
+
+async def test_vacation_silences_reminders_and_watches_mold(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    hass.states.async_set("input_boolean.urlaub", "on")
+    entry = await setup_room(hass, vacation_entity="input_boolean.urlaub", building_standard="old")
+    await _tick(hass, freezer, 1)
+    assert not [t for t in _titles(pushes) if t.startswith("Lüften:")]
+
+    hass.states.async_set("sensor.aussen_t", -5)
+    hass.states.async_set("sensor.innen_ah", 11.5)
+    await _tick(hass, freezer, 1)
+    await _tick(hass, freezer, 1)
+    assert sum(t.startswith("Urlaub – Schimmelrisiko") for t in _titles(pushes)) == 1
+    assert hass.states.get(eid(hass, "sensor", entry, "recommendation")).attributes["karte"]["urlaub"] is True
+
+
+async def test_summer_cooling_and_warm_outside(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-07-10 21:00:00+02:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    entry = await setup_room(hass, season_mode="summer")
+    for eid_, val in (("sensor.innen_t", 26), ("sensor.aussen_t", 18), ("sensor.innen_ah", 10), ("sensor.aussen_ah", 9.8)):
+        hass.states.async_set(eid_, val)
+    await _tick(hass, freezer, 0.5)
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    assert rec.state.startswith("Kühlen")
+    assert rec.attributes["grund"] == "Kühlen"
+
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    hass.states.async_set("sensor.aussen_t", 27.5)
+    await _tick(hass, freezer, 1)
+    assert any(t.startswith("Fenster schließen") for t in _titles(pushes))
+
+
+async def test_dehumidifier_runs_when_rain_blocks(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    on = async_mock_service(hass, "switch", "turn_on")
+    off = async_mock_service(hass, "switch", "turn_off")
+    hass.states.async_set("switch.entfeuchter", "off")
+    await setup_room(hass, dehumidifier_entity="switch.entfeuchter")
+    hass.states.async_set("sensor.regen", 1.2)           # Regen -> Lüften blockiert
+    hass.states.async_set("sensor.innen_ah", 12.5)        # ~70 % rel. Feuchte
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 1
+
+    hass.states.async_set("sensor.innen_ah", 8.0)         # trocken genug
+    await _tick(hass, freezer, 16)
+    assert len(off) == 1
+
+
+async def test_weekly_report(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-06 19:05:00+01:00")  # Sonntag
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    await setup_room(hass, weekly_report=True)
+    await _tick(hass, freezer, 0.5)
+    await _tick(hass, freezer, 0.5)
+    assert sum(t.startswith("Wochenbericht") for t in _titles(pushes)) == 1
+
+
+async def test_trace_for_card(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass)
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    for value in (9.5, 8.0, 7.0):
+        hass.states.async_set("sensor.innen_ah", value)
+        await _tick(hass, freezer, 1)
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    await hass.async_block_till_done()
+    trace = hass.states.get(eid(hass, "sensor", entry, "recommendation")).attributes["karte"]["verlauf"]
+    assert trace["laeuft"] is False
+    assert len(trace["punkte"]) >= 3
+    assert trace["punkte"][0][1] == 10.5 and trace["punkte"][-1][1] == 7.0
+
+
+async def test_assist_intent_and_service(hass: HomeAssistant, berlin) -> None:
+    await setup_room(hass)
+    response = await intent.async_handle(hass, "test", "SmartVentilationStatus")
+    speech = response.speech["plain"]["speech"]
+    assert speech.startswith("Ja") and "Schlafzimmer" in speech
+
+    result = await hass.services.async_call(DOMAIN, "status", {}, blocking=True, return_response=True)
+    assert result["raeume"][0]["raum"] == "Schlafzimmer"
+
+    sentences = Path(hass.config.path("custom_sentences", "de", "smart_ventilation.yaml"))
+    assert sentences.exists()

@@ -18,7 +18,9 @@
           "co2_sensor": "CO₂ sensor (optional)",
           "weather_entity": "Weather entity for best time (optional)",
           "volume": "Room volume (m³)",
-          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)"
+          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)",
+          "shower_sensor": "Shower sensor (optional, bathroom mode)",
+          "shower_detect": "Detect showers by a sharp humidity rise (bathrooms without sensor)"
         }
       },
       "behavior": {
@@ -33,7 +35,10 @@
           "cool_limit": "Cooling warning below (°C) – 0 = off",
           "use_sun": "Use sun position",
           "min_sun_elevation": "Min. sun elevation for direct sun (°)",
-          "sun_entity": "Sun entity"
+          "sun_entity": "Sun entity",
+          "comfort_temperature": "Summer: cool by ventilating when warmer inside than (°C)",
+          "vacation_entity": "Vacation (calendar, switch or binary sensor – optional)",
+          "vacation_keyword": "Only calendar events containing this word count as vacation (optional)"
         }
       },
       "notify": {
@@ -44,15 +49,17 @@
           "persons": "People (notify only those at home, reminder on arrival)",
           "notification_cooldown": "Minimum time between reminders (minutes)",
           "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until"
+          "quiet_end": "Quiet hours until",
+          "weekly_report": "Weekly report on Sundays at 7 pm"
         }
       },
       "heating": {
-        "title": "Heating & energy",
-        "description": "Optional: lower heating while ventilating and estimate costs.",
+        "title": "Heating, dehumidifier & energy",
+        "description": "Optional: lower heating while ventilating, run a dehumidifier when ventilating is not possible, and estimate costs.",
         "data": {
           "climate_entities": "Lower heating while ventilating (thermostats, optional)",
-          "energy_price": "Heat price for cost estimate (€/kWh)"
+          "energy_price": "Heat price for cost estimate (€/kWh)",
+          "dehumidifier_entity": "Dehumidifier (switch or humidifier – optional)"
         }
       },
       "overview": {
@@ -64,7 +71,8 @@
           "persons": "People (notify only those at home, reminder on arrival)",
           "notification_cooldown": "Minimum time between reminders (minutes)",
           "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until"
+          "quiet_end": "Quiet hours until",
+          "weekly_report": "Weekly report on Sundays at 7 pm"
         }
       },
       "user": {
@@ -98,7 +106,9 @@
           "co2_sensor": "CO₂ sensor (optional)",
           "weather_entity": "Weather entity for best time (optional)",
           "volume": "Room volume (m³)",
-          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)"
+          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)",
+          "shower_sensor": "Shower sensor (optional, bathroom mode)",
+          "shower_detect": "Detect showers by a sharp humidity rise (bathrooms without sensor)"
         }
       },
       "behavior": {
@@ -113,7 +123,10 @@
           "cool_limit": "Cooling warning below (°C) – 0 = off",
           "use_sun": "Use sun position",
           "min_sun_elevation": "Min. sun elevation for direct sun (°)",
-          "sun_entity": "Sun entity"
+          "sun_entity": "Sun entity",
+          "comfort_temperature": "Summer: cool by ventilating when warmer inside than (°C)",
+          "vacation_entity": "Vacation (calendar, switch or binary sensor – optional)",
+          "vacation_keyword": "Only calendar events containing this word count as vacation (optional)"
         }
       },
       "notify": {
@@ -124,15 +137,17 @@
           "persons": "People (notify only those at home, reminder on arrival)",
           "notification_cooldown": "Minimum time between reminders (minutes)",
           "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until"
+          "quiet_end": "Quiet hours until",
+          "weekly_report": "Weekly report on Sundays at 7 pm"
         }
       },
       "heating": {
-        "title": "Heating & energy",
-        "description": "Optional: lower heating while ventilating and estimate costs.",
+        "title": "Heating, dehumidifier & energy",
+        "description": "Optional: lower heating while ventilating, run a dehumidifier when ventilating is not possible, and estimate costs.",
         "data": {
           "climate_entities": "Lower heating while ventilating (thermostats, optional)",
-          "energy_price": "Heat price for cost estimate (€/kWh)"
+          "energy_price": "Heat price for cost estimate (€/kWh)",
+          "dehumidifier_entity": "Dehumidifier (switch or humidifier – optional)"
         }
       },
       "overview": {
@@ -144,7 +159,8 @@
           "persons": "People (notify only those at home, reminder on arrival)",
           "notification_cooldown": "Minimum time between reminders (minutes)",
           "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until"
+          "quiet_end": "Quiet hours until",
+          "weekly_report": "Weekly report on Sundays at 7 pm"
         }
       },
       "init": {
@@ -154,7 +170,7 @@
           "sensors": "Sensors & room",
           "behavior": "Behaviour",
           "notify": "Notifications",
-          "heating": "Heating & energy"
+          "heating": "Heating, dehumidifier & energy"
         }
       }
     }
@@ -180,6 +196,12 @@
     "sensor_unavailable": {
       "title": "Smart Ventilation: sensor missing ({room})",
       "description": "The sensor **{role}** (`{entity}`) in **{room}** has not reported values for at least {minutes} minutes. Without it the ventilation recommendation cannot be calculated.\n\nCheck whether the device is reachable (battery, radio) or pick another sensor under *Devices & services → Smart Ventilation → Configure*. This notice disappears automatically once values arrive again."
+    }
+  },
+  "services": {
+    "status": {
+      "name": "Ventilation status",
+      "description": "Tells whether and where to ventilate (also for Assist and automations)."
     }
   }
 }
