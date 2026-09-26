@@ -15,7 +15,7 @@
           "wind_speed": "Windgeschwindigkeit",
           "wind_direction": "Windrichtung",
           "rain": "Regensensor (Binär oder mm/h)",
-          "window": "Fensterkontakt",
+          "window": "Fensterkontakt(e) – mehrere für Querlüften",
           "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
           "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
           "use_sun": "Sonnenstand berücksichtigen",
@@ -26,7 +26,11 @@
           "season_mode": "Sommer/Winter-Modus",
           "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
           "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
-          "weather_entity": "Wetter-Entität für den besten Lüftungszeitpunkt (optional)"
+          "weather_entity": "Wetter-Entität für den besten Lüftungszeitpunkt (optional)",
+          "cool_limit": "Auskühl-Warnung unter (°C) – 0 = aus",
+          "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
+          "quiet_start": "Ruhezeit ab (keine Lüft-Erinnerungen)",
+          "quiet_end": "Ruhezeit bis"
         }
       }
     },
@@ -49,7 +53,7 @@
           "wind_speed": "Windgeschwindigkeit",
           "wind_direction": "Windrichtung",
           "rain": "Regensensor (Binär oder mm/h)",
-          "window": "Fensterkontakt",
+          "window": "Fensterkontakt(e) – mehrere für Querlüften",
           "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
           "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
           "use_sun": "Sonnenstand berücksichtigen",
@@ -60,7 +64,11 @@
           "season_mode": "Sommer/Winter-Modus",
           "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
           "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
-          "weather_entity": "Wetter-Entität für den besten Lüftungszeitpunkt (optional)"
+          "weather_entity": "Wetter-Entität für den besten Lüftungszeitpunkt (optional)",
+          "cool_limit": "Auskühl-Warnung unter (°C) – 0 = aus",
+          "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
+          "quiet_start": "Ruhezeit ab (keine Lüft-Erinnerungen)",
+          "quiet_end": "Ruhezeit bis"
         }
       }
     }

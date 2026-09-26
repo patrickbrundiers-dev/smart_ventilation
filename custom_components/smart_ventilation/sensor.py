@@ -59,7 +59,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="1.8.0",
+            sw_version="1.9.0",
         )
 
     async def async_added_to_hass(self):
@@ -197,6 +197,15 @@ class VentilationRunningSensor(BaseSensor):
     @property
     def native_value(self):
         return "Läuft" if self.coordinator.session else "Aus"
+
+    @property
+    def extra_state_attributes(self):
+        session = self.coordinator.session or {}
+        return {
+            "offene_fenster": self.coordinator.open_windows(),
+            "querlueften": bool(session.get("cross")),
+            "heizung_abgesenkt": list((session.get("heating") or {}).keys()),
+        }
 
 
 class VentilationProgressSensor(BaseSensor):

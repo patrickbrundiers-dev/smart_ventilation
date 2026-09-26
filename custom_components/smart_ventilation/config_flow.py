@@ -17,7 +17,8 @@ from .const import (
     CONF_TARGET_ABS, DEFAULT_TARGET_ABS,
     CONF_SEASON_MODE, CONF_SEASON_THRESHOLD, DEFAULT_SEASON_MODE,
     DEFAULT_SEASON_THRESHOLD, SEASON_AUTO, SEASON_SUMMER, SEASON_WINTER,
-    CONF_WEATHER,
+    CONF_WEATHER, CONF_COOL_LIMIT, DEFAULT_COOL_LIMIT, CONF_QUIET_START,
+    CONF_QUIET_END, DEFAULT_QUIET_START, DEFAULT_QUIET_END, CONF_CLIMATES,
 )
 
 
@@ -72,6 +73,9 @@ def _schema(hass: HomeAssistant, defaults: dict, include_name: bool) -> vol.Sche
         )
     )
     current_notify = _current_notify(defaults)
+    windows = d(CONF_WINDOW)
+    if isinstance(windows, str):
+        windows = [windows] if windows else []
     notify = selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=_notify_options(hass, current_notify),
@@ -99,7 +103,9 @@ def _schema(hass: HomeAssistant, defaults: dict, include_name: bool) -> vol.Sche
         ent(CONF_WIND_SPEED): entity,
         ent(CONF_WIND_DIRECTION): entity,
         ent(CONF_RAIN): entity,
-        ent(CONF_WINDOW): entity,
+        vol.Required(CONF_WINDOW, **_default(windows)): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"], multiple=True)
+        ),
 
         # Optional – ohne Wetter-Entität gibt es keinen "besten Zeitpunkt"
         vol.Optional(
@@ -131,7 +137,22 @@ def _schema(hass: HomeAssistant, defaults: dict, include_name: bool) -> vol.Sche
             CONF_SUN_ENTITY, default=d(CONF_SUN_ENTITY, DEFAULT_SUN_ENTITY)
         ): sun_entity,
 
+        vol.Required(
+            CONF_COOL_LIMIT, default=d(CONF_COOL_LIMIT, DEFAULT_COOL_LIMIT)
+        ): vol.All(vol.Coerce(float), vol.Range(min=0, max=25)),
+        vol.Optional(
+            CONF_CLIMATES, description={"suggested_value": d(CONF_CLIMATES, [])}
+        ): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="climate", multiple=True)
+        ),
+
         vol.Optional(CONF_NOTIFY_SERVICES, default=current_notify): notify,
+        vol.Required(
+            CONF_QUIET_START, default=d(CONF_QUIET_START, DEFAULT_QUIET_START)
+        ): selector.TimeSelector(),
+        vol.Required(
+            CONF_QUIET_END, default=d(CONF_QUIET_END, DEFAULT_QUIET_END)
+        ): selector.TimeSelector(),
         vol.Required(
             CONF_NOTIFICATION_COOLDOWN,
             default=d(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN),
@@ -140,11 +161,17 @@ def _schema(hass: HomeAssistant, defaults: dict, include_name: bool) -> vol.Sche
     return vol.Schema(fields)
 
 
+def _default(value):
+    """Nur vorbelegen, wenn es einen Wert gibt (sonst bleibt das Pflichtfeld leer)."""
+    return {"default": value} if value else {}
+
+
 def _clean(user_input: dict) -> dict:
     """Altes Textfeld entfernen, sobald die neue Auswahl gespeichert wird."""
     data = dict(user_input)
     data[CONF_NOTIFY_SERVICE] = ""
     data.setdefault(CONF_WEATHER, "")
+    data.setdefault(CONF_CLIMATES, [])
     return data
 
 

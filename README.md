@@ -29,6 +29,9 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 | `sensor.wohnzimmer_empfehlung` | Klartext-Empfehlung |
 | `sensor.wohnzimmer_bester_luftungszeitpunkt` | Zeitstempel der besten Stunde (nächste 24 h); Attribut `text` z. B. „Heute 14:00 Uhr“ |
 | `sensor.wohnzimmer_jahreszeit_modus` | Sommer / Winter |
+| `binary_sensor.wohnzimmer_raum_kuhlt_aus` | Fenster offen und Raum unter der Auskühl-Grenze |
+| `binary_sensor.wohnzimmer_ruhezeit` | Ruhezeit aktiv (keine Erinnerungen) |
+| `button.wohnzimmer_lernen_zurucksetzen` | Gelernten Luftwechsel verwerfen (Statistik bleibt) |
 
 Eine Lüftung zählt ab 30 Sekunden. **Erfolgreich** ist sie, wenn sie mindestens 2 Minuten dauerte und das Ziel erreicht wurde
 (Feuchteunterschied ≤ 0,5 g/m³ **oder** innen ≤ Tagesziel, Standard 11,5 g/m³).
@@ -67,6 +70,18 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 1.9.0
+
+- **Mehrere Fenster pro Raum**: Lüftung läuft, solange mindestens ein Fenster offen ist. Querlüften (2+ Fenster gleichzeitig) wird erkannt und getrennt gelernt.
+- **Auskühl-Warnung**: Push, wenn der Raum bei offenem Fenster unter die Grenze fällt (Standard 18 °C, 0 = aus). Im Winter zusätzlich Hinweis, wenn deutlich länger als nötig gelüftet wird.
+- **Ruhezeiten** (Standard 22–7 Uhr) für Lüft-Erinnerungen. Warnungen kommen trotzdem.
+- **Buttons in der Push-Nachricht**: „In 30 Min. erinnern“ und „Heute nicht mehr“.
+- Nach einer Lüftung 1 Stunde keine neue Erinnerung.
+- **Heizung koppeln** (optional): Thermostate nach 1 Min. offenem Fenster aus bzw. auf Minimum, beim Schließen zurück auf den vorherigen Wert.
+- **Neustart-fest**: laufende Lüftung, abgesenkte Heizung und „Heute nicht mehr“ überstehen einen Neustart.
+- **Button „Lernen zurücksetzen“**
+- Fix: „Ziel erreicht“ wurde sofort gemeldet, wenn der Raum schon vor dem Öffnen unter dem Tagesziel lag. Neu zählt auch: 70 % des Feuchteunterschieds abgebaut.
 
 ### Version 1.8.0
 

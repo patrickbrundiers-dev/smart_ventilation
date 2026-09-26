@@ -27,7 +27,16 @@ def _float_state(hass, entity_id):
 
 def _is_on(hass, entity_id):
     state = hass.states.get(entity_id)
-    return state is not None and state.state in ("on", "open", "true", "1")
+    return state is not None and state.state in ON_STATES
+
+
+def _parse_time(value, fallback):
+    """'22:00' oder '22:00:00' -> Minuten seit Mitternacht."""
+    try:
+        parts = str(value or fallback).split(":")
+        return int(parts[0]) * 60 + int(parts[1])
+    except (ValueError, IndexError):
+        return _parse_time(fallback, "00:00")
 
 
 def _is_raining(hass, entity_id):
@@ -125,6 +134,10 @@ class SmartVentilationCoordinator:
         self.best_info = {}
         self.best_reason = "Keine Wetter-Entität gewählt"
         self._forecast_checked = None
+        self._action_remove = None
+        self._snooze_until = None
+        self._skip_date = None
+        self._last_session_end = None
 
     # ------------------------------------------------------------------
     # Statistik
@@ -180,6 +193,40 @@ class SmartVentilationCoordinator:
             return 0
         return int((dt_util.now() - self.session["started"]).total_seconds())
 
+    # ------------------------------------------------------------------
+    # Fenster
+    # ------------------------------------------------------------------
+    @property
+    def windows(self):
+        """Ein oder mehrere Fensterkontakte (ältere Einträge: einzelner String)."""
+        value = self.data.get(CONF_WINDOW)
+        if isinstance(value, str):
+            return [value] if value else []
+        return [w for w in (value or []) if w]
+
+    def open_windows(self):
+        return [w for w in self.windows if _is_on(self.hass, w)]
+
+    @property
+    def climates(self):
+        return [c for c in (self.data.get(CONF_CLIMATES) or []) if c]
+
+    def _serialize_session(self):
+        if not self.session:
+            return None
+        data = dict(self.session)
+        data["started"] = self.session["started"].isoformat()
+        return data
+
+    async def async_reset_learning(self):
+        """Lerndaten verwerfen (z. B. nach Umbau oder falschen Messungen)."""
+        self.learned_ach = 8.0
+        self.samples = 0
+        self.models = {}
+        await self._save()
+        self._update_recommendation()
+        self._notify_listeners()
+
     @callback
     def async_add_listener(self, update_callback):
         self._listeners.append(update_callback)
@@ -203,8 +250,24 @@ class SmartVentilationCoordinator:
         self.stats = stored.get("stats", {})
         self._roll_periods()
 
+        if stored.get("skip_date"):
+            try:
+                self._skip_date = datetime.fromisoformat(stored["skip_date"]).date()
+            except ValueError:
+                self._skip_date = None
+        if stored.get("last_session_end"):
+            self._last_session_end = dt_util.parse_datetime(stored["last_session_end"])
+
+        # Laufende Lüftung aus der Zeit vor dem Neustart übernehmen
+        saved = stored.get("session")
+        if saved and saved.get("started"):
+            started = dt_util.parse_datetime(saved["started"])
+            if started is not None:
+                self.session = {**saved, "started": started, "restored": True}
+                self._target_notified = bool(saved.get("notified"))
+
         entities = [
-            self.data[CONF_WINDOW],
+            *self.windows,
             self.data[CONF_INDOOR_HUMIDITY],
             self.data[CONF_OUTDOOR_HUMIDITY],
             self.data[CONF_INDOOR_TEMP],
@@ -223,6 +286,11 @@ class SmartVentilationCoordinator:
         self._feedback_remove = async_track_time_interval(
             self.hass, self._feedback_tick, timedelta(seconds=30)
         )
+        self._action_remove = self.hass.bus.async_listen(
+            "mobile_app_notification_action", self._handle_action
+        )
+        if self.session:
+            await self._resume_session()
         self._update_recommendation()
         if self.data.get(CONF_WEATHER):
             self.hass.async_create_task(self._update_forecast())
@@ -233,6 +301,9 @@ class SmartVentilationCoordinator:
             "samples": self.samples,
             "models": self.models,
             "stats": self.stats,
+            "session": self._serialize_session(),
+            "skip_date": self._skip_date.isoformat() if self._skip_date else None,
+            "last_session_end": self._last_session_end.isoformat() if self._last_session_end else None,
         })
 
     def async_unload(self):
@@ -242,20 +313,49 @@ class SmartVentilationCoordinator:
         if self._feedback_remove:
             self._feedback_remove()
             self._feedback_remove = None
+        if self._action_remove:
+            self._action_remove()
+            self._action_remove = None
+
+    async def _resume_session(self):
+        """Nach Neustart: Fenster noch offen -> weiterlaufen; sicher zu -> abschließen."""
+        states = [self.hass.states.get(w) for w in self.windows]
+        if any(st is not None and st.state in ON_STATES for st in states):
+            return
+        known = [st for st in states if st is not None and st.state in OFF_STATES]
+        if states and len(known) == len(states):
+            ended = max(st.last_changed for st in known)
+            await self._finish_session(ended=ended)
+        # sonst: Fensterzustand noch unbekannt -> das nächste Ereignis entscheidet
+
+    @callback
+    def _handle_action(self, event):
+        """Buttons aus der Push-Nachricht."""
+        action = event.data.get("action", "")
+        if action == f"{ACTION_SNOOZE}{self.entry.entry_id}":
+            self._snooze_until = dt_util.now() + timedelta(minutes=SNOOZE_MINUTES)
+        elif action == f"{ACTION_SKIP}{self.entry.entry_id}":
+            self._skip_date = dt_util.now().date()
+            self.hass.async_create_task(self._save())
 
     @callback
     def _state_changed(self, event):
         entity_id = event.data["entity_id"]
         new_state = event.data.get("new_state")
 
-        if entity_id == self.data[CONF_WINDOW]:
-            # Attribut-Änderungen (z. B. Batterie) dürfen die Lüftung nicht neu starten
-            if new_state and new_state.state in ("on", "open", "true", "1"):
-                if not self.session:
+        if entity_id in self.windows and new_state is not None:
+            old_state = event.data.get("old_state")
+            # Attribut-Änderungen (z. B. Batterie) ändern nichts an der Lüftung
+            if old_state is None or old_state.state != new_state.state:
+                open_now = self.open_windows()
+                if open_now and not self.session:
                     self._start_session()
-            elif new_state and new_state.state in ("off", "closed", "false", "0"):
-                if self.session:
+                elif not open_now and self.session and new_state.state in OFF_STATES:
+                    # Lüftung endet erst, wenn ALLE Fenster zu sind
                     self.hass.async_create_task(self._finish_session())
+                if self.session and len(open_now) >= 2 and not self.session.get("cross"):
+                    self.session["cross"] = True
+                    self.hass.async_create_task(self._save())
 
         self._update_recommendation()
         self._notify_listeners()
@@ -285,7 +385,7 @@ class SmartVentilationCoordinator:
 
         return wind, angle, temp_diff
 
-    def _bucket(self, wind, angle, temp_diff):
+    def _bucket(self, wind, angle, temp_diff, cross=False):
         if wind is None:
             wb = "unknown"
         elif wind < 5:
@@ -315,10 +415,12 @@ class SmartVentilationCoordinator:
         else:
             tb = "10+"
 
-        return f"wind:{wb}|angle:{ab}|temp:{tb}"
+        key = f"wind:{wb}|angle:{ab}|temp:{tb}"
+        # Querlüften getrennt lernen – bisherige Modelle bleiben gültig
+        return f"{key}|cross" if cross else key
 
-    def _model_ach(self, wind, angle, temp_diff):
-        key = self._bucket(wind, angle, temp_diff)
+    def _model_ach(self, wind, angle, temp_diff, cross=False):
+        key = self._bucket(wind, angle, temp_diff, cross)
         model = self.models.get(key)
         if model and model.get("samples", 0) >= 2:
             return max(0.5, float(model["ach"])), key
@@ -335,13 +437,20 @@ class SmartVentilationCoordinator:
         self.session = {
             "started": dt_util.now(),
             "initial_diff": diff,
+            "initial_indoor": indoor,
             "wind": wind,
             "angle": angle,
             "temp_diff": temp_diff,
             "target_reached": False,
+            "cross": len(self.open_windows()) >= 2,
+            "notified": False,
+            "cool_warned": False,
+            "overtime_warned": False,
+            "heating": None,
         }
         self._session_start_diff = diff
         self._target_notified = False
+        self.hass.async_create_task(self._save())
 
     def _target_reached_now(self):
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
@@ -349,10 +458,24 @@ class SmartVentilationCoordinator:
         if indoor is None or outdoor is None:
             return False, None
         current_diff = indoor - outdoor
+        session = self.session or {}
+        if session and self.current_duration_seconds < TARGET_MIN_SECONDS:
+            return False, current_diff
+
         target_abs = float(self.data.get(CONF_TARGET_ABS, DEFAULT_TARGET_ABS))
-        # Ziel: Feuchteunterschied fast ausgeglichen ODER innen unter Zielwert
-        reached = current_diff <= DEFAULT_TARGET_DIFF or indoor <= target_abs
-        return reached, current_diff
+        start_indoor = session.get("initial_indoor")
+        start_diff = session.get("initial_diff")
+
+        # 1) Feuchteunterschied fast ausgeglichen
+        if current_diff <= DEFAULT_TARGET_DIFF:
+            return True, current_diff
+        # 2) Tagesziel unterschritten – aber nur, wenn es beim Öffnen noch darüber lag
+        if indoor <= target_abs and (start_indoor is None or start_indoor > target_abs):
+            return True, current_diff
+        # 3) Großteil des Unterschieds abgebaut (wichtig im Winter, wo außen sehr trocken ist)
+        if start_diff and start_diff > 0 and current_diff <= start_diff * (1 - TARGET_PROGRESS):
+            return True, current_diff
+        return False, current_diff
 
     async def _feedback_tick(self, _now=None):
         if self._roll_periods():
@@ -363,8 +486,11 @@ class SmartVentilationCoordinator:
         self._notify_listeners()
         if not self.session:
             return
-        if not _is_on(self.hass, self.data[CONF_WINDOW]):
+        if not self.open_windows():
             return
+
+        await self._check_heating()
+        await self._check_warnings()
 
         reached, current_diff = self._target_reached_now()
         if not reached:
@@ -374,6 +500,8 @@ class SmartVentilationCoordinator:
         if self._target_notified:
             return
         self._target_notified = True
+        self.session["notified"] = True
+        await self._save()
 
         minutes = max(1, round(self.current_duration_seconds / 60))
         await self._send(
@@ -385,6 +513,94 @@ class SmartVentilationCoordinator:
             ),
             f"smart_ventilation_{self.entry.entry_id}",
         )
+
+    # ------------------------------------------------------------------
+    # Warnungen während des Lüftens
+    # ------------------------------------------------------------------
+    @property
+    def cooling_down(self):
+        """Fenster offen und Raum unter der Auskühl-Grenze."""
+        if not self.session or not self.open_windows():
+            return False
+        limit = float(self.data.get(CONF_COOL_LIMIT, DEFAULT_COOL_LIMIT) or 0)
+        temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+        return limit > 0 and temp is not None and temp < limit
+
+    async def _check_warnings(self):
+        name = self.data[CONF_NAME]
+        tag = f"smart_ventilation_{self.entry.entry_id}_warn"
+
+        if self.cooling_down and not self.session.get("cool_warned"):
+            self.session["cool_warned"] = True
+            temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+            await self._send(
+                f"Raum kühlt aus: {name}",
+                f"Nur noch {temp:.1f} °C bei offenem Fenster – bitte schließen.",
+                tag,
+            )
+            await self._save()
+
+        if self.season == SEASON_WINTER and not self.session.get("overtime_warned"):
+            limit = self._winter_max_minutes()
+            minutes = self.current_duration_seconds / 60
+            if minutes >= limit + WINTER_OVERTIME_MINUTES:
+                self.session["overtime_warned"] = True
+                await self._send(
+                    f"Fenster noch offen: {name}",
+                    (
+                        f"Seit {minutes:.0f} Minuten gelüftet – bei diesen Temperaturen "
+                        f"reichen {limit} Minuten Stoßlüften."
+                    ),
+                    tag,
+                )
+                await self._save()
+
+    # ------------------------------------------------------------------
+    # Heizung beim Lüften absenken und danach wiederherstellen
+    # ------------------------------------------------------------------
+    async def _call(self, domain, service, data):
+        try:
+            await self.hass.services.async_call(domain, service, data, blocking=True)
+            return True
+        except Exception:  # noqa: BLE001 – ein Thermostat offline darf nichts blockieren
+            return False
+
+    async def _check_heating(self):
+        if not self.climates or self.session.get("heating") is not None:
+            return
+        if self.current_duration_seconds < HEATING_DELAY_SECONDS:
+            return
+
+        saved = {}
+        for entity_id in self.climates:
+            state = self.hass.states.get(entity_id)
+            if state is None or state.state in ("off", "unavailable", "unknown"):
+                continue
+            modes = state.attributes.get("hvac_modes") or []
+            if "off" in modes:
+                if await self._call("climate", "set_hvac_mode",
+                                    {"entity_id": entity_id, "hvac_mode": "off"}):
+                    saved[entity_id] = {"mode": state.state}
+            else:
+                target = state.attributes.get("temperature")
+                if target is None:
+                    continue
+                low = state.attributes.get("min_temp", 7)
+                if await self._call("climate", "set_temperature",
+                                    {"entity_id": entity_id, "temperature": low}):
+                    saved[entity_id] = {"temperature": target}
+
+        self.session["heating"] = saved
+        await self._save()
+
+    async def _restore_heating(self, saved):
+        for entity_id, before in (saved or {}).items():
+            if "mode" in before:
+                await self._call("climate", "set_hvac_mode",
+                                 {"entity_id": entity_id, "hvac_mode": before["mode"]})
+            elif "temperature" in before:
+                await self._call("climate", "set_temperature",
+                                 {"entity_id": entity_id, "temperature": before["temperature"]})
 
     # ------------------------------------------------------------------
     # Bester Lüftungszeitpunkt aus der stündlichen Wettervorhersage
@@ -515,7 +731,7 @@ class SmartVentilationCoordinator:
             targets = [legacy] if legacy else []
         return [t for t in targets if isinstance(t, str) and t.startswith("notify.")]
 
-    async def _send(self, title, message, tag):
+    async def _send(self, title, message, tag, actions=None):
         """An alle gewählten Empfänger senden; ein fehlerhafter Dienst stoppt die anderen nicht."""
         sent = False
         for target in self.notify_targets:
@@ -526,7 +742,11 @@ class SmartVentilationCoordinator:
                 await self.hass.services.async_call(
                     "notify",
                     service_name,
-                    {"title": title, "message": message, "data": {"tag": tag}},
+                    {
+                        "title": title,
+                        "message": message,
+                        "data": {"tag": tag, **({"actions": actions} if actions else {})},
+                    },
                     blocking=False,
                 )
                 sent = True
@@ -546,7 +766,7 @@ class SmartVentilationCoordinator:
                 p["short"] += 1
         self.stats["max_seconds"] = max(self.stats.get("max_seconds", 0.0), elapsed)
 
-    async def _finish_session(self):
+    async def _finish_session(self, ended=None):
         if not self.session:
             return
 
@@ -554,20 +774,27 @@ class SmartVentilationCoordinator:
         self.session = None
         self._session_start_diff = None
 
-        elapsed = (dt_util.now() - session["started"]).total_seconds()
+        await self._restore_heating(session.get("heating"))
 
-        # Kurzes Auf/Zu (< 30 s) zählt nicht als Lüftung
-        if elapsed >= 30:
+        elapsed = ((ended or dt_util.now()) - session["started"]).total_seconds()
+        restored = session.get("restored", False)
+
+        # Kurzes Auf/Zu (< 30 s) zählt nicht; nach Neustart nur plausible Dauer zählen
+        if elapsed >= 30 and not (restored and elapsed > DEFAULT_MAX_SESSION):
+            self.session = session  # Startwerte für die Zielprüfung bereitstellen
             reached, _ = self._target_reached_now()
+            self.session = None
             success = (
                 elapsed >= DEFAULT_MIN_SESSION
                 and (session["target_reached"] or reached)
             )
             self._record_stats(elapsed, success)
-            await self._save()
+            self._last_session_end = ended or dt_util.now()
+        await self._save()
         self._notify_listeners()
 
-        if elapsed < DEFAULT_MIN_SESSION or elapsed > DEFAULT_MAX_SESSION:
+        # Über einen Neustart hinweg ist der Feuchteverlauf unbekannt -> nicht lernen
+        if restored or elapsed < DEFAULT_MIN_SESSION or elapsed > DEFAULT_MAX_SESSION:
             return
 
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
@@ -608,7 +835,8 @@ class SmartVentilationCoordinator:
         self.samples += 1
 
         key = self._bucket(
-            session["wind"], session["angle"], session["temp_diff"]
+            session["wind"], session["angle"], session["temp_diff"],
+            session.get("cross", False),
         )
         old = self.models.get(key, {"ach": self.learned_ach, "samples": 0})
         count = int(old.get("samples", 0))
@@ -712,6 +940,17 @@ class SmartVentilationCoordinator:
 
         return True, False, ""
 
+    def in_quiet_hours(self, now=None):
+        now = now or dt_util.now()
+        start = _parse_time(self.data.get(CONF_QUIET_START), DEFAULT_QUIET_START)
+        end = _parse_time(self.data.get(CONF_QUIET_END), DEFAULT_QUIET_END)
+        minute = now.hour * 60 + now.minute
+        if start == end:
+            return False
+        if start < end:
+            return start <= minute < end
+        return minute >= start or minute < end  # über Mitternacht
+
     def _notification_key(self):
         if self.recommended_minutes <= 0:
             return None
@@ -725,7 +964,7 @@ class SmartVentilationCoordinator:
             return
 
         # Nicht erinnern, während bereits gelüftet wird
-        if self.session or _is_on(self.hass, self.data[CONF_WINDOW]):
+        if self.session or self.open_windows():
             return
 
         key = self._notification_key()
@@ -733,13 +972,30 @@ class SmartVentilationCoordinator:
             return
 
         now = dt_util.now()
+        if self.in_quiet_hours(now) or self._skip_date == now.date():
+            return
+        # Direkt nach dem Lüften nicht gleich wieder erinnern
+        if (
+            self._last_session_end is not None
+            and (now - self._last_session_end).total_seconds() < POST_VENT_PAUSE_MINUTES * 60
+        ):
+            return
+
+        snooze_over = False
+        if self._snooze_until is not None:
+            if now < self._snooze_until:
+                return
+            self._snooze_until = None
+            snooze_over = True  # "In 30 Min. erinnern" – Cooldown einmal überspringen
+
         cooldown_s = int(
             self.data.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
         ) * 60
 
         # Cooldown gilt global, nicht nur pro identischer Meldung
         if (
-            self.last_notification_at is not None
+            not snooze_over
+            and self.last_notification_at is not None
             and (now - self.last_notification_at).total_seconds() < cooldown_s
         ):
             return
@@ -752,6 +1008,12 @@ class SmartVentilationCoordinator:
                 f"{self.recommended_minutes} Minuten."
             ),
             f"smart_ventilation_{self.entry.entry_id}",
+            actions=[
+                {"action": f"{ACTION_SNOOZE}{self.entry.entry_id}",
+                 "title": f"In {SNOOZE_MINUTES} Min. erinnern"},
+                {"action": f"{ACTION_SKIP}{self.entry.entry_id}",
+                 "title": "Heute nicht mehr"},
+            ],
         )
         if sent:
             self.last_notification_key = key
@@ -794,7 +1056,8 @@ class SmartVentilationCoordinator:
         sun_active, direct_sun, sun_reason = self._sun_effect()
 
         wind, angle, temp_diff = self._context()
-        effective_ach, bucket = self._model_ach(wind, angle, temp_diff)
+        cross = len(self.windows) >= 2
+        effective_ach, bucket = self._model_ach(wind, angle, temp_diff, cross)
 
         if wind is not None:
             effective_ach *= 1 + min(wind / 60, 0.5)
@@ -822,6 +1085,9 @@ class SmartVentilationCoordinator:
             mode = "Komplett öffnen"
         else:
             mode = "Kippfenster"
+
+        if cross and mode != "Kippfenster":
+            mode = f"{mode} (Querlüften)"
 
         self.recommended_minutes = round(minutes)
         self.recommended_mode = mode

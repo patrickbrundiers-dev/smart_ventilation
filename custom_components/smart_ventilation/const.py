@@ -58,3 +58,22 @@ FORECAST_DAY_END = 22    # ... und nicht ab 22 Uhr
 FORECAST_MIN_GAIN = 1.0  # g/m³ – darunter lohnt sich Lüften kaum
 FORECAST_MAX_RAIN_MM = 0.2
 FORECAST_MAX_RAIN_PROB = 50
+
+# Mehrere Fenster, Warnungen, Ruhezeiten, Heizung
+CONF_COOL_LIMIT = "cool_limit"
+DEFAULT_COOL_LIMIT = 18.0          # °C, 0 = aus
+WINTER_OVERTIME_MINUTES = 5        # Warnung, wenn Winter-Höchstdauer um so viel überschritten
+CONF_QUIET_START = "quiet_start"
+CONF_QUIET_END = "quiet_end"
+DEFAULT_QUIET_START = "22:00:00"
+DEFAULT_QUIET_END = "07:00:00"
+SNOOZE_MINUTES = 30
+ACTION_SNOOZE = "SV_SNOOZE_"
+ACTION_SKIP = "SV_SKIP_"
+CONF_CLIMATES = "climate_entities"
+HEATING_DELAY_SECONDS = 60         # erst nach 1 Min. offen Heizung absenken
+ON_STATES = ("on", "open", "true", "1")
+OFF_STATES = ("off", "closed", "false", "0")
+TARGET_PROGRESS = 0.7              # Ziel auch erreicht, wenn 70 % des Feuchteunterschieds abgebaut
+TARGET_MIN_SECONDS = 60            # frühestens nach 1 Min. "Ziel erreicht"
+POST_VENT_PAUSE_MINUTES = 60       # nach dem Lüften 1 h keine neue Erinnerung

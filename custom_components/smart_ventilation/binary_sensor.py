@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -13,6 +16,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     async_add_entities([
         VentilatedTodaySensor(coordinator),
         VentilationRecommendedSensor(coordinator),
+        CoolingDownSensor(coordinator),
+        QuietHoursSensor(coordinator),
     ])
 
 
@@ -62,3 +67,25 @@ class VentilationRecommendedSensor(BaseBinary):
             "dauer_min": self.coordinator.recommended_minutes,
             "grund_blockiert": self.coordinator.block_reason,
         }
+
+
+class CoolingDownSensor(BaseBinary):
+    """An, wenn bei offenem Fenster die Auskühl-Grenze unterschritten ist."""
+    _attr_device_class = BinarySensorDeviceClass.COLD
+
+    def __init__(self, c): super().__init__(c, "cooling_down", "Raum kühlt aus")
+
+    @property
+    def is_on(self):
+        return self.coordinator.cooling_down
+
+
+class QuietHoursSensor(BaseBinary):
+    """An während der Ruhezeit (keine Lüft-Erinnerungen)."""
+    _attr_icon = "mdi:sleep"
+
+    def __init__(self, c): super().__init__(c, "quiet_hours", "Ruhezeit")
+
+    @property
+    def is_on(self):
+        return self.coordinator.in_quiet_hours()

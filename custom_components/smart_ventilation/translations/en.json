@@ -15,7 +15,7 @@
           "wind_speed": "Wind speed",
           "wind_direction": "Wind direction",
           "rain": "Rain sensor (binary or mm/h)",
-          "window": "Window contact",
+          "window": "Window contact(s) – several for cross ventilation",
           "wind_is_from": "Wind direction means where the wind comes FROM",
           "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
           "use_sun": "Use sun position",
@@ -26,7 +26,11 @@
           "season_mode": "Summer/winter mode",
           "season_threshold": "Auto: winter below this outdoor temperature (°C)",
           "notify_services": "Notify (phones with the Home Assistant app)",
-          "weather_entity": "Weather entity for the best ventilation time (optional)"
+          "weather_entity": "Weather entity for the best ventilation time (optional)",
+          "cool_limit": "Cooling warning below (°C) – 0 = off",
+          "climate_entities": "Lower heating while ventilating (thermostats, optional)",
+          "quiet_start": "Quiet hours from (no reminders)",
+          "quiet_end": "Quiet hours until"
         }
       }
     },
@@ -49,7 +53,7 @@
           "wind_speed": "Wind speed",
           "wind_direction": "Wind direction",
           "rain": "Rain sensor (binary or mm/h)",
-          "window": "Window contact",
+          "window": "Window contact(s) – several for cross ventilation",
           "wind_is_from": "Wind direction means where the wind comes FROM",
           "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
           "use_sun": "Use sun position",
@@ -60,7 +64,11 @@
           "season_mode": "Summer/winter mode",
           "season_threshold": "Auto: winter below this outdoor temperature (°C)",
           "notify_services": "Notify (phones with the Home Assistant app)",
-          "weather_entity": "Weather entity for the best ventilation time (optional)"
+          "weather_entity": "Weather entity for the best ventilation time (optional)",
+          "cool_limit": "Cooling warning below (°C) – 0 = off",
+          "climate_entities": "Lower heating while ventilating (thermostats, optional)",
+          "quiet_start": "Quiet hours from (no reminders)",
+          "quiet_end": "Quiet hours until"
         }
       }
     }
