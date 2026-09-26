@@ -18,7 +18,20 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 - Lüftungsstatistik (heute / Woche / Monat / gesamt) und Tagesziel – ohne eigene Helfer oder Automationen
 - Schimmelrisiko an der kältesten Wandstelle (DIN 4108-2), optional CO₂, Wärmeverlust und Kosten pro Lüftung
 - Übersicht aller Räume mit Sammel-Benachrichtigung, Anwesenheitserkennung, Ruhezeiten
-- Eigene Dashboard-Karte – wird automatisch mitgeliefert
+- Eigene Dashboard-Karte – wird automatisch mitgeliefert, mit Verlaufskurve der letzten Lüftung
+- Bad-Modus nach dem Duschen, Warnung bei offenem Fenster wenn alle weg sind, Urlaubsmodus
+- Sommer: Kühlen per Lüften inkl. Nachtplan aus der Vorhersage, Luftentfeuchter-Steuerung
+- Wochenbericht per Push, Sprachsteuerung („Muss ich lüften?“)
+
+## Sprachsteuerung
+
+Nach der Installation einmal Home Assistant neu starten. Dann versteht Assist u. a.:
+
+- „Muss ich lüften?“
+- „Wo soll ich lüften?“
+- „Wie ist die Lüftungsempfehlung?“
+
+Die Sätze liegen in `/config/custom_sentences/de/smart_ventilation.yaml` und können dort ergänzt werden (die Datei wird nie überschrieben). Für Automationen gibt es den Dienst `smart_ventilation.status`, der den gleichen Text zurückgibt.
 
 ## Entitäten (Beispiel Raum „Wohnzimmer“)
 
@@ -93,6 +106,17 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.1.0
+
+- **Bad-Modus**: Nach dem Duschen (Dusch-Sensor oder erkannt am starken Feuchteanstieg) sofort Lüft-Hinweis – auch in der Ruhezeit. Ist nach 30 Minuten nicht gelüftet und noch feucht, kommt eine Erinnerung.
+- **Alle weg, Fenster offen**: Push, sobald die letzte Person das Haus verlässt und noch ein Fenster offen ist.
+- **Urlaubsmodus** über Kalender (optional mit Stichwort), Schalter oder Binärsensor: keine Erinnerungen, aber täglich höchstens eine Warnung bei hohem Schimmelrisiko.
+- **Sommer: Kühlen per Lüften**: Empfehlung, wenn es drinnen wärmer als die Wohlfühltemperatur (Standard 23 °C) und draußen mind. 2 °C kühler ist. Nachtplan aus der Vorhersage („Heute ab 22:00 bis 07:00 Uhr“). Hinweis zum Schließen, sobald es draußen wärmer wird.
+- **Luftentfeuchter**: Wird eingeschaltet, wenn es feucht ist (ab 60 %) und gerade nicht gelüftet werden kann (Regen, Hitze, Ruhezeit, Urlaub, niemand da); aus bei 55 %, offenem Fenster oder wenn kein Bedarf mehr – frühestens nach 15 Minuten.
+- **Wochenbericht** sonntags um 19 Uhr – pro Raum oder gesammelt über die Übersicht.
+- **Verlaufskurve** der laufenden bzw. letzten Lüftung in der Dashboard-Karte.
+- **Sprachsteuerung** über Assist und Dienst `smart_ventilation.status`.
 
 ### Version 2.0.0
 
