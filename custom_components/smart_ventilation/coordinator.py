@@ -193,8 +193,9 @@ class SmartVentilationCoordinator:
         self._remove_listener = async_track_state_change_event(
             self.hass, entities, self._state_changed
         )
+        # Reihenfolge laut HA-API: (hass, action, interval)
         self._feedback_remove = async_track_time_interval(
-            self.hass, timedelta(seconds=30), self._feedback_tick
+            self.hass, self._feedback_tick, timedelta(seconds=30)
         )
         self._update_recommendation()
 

@@ -65,6 +65,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 1.6.1
+
+- Fix: Integration startete nicht (`async_track_time_interval` mit vertauschten Argumenten, Fehler aus dem Original-Code)
+
 ### Version 1.6.0
 
 - Statistik-Sensoren für heute, Woche, Monat, gesamt, aktuelle und längste Lüftung

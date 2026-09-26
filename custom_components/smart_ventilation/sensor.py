@@ -57,7 +57,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="1.6.0",
+            sw_version="1.6.1",
         )
 
     async def async_added_to_hass(self):
