@@ -71,7 +71,13 @@ def _req(key, value):
 
 
 def _opt(key, value):
-    """Optionales Feld – Vorschlag statt Default, damit es sich leeren lässt."""
+    """Optionales Feld – Vorschlag statt Default, damit es sich leeren lässt.
+
+    Leere Werte ("" oder []) NICHT vorschlagen: das Frontend würde sie sonst mitschicken,
+    und HA lehnt z. B. eine leere Entität beim Speichern ab.
+    """
+    if value in (None, "", []):
+        return vol.Optional(key)
     return vol.Optional(key, description={"suggested_value": value})
 
 

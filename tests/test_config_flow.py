@@ -106,3 +106,36 @@ async def test_options_clear_optional_field(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     assert entry.options["climate_entities"] == []
+
+
+def _frontend_input(schema) -> dict:
+    """Formular so befüllen wie die HA-Oberfläche: Defaults und vorgeschlagene Werte übernehmen."""
+    result = {}
+    for marker, value in schema.schema.items():
+        inner = getattr(value, "schema", None)
+        if inner is not None and hasattr(inner, "schema"):   # Bereich (section)
+            result[str(marker)] = _frontend_input(inner)
+            continue
+        default = getattr(marker, "default", None)
+        if callable(default):
+            default = default()
+        if default is not None and not (type(default).__name__ == "Undefined"):
+            result[str(marker)] = default
+            continue
+        suggested = (getattr(marker, "description", None) or {}).get("suggested_value")
+        if suggested is not None:
+            result[str(marker)] = suggested
+    return result
+
+
+async def test_options_save_unchanged_like_frontend(hass: HomeAssistant) -> None:
+    """Regression 2.1.1: leere optionale Felder (CO₂-Sensor "") ließen das Speichern scheitern."""
+    entry = await setup_room(hass, co2_sensor="", weather_entity="", vacation_entity="")
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    user_input = _frontend_input(result["data_schema"])
+    assert "co2_sensor" not in user_input["indoor"]
+    result = await hass.config_entries.options.async_configure(result["flow_id"], user_input)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.options["co2_sensor"] == ""
+    assert entry.options["window"] == ["binary_sensor.fenster_1", "binary_sensor.fenster_2"]

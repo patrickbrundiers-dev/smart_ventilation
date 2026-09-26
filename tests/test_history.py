@@ -35,7 +35,7 @@ async def test_critical_wall_minutes_are_counted(hass: HomeAssistant, freezer: F
 
 
 async def test_three_critical_days_warn_once(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
-    freezer.move_to("2026-12-05 23:00:00+01:00")      # Ruhezeit
+    freezer.move_to("2026-12-05 06:30:00+01:00")      # Ruhezeit (bis 7 Uhr)
     pushes = async_mock_service(hass, "notify", "mobile_app_test")
     entry = await setup_room(hass)
     room = hass.data[DOMAIN][entry.entry_id]
@@ -44,8 +44,7 @@ async def test_three_critical_days_warn_once(hass: HomeAssistant, freezer: Froze
     await _tick(hass, freezer, 1)
     assert not _titles(pushes, "Schimmelgefahr")       # nicht in der Ruhezeit
 
-    freezer.move_to("2026-12-05 08:00:00+01:00")
-    room.mold_log["2026-12-04"] = 420
+    freezer.move_to("2026-12-05 08:00:00+01:00")      # nach der Ruhezeit nachholen
     await _tick(hass, freezer, 1)
     await _tick(hass, freezer, 1)
     warnings = _titles(pushes, "Schimmelgefahr")
