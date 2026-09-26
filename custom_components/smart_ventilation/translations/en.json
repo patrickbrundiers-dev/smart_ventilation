@@ -1,74 +1,160 @@
 {
   "config": {
     "step": {
-      "user": {
-        "title": "Smart Ventilation – set up room",
-        "description": "One entry per room.",
+      "sensors": {
+        "title": "Sensors & room",
+        "description": "Which sensors belong to this room?",
         "data": {
           "name": "Room name",
-          "volume": "Room volume (m³)",
-          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)",
+          "window": "Window contact(s) – several for cross ventilation",
           "indoor_absolute_humidity": "Indoor absolute humidity (g/m³)",
-          "outdoor_absolute_humidity": "Outdoor absolute humidity (g/m³)",
           "indoor_temperature": "Indoor temperature",
+          "outdoor_absolute_humidity": "Outdoor absolute humidity (g/m³)",
           "outdoor_temperature": "Outdoor temperature",
           "wind_speed": "Wind speed",
           "wind_direction": "Wind direction",
-          "rain": "Rain sensor (binary or mm/h)",
-          "window": "Window contact(s) – several for cross ventilation",
           "wind_is_from": "Wind direction means where the wind comes FROM",
-          "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
-          "use_sun": "Use sun position",
-          "min_sun_elevation": "Min. sun elevation for direct sun (°)",
-          "sun_entity": "Sun entity",
-          "notification_cooldown": "Minimum time between notifications (minutes)",
+          "rain": "Rain sensor (binary or mm/h)",
+          "co2_sensor": "CO₂ sensor (optional)",
+          "weather_entity": "Weather entity for best time (optional)",
+          "volume": "Room volume (m³)",
+          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)"
+        }
+      },
+      "behavior": {
+        "title": "Behaviour",
+        "description": "When and how should the room be ventilated?",
+        "data": {
           "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)",
           "season_mode": "Summer/winter mode",
           "season_threshold": "Auto: winter below this outdoor temperature (°C)",
-          "notify_services": "Notify (phones with the Home Assistant app)",
-          "weather_entity": "Weather entity for the best ventilation time (optional)",
+          "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
+          "building_standard": "Wall insulation standard (for mould risk)",
           "cool_limit": "Cooling warning below (°C) – 0 = off",
-          "climate_entities": "Lower heating while ventilating (thermostats, optional)",
-          "quiet_start": "Quiet hours from (no reminders)",
+          "use_sun": "Use sun position",
+          "min_sun_elevation": "Min. sun elevation for direct sun (°)",
+          "sun_entity": "Sun entity"
+        }
+      },
+      "notify": {
+        "title": "Notifications",
+        "description": "Who should be notified and when?",
+        "data": {
+          "notify_services": "Notify (phones with the Home Assistant app)",
+          "persons": "People (notify only those at home, reminder on arrival)",
+          "notification_cooldown": "Minimum time between reminders (minutes)",
+          "quiet_start": "Quiet hours from",
           "quiet_end": "Quiet hours until"
+        }
+      },
+      "heating": {
+        "title": "Heating & energy",
+        "description": "Optional: lower heating while ventilating and estimate costs.",
+        "data": {
+          "climate_entities": "Lower heating while ventilating (thermostats, optional)",
+          "energy_price": "Heat price for cost estimate (€/kWh)"
+        }
+      },
+      "overview": {
+        "title": "Overview of all rooms",
+        "description": "Shows the most urgent room and combines reminders into one notification.",
+        "data": {
+          "combine_notifications": "One combined notification instead of per room",
+          "notify_services": "Notify (phones with the Home Assistant app)",
+          "persons": "People (notify only those at home, reminder on arrival)",
+          "notification_cooldown": "Minimum time between reminders (minutes)",
+          "quiet_start": "Quiet hours from",
+          "quiet_end": "Quiet hours until"
+        }
+      },
+      "user": {
+        "title": "Smart Ventilation",
+        "description": "What would you like to set up?",
+        "menu_options": {
+          "sensors": "Add a room",
+          "overview": "Overview of all rooms"
         }
       }
     },
     "abort": {
-      "already_configured": "This room is already configured."
+      "already_configured": "This is already configured."
     }
   },
   "options": {
     "step": {
-      "init": {
-        "title": "Change settings",
-        "description": "Learned values are kept.",
+      "sensors": {
+        "title": "Sensors & room",
+        "description": "Which sensors belong to this room?",
         "data": {
-          "volume": "Room volume (m³)",
-          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)",
+          "window": "Window contact(s) – several for cross ventilation",
           "indoor_absolute_humidity": "Indoor absolute humidity (g/m³)",
-          "outdoor_absolute_humidity": "Outdoor absolute humidity (g/m³)",
           "indoor_temperature": "Indoor temperature",
+          "outdoor_absolute_humidity": "Outdoor absolute humidity (g/m³)",
           "outdoor_temperature": "Outdoor temperature",
           "wind_speed": "Wind speed",
           "wind_direction": "Wind direction",
-          "rain": "Rain sensor (binary or mm/h)",
-          "window": "Window contact(s) – several for cross ventilation",
           "wind_is_from": "Wind direction means where the wind comes FROM",
-          "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
-          "use_sun": "Use sun position",
-          "min_sun_elevation": "Min. sun elevation for direct sun (°)",
-          "sun_entity": "Sun entity",
-          "notification_cooldown": "Minimum time between notifications (minutes)",
+          "rain": "Rain sensor (binary or mm/h)",
+          "co2_sensor": "CO₂ sensor (optional)",
+          "weather_entity": "Weather entity for best time (optional)",
+          "volume": "Room volume (m³)",
+          "window_direction": "Window orientation (° – 0=N, 90=E, 180=S, 270=W)"
+        }
+      },
+      "behavior": {
+        "title": "Behaviour",
+        "description": "When and how should the room be ventilated?",
+        "data": {
           "target_absolute_humidity": "Daily target: max. indoor absolute humidity (g/m³)",
           "season_mode": "Summer/winter mode",
           "season_threshold": "Auto: winter below this outdoor temperature (°C)",
-          "notify_services": "Notify (phones with the Home Assistant app)",
-          "weather_entity": "Weather entity for the best ventilation time (optional)",
+          "max_temperature_difference": "Summer: do not ventilate if outside is warmer by more than … °C",
+          "building_standard": "Wall insulation standard (for mould risk)",
           "cool_limit": "Cooling warning below (°C) – 0 = off",
-          "climate_entities": "Lower heating while ventilating (thermostats, optional)",
-          "quiet_start": "Quiet hours from (no reminders)",
+          "use_sun": "Use sun position",
+          "min_sun_elevation": "Min. sun elevation for direct sun (°)",
+          "sun_entity": "Sun entity"
+        }
+      },
+      "notify": {
+        "title": "Notifications",
+        "description": "Who should be notified and when?",
+        "data": {
+          "notify_services": "Notify (phones with the Home Assistant app)",
+          "persons": "People (notify only those at home, reminder on arrival)",
+          "notification_cooldown": "Minimum time between reminders (minutes)",
+          "quiet_start": "Quiet hours from",
           "quiet_end": "Quiet hours until"
+        }
+      },
+      "heating": {
+        "title": "Heating & energy",
+        "description": "Optional: lower heating while ventilating and estimate costs.",
+        "data": {
+          "climate_entities": "Lower heating while ventilating (thermostats, optional)",
+          "energy_price": "Heat price for cost estimate (€/kWh)"
+        }
+      },
+      "overview": {
+        "title": "Overview of all rooms",
+        "description": "Shows the most urgent room and combines reminders into one notification.",
+        "data": {
+          "combine_notifications": "One combined notification instead of per room",
+          "notify_services": "Notify (phones with the Home Assistant app)",
+          "persons": "People (notify only those at home, reminder on arrival)",
+          "notification_cooldown": "Minimum time between reminders (minutes)",
+          "quiet_start": "Quiet hours from",
+          "quiet_end": "Quiet hours until"
+        }
+      },
+      "init": {
+        "title": "Settings",
+        "description": "Which section do you want to change? Learned values are kept.",
+        "menu_options": {
+          "sensors": "Sensors & room",
+          "behavior": "Behaviour",
+          "notify": "Notifications",
+          "heating": "Heating & energy"
         }
       }
     }
@@ -80,6 +166,20 @@
         "summer": "Summer",
         "winter": "Winter"
       }
+    },
+    "building_standard": {
+      "options": {
+        "old": "Old building, uninsulated",
+        "average": "1960s–1990s",
+        "insulated": "Insulated (approx. 2000+)",
+        "passive": "New build / passive house"
+      }
+    }
+  },
+  "issues": {
+    "sensor_unavailable": {
+      "title": "Smart Ventilation: sensor missing ({room})",
+      "description": "The sensor **{role}** (`{entity}`) in **{room}** has not reported values for at least {minutes} minutes. Without it the ventilation recommendation cannot be calculated.\n\nCheck whether the device is reachable (battery, radio) or pick another sensor under *Devices & services → Smart Ventilation → Configure*. This notice disappears automatically once values arrive again."
     }
   }
 }

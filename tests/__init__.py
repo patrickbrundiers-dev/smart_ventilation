@@ -1,0 +1,1 @@
+"""Tests für Smart Ventilation."""

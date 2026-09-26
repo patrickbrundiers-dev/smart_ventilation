@@ -77,3 +77,37 @@ OFF_STATES = ("off", "closed", "false", "0")
 TARGET_PROGRESS = 0.7              # Ziel auch erreicht, wenn 70 % des Feuchteunterschieds abgebaut
 TARGET_MIN_SECONDS = 60            # frühestens nach 1 Min. "Ziel erreicht"
 POST_VENT_PAUSE_MINUTES = 60       # nach dem Lüften 1 h keine neue Erinnerung
+
+# Schimmelrisiko an der Wand (DIN 4108-2: 80 % rel. Feuchte an der Oberfläche)
+CONF_BUILDING = "building_standard"
+DEFAULT_BUILDING = "average"
+U_VALUES = {           # W/(m²K) Außenwand
+    "old": 1.4,        # Altbau ungedämmt
+    "average": 1.0,    # 60er–90er Jahre
+    "insulated": 0.35, # gedämmt / ab ca. 2000
+    "passive": 0.15,   # Neubau / Passivhaus
+}
+RSI_CORNER = 0.35      # m²K/W – Außenecke / hinter Möbeln (ungünstigste Stelle)
+MOLD_RH_HIGH = 80.0
+MOLD_RH_ELEVATED = 70.0
+
+# CO₂ (optional)
+CONF_CO2 = "co2_sensor"
+CO2_OUTDOOR = 420
+CO2_TARGET = 800
+CO2_ELEVATED = 1000
+CO2_HIGH = 1400
+
+# Wärmeverlust / Kosten
+CONF_ENERGY_PRICE = "energy_price"
+DEFAULT_ENERGY_PRICE = 0.12            # €/kWh
+AIR_HEAT_CAPACITY_WH = 0.34            # Wh/(m³·K)
+
+# Anwesenheit & Übersicht
+CONF_PERSONS = "persons"
+CONF_ENTRY_TYPE = "entry_type"
+ENTRY_TYPE_ROOM = "room"
+ENTRY_TYPE_OVERVIEW = "overview"
+CONF_COMBINE = "combine_notifications"
+VERSION = "2.0.0"
+ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt

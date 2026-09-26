@@ -15,6 +15,12 @@ from .coordinator import SmartVentilationCoordinator
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
+    if getattr(coordinator, "is_overview", False):
+        async_add_entities([
+            MostUrgentRoomSensor(coordinator),
+            RoomsNeedingSensor(coordinator),
+        ])
+        return
     async_add_entities([
         RecommendationSensor(coordinator),
         MinutesSensor(coordinator),
@@ -41,6 +47,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         MaxDurationSensor(coordinator),
         SeasonSensor(coordinator),
         BestTimeSensor(coordinator),
+        WallTemperatureSensor(coordinator),
+        WallHumiditySensor(coordinator),
+        AirQualitySensor(coordinator),
+        HeatLossTodaySensor(coordinator),
+        CostMonthSensor(coordinator),
     ])
 
 
@@ -59,7 +70,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="1.9.0",
+            sw_version="2.0.0",
         )
 
     async def async_added_to_hass(self):
@@ -84,9 +95,20 @@ class BaseSensor(SensorEntity):
 
 
 class RecommendationSensor(BaseSensor):
+    # Kartendaten nicht in der Datenbank speichern
+    _unrecorded_attributes = frozenset({"karte"})
+
     def __init__(self, c): super().__init__(c, "recommendation", "Empfehlung")
     @property
     def native_value(self): return self.coordinator.recommendation
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            **super().extra_state_attributes,
+            "grund": self.coordinator.recommend_reason,
+            "karte": self.coordinator.card_data(),
+        }
 
 
 class MinutesSensor(BaseSensor):
@@ -215,14 +237,7 @@ class VentilationProgressSensor(BaseSensor):
 
     @property
     def native_value(self):
-        if not self.coordinator.session:
-            return 0
-        initial = self.coordinator.session.get("initial_diff")
-        current = self.coordinator.humidity_difference
-        if initial is None or current is None or initial <= 0:
-            return 0
-        progress = (1 - current / initial) * 100
-        return round(max(0, min(100, progress)))
+        return self.coordinator.progress
 
     @property
     def native_unit_of_measurement(self):
@@ -300,6 +315,8 @@ class PeriodSensor(BaseSensor):
             "ohne_ziel": st["short"],
             "dauer_gesamt_min": st["minutes"],
             "dauer_durchschnitt_min": st["avg_minutes"],
+            "waermeverlust_kwh": st["kwh"],
+            "kosten_eur": st["cost"],
         }
 
 
@@ -361,3 +378,118 @@ class BestTimeSensor(BaseSensor):
     def extra_state_attributes(self):
         info = {k: v for k, v in self.coordinator.best_info.items() if k != "ok"}
         return {"text": self.coordinator.best_reason, **info}
+
+
+class WallTemperatureSensor(BaseSensor):
+    """Geschätzte Temperatur an der kältesten Wandstelle (Außenecke, hinter Möbeln)."""
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:wall"
+
+    def __init__(self, c): super().__init__(c, "wall_temperature", "Wandtemperatur (geschätzt)")
+    @property
+    def native_value(self):
+        v = self.coordinator.wall_temperature
+        return round(v, 1) if v is not None else None
+    @property
+    def native_unit_of_measurement(self): return "°C"
+
+
+class WallHumiditySensor(BaseSensor):
+    """Relative Feuchte an der kalten Wand – ab 80 % droht Schimmel (DIN 4108-2)."""
+    _attr_device_class = SensorDeviceClass.HUMIDITY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, c): super().__init__(c, "wall_humidity", "Feuchte an der Wand")
+    @property
+    def native_value(self):
+        v = self.coordinator.wall_rh
+        return round(v, 1) if v is not None else None
+    @property
+    def native_unit_of_measurement(self): return "%"
+
+
+class AirQualitySensor(BaseSensor):
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["gut", "mäßig", "schlecht"]
+    _attr_icon = "mdi:molecule-co2"
+
+    def __init__(self, c): super().__init__(c, "air_quality", "Luftqualität")
+    @property
+    def available(self): return bool(self.coordinator.data.get("co2_sensor"))
+    @property
+    def native_value(self): return self.coordinator.air_quality
+
+
+class HeatLossTodaySensor(BaseSensor):
+    """Geschätzter Wärmeverlust durch Lüften heute."""
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_icon = "mdi:fire-alert"
+
+    def __init__(self, c): super().__init__(c, "heat_loss_today", "Wärmeverlust Lüften heute")
+    @property
+    def native_value(self): return self.coordinator.period_stats("day")["kwh"]
+    @property
+    def native_unit_of_measurement(self): return "kWh"
+
+
+class CostMonthSensor(BaseSensor):
+    """Geschätzte Heizkosten durch Lüften im laufenden Monat."""
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_icon = "mdi:currency-eur"
+
+    def __init__(self, c): super().__init__(c, "cost_month", "Lüftungskosten Monat")
+    @property
+    def native_value(self): return self.coordinator.period_stats("month")["cost"]
+    @property
+    def native_unit_of_measurement(self): return "EUR"
+
+
+# ----------------------------------------------------------------------
+# Übersicht über alle Räume
+# ----------------------------------------------------------------------
+class OverviewBase(SensorEntity):
+    _attr_should_poll = False
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, key, name):
+        self.coordinator = coordinator
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
+        self._attr_name = name
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.entry.entry_id)},
+            name=coordinator.data.get("name", "Lüften Übersicht"),
+            manufacturer="Custom",
+            model="Adaptive Ventilation – Übersicht",
+            sw_version="2.0.0",
+        )
+
+    async def async_added_to_hass(self):
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
+
+    @property
+    def extra_state_attributes(self):
+        return {"raeume": self.coordinator.room_list()}
+
+
+class MostUrgentRoomSensor(OverviewBase):
+    _attr_icon = "mdi:home-alert-outline"
+
+    def __init__(self, c): super().__init__(c, "most_urgent", "Dringendster Raum")
+    @property
+    def native_value(self): return self.coordinator.most_urgent
+
+
+class RoomsNeedingSensor(OverviewBase):
+    _attr_icon = "mdi:window-open-variant"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, c): super().__init__(c, "rooms_needing", "Räume mit Lüftungsbedarf")
+    @property
+    def native_value(self): return len(self.coordinator.rooms_needing())
+    @property
+    def native_unit_of_measurement(self): return "Räume"

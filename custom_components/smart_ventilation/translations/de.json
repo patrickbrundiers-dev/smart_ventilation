@@ -1,74 +1,160 @@
 {
   "config": {
     "step": {
-      "user": {
-        "title": "Smart Ventilation – Raum einrichten",
-        "description": "Ein Eintrag pro Raum.",
+      "sensors": {
+        "title": "Sensoren & Raum",
+        "description": "Welche Sensoren gehören zu diesem Raum?",
         "data": {
           "name": "Raumname",
-          "volume": "Raumvolumen (m³)",
-          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)",
+          "window": "Fensterkontakt(e) – mehrere für Querlüften",
           "indoor_absolute_humidity": "Absolute Feuchte innen (g/m³)",
-          "outdoor_absolute_humidity": "Absolute Feuchte außen (g/m³)",
           "indoor_temperature": "Temperatur innen",
+          "outdoor_absolute_humidity": "Absolute Feuchte außen (g/m³)",
           "outdoor_temperature": "Temperatur außen",
           "wind_speed": "Windgeschwindigkeit",
           "wind_direction": "Windrichtung",
-          "rain": "Regensensor (Binär oder mm/h)",
-          "window": "Fensterkontakt(e) – mehrere für Querlüften",
           "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
-          "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
-          "use_sun": "Sonnenstand berücksichtigen",
-          "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
-          "sun_entity": "Sonnen-Entität",
-          "notification_cooldown": "Mindestabstand zwischen Benachrichtigungen (Minuten)",
+          "rain": "Regensensor (Binär oder mm/h)",
+          "co2_sensor": "CO₂-Sensor (optional)",
+          "weather_entity": "Wetter-Entität für den besten Zeitpunkt (optional)",
+          "volume": "Raumvolumen (m³)",
+          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)"
+        }
+      },
+      "behavior": {
+        "title": "Verhalten",
+        "description": "Wann und wie soll gelüftet werden?",
+        "data": {
           "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)",
           "season_mode": "Sommer/Winter-Modus",
           "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
-          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
-          "weather_entity": "Wetter-Entität für den besten Lüftungszeitpunkt (optional)",
+          "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
+          "building_standard": "Dämmstandard der Außenwände (für Schimmelrisiko)",
           "cool_limit": "Auskühl-Warnung unter (°C) – 0 = aus",
-          "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
-          "quiet_start": "Ruhezeit ab (keine Lüft-Erinnerungen)",
+          "use_sun": "Sonnenstand berücksichtigen",
+          "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
+          "sun_entity": "Sonnen-Entität"
+        }
+      },
+      "notify": {
+        "title": "Benachrichtigungen",
+        "description": "Wer soll wann benachrichtigt werden?",
+        "data": {
+          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
+          "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
+          "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
+          "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
           "quiet_end": "Ruhezeit bis"
+        }
+      },
+      "heating": {
+        "title": "Heizung & Energie",
+        "description": "Optional: Heizung beim Lüften absenken und Kosten schätzen.",
+        "data": {
+          "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
+          "energy_price": "Wärmepreis für Kostenschätzung (€/kWh)"
+        }
+      },
+      "overview": {
+        "title": "Übersicht aller Räume",
+        "description": "Zeigt den dringendsten Raum und fasst Erinnerungen aller Räume in einer Nachricht zusammen.",
+        "data": {
+          "combine_notifications": "Sammel-Benachrichtigung statt einzelner Raum-Meldungen",
+          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
+          "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
+          "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
+          "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
+          "quiet_end": "Ruhezeit bis"
+        }
+      },
+      "user": {
+        "title": "Smart Ventilation",
+        "description": "Was möchtest du einrichten?",
+        "menu_options": {
+          "sensors": "Raum hinzufügen",
+          "overview": "Übersicht aller Räume"
         }
       }
     },
     "abort": {
-      "already_configured": "Dieser Raum ist bereits eingerichtet."
+      "already_configured": "Dies ist bereits eingerichtet."
     }
   },
   "options": {
     "step": {
-      "init": {
-        "title": "Einstellungen ändern",
-        "description": "Gelernte Werte bleiben erhalten.",
+      "sensors": {
+        "title": "Sensoren & Raum",
+        "description": "Welche Sensoren gehören zu diesem Raum?",
         "data": {
-          "volume": "Raumvolumen (m³)",
-          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)",
+          "window": "Fensterkontakt(e) – mehrere für Querlüften",
           "indoor_absolute_humidity": "Absolute Feuchte innen (g/m³)",
-          "outdoor_absolute_humidity": "Absolute Feuchte außen (g/m³)",
           "indoor_temperature": "Temperatur innen",
+          "outdoor_absolute_humidity": "Absolute Feuchte außen (g/m³)",
           "outdoor_temperature": "Temperatur außen",
           "wind_speed": "Windgeschwindigkeit",
           "wind_direction": "Windrichtung",
-          "rain": "Regensensor (Binär oder mm/h)",
-          "window": "Fensterkontakt(e) – mehrere für Querlüften",
           "wind_is_from": "Windrichtung gibt an, WOHER der Wind kommt",
-          "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
-          "use_sun": "Sonnenstand berücksichtigen",
-          "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
-          "sun_entity": "Sonnen-Entität",
-          "notification_cooldown": "Mindestabstand zwischen Benachrichtigungen (Minuten)",
+          "rain": "Regensensor (Binär oder mm/h)",
+          "co2_sensor": "CO₂-Sensor (optional)",
+          "weather_entity": "Wetter-Entität für den besten Zeitpunkt (optional)",
+          "volume": "Raumvolumen (m³)",
+          "window_direction": "Fensterausrichtung (° – 0=Nord, 90=Ost, 180=Süd, 270=West)"
+        }
+      },
+      "behavior": {
+        "title": "Verhalten",
+        "description": "Wann und wie soll gelüftet werden?",
+        "data": {
           "target_absolute_humidity": "Tagesziel: absolute Feuchte innen höchstens (g/m³)",
           "season_mode": "Sommer/Winter-Modus",
           "season_threshold": "Automatik: Winter unter dieser Außentemperatur (°C)",
-          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
-          "weather_entity": "Wetter-Entität für den besten Lüftungszeitpunkt (optional)",
+          "max_temperature_difference": "Sommer: nicht lüften, wenn es draußen um mehr als … °C wärmer ist",
+          "building_standard": "Dämmstandard der Außenwände (für Schimmelrisiko)",
           "cool_limit": "Auskühl-Warnung unter (°C) – 0 = aus",
-          "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
-          "quiet_start": "Ruhezeit ab (keine Lüft-Erinnerungen)",
+          "use_sun": "Sonnenstand berücksichtigen",
+          "min_sun_elevation": "Min. Sonnenhöhe für direkte Sonne (°)",
+          "sun_entity": "Sonnen-Entität"
+        }
+      },
+      "notify": {
+        "title": "Benachrichtigungen",
+        "description": "Wer soll wann benachrichtigt werden?",
+        "data": {
+          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
+          "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
+          "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
+          "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
           "quiet_end": "Ruhezeit bis"
+        }
+      },
+      "heating": {
+        "title": "Heizung & Energie",
+        "description": "Optional: Heizung beim Lüften absenken und Kosten schätzen.",
+        "data": {
+          "climate_entities": "Heizung beim Lüften absenken (Thermostate, optional)",
+          "energy_price": "Wärmepreis für Kostenschätzung (€/kWh)"
+        }
+      },
+      "overview": {
+        "title": "Übersicht aller Räume",
+        "description": "Zeigt den dringendsten Raum und fasst Erinnerungen aller Räume in einer Nachricht zusammen.",
+        "data": {
+          "combine_notifications": "Sammel-Benachrichtigung statt einzelner Raum-Meldungen",
+          "notify_services": "Benachrichtigen (Handys mit Home-Assistant-App)",
+          "persons": "Personen (nur Anwesende benachrichtigen, Hinweis beim Heimkommen)",
+          "notification_cooldown": "Mindestabstand zwischen Erinnerungen (Minuten)",
+          "quiet_start": "Ruhezeit ab (keine Erinnerungen)",
+          "quiet_end": "Ruhezeit bis"
+        }
+      },
+      "init": {
+        "title": "Einstellungen",
+        "description": "Welchen Bereich möchtest du ändern? Gelernte Werte bleiben erhalten.",
+        "menu_options": {
+          "sensors": "Sensoren & Raum",
+          "behavior": "Verhalten",
+          "notify": "Benachrichtigungen",
+          "heating": "Heizung & Energie"
         }
       }
     }
@@ -80,6 +166,20 @@
         "summer": "Sommer",
         "winter": "Winter"
       }
+    },
+    "building_standard": {
+      "options": {
+        "old": "Altbau, ungedämmt",
+        "average": "60er–90er Jahre",
+        "insulated": "Gedämmt (ab ca. 2000)",
+        "passive": "Neubau / Passivhaus"
+      }
+    }
+  },
+  "issues": {
+    "sensor_unavailable": {
+      "title": "Smart Ventilation: Sensor fehlt ({room})",
+      "description": "Der Sensor **{role}** (`{entity}`) im Raum **{room}** liefert seit mindestens {minutes} Minuten keine Werte. Ohne ihn kann die Lüftungsempfehlung nicht berechnet werden.\n\nPrüfe, ob das Gerät erreichbar ist (Batterie, Funk), oder wähle unter *Geräte & Dienste → Smart Ventilation → Konfigurieren* einen anderen Sensor. Der Hinweis verschwindet automatisch, sobald wieder Werte kommen."
     }
   }
 }

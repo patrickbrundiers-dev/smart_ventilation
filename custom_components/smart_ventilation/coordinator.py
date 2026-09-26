@@ -6,10 +6,12 @@ from datetime import datetime, timedelta
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import *
+from . import notify_util
 
 
 def _float_state(hass, entity_id):
@@ -30,13 +32,7 @@ def _is_on(hass, entity_id):
     return state is not None and state.state in ON_STATES
 
 
-def _parse_time(value, fallback):
-    """'22:00' oder '22:00:00' -> Minuten seit Mitternacht."""
-    try:
-        parts = str(value or fallback).split(":")
-        return int(parts[0]) * 60 + int(parts[1])
-    except (ValueError, IndexError):
-        return _parse_time(fallback, "00:00")
+
 
 
 def _is_raining(hass, entity_id):
@@ -124,6 +120,7 @@ class SmartVentilationCoordinator:
         self.recommendation = "Keine Lüftung erforderlich"
         self.recommended_minutes = 0
         self.recommended_mode = "Keine Lüftung"
+        self.recommend_reason = ""
         self.block_reason = ""
         self.last_notification_key = None
         self.last_notification_at = None
@@ -138,6 +135,7 @@ class SmartVentilationCoordinator:
         self._snooze_until = None
         self._skip_date = None
         self._last_session_end = None
+        self._unavailable_since = {}
 
     # ------------------------------------------------------------------
     # Statistik
@@ -176,7 +174,13 @@ class SmartVentilationCoordinator:
             "short": p["short"],
             "minutes": round(p["seconds"] / 60, 1),
             "avg_minutes": round(p["seconds"] / count / 60, 1) if count else 0.0,
+            "kwh": round(p.get("kwh", 0.0), 2),
+            "cost": round(p.get("kwh", 0.0) * self.energy_price, 2),
         }
+
+    @property
+    def energy_price(self):
+        return float(self.data.get(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE))
 
     @property
     def ventilated_today(self):
@@ -278,6 +282,9 @@ class SmartVentilationCoordinator:
         ]
         if self.data.get(CONF_USE_SUN, True):
             entities.append(self.data.get(CONF_SUN_ENTITY, DEFAULT_SUN_ENTITY))
+        if self.data.get(CONF_CO2):
+            entities.append(self.data[CONF_CO2])
+        entities.extend(self.persons)
 
         self._remove_listener = async_track_state_change_event(
             self.hass, entities, self._state_changed
@@ -316,6 +323,7 @@ class SmartVentilationCoordinator:
         if self._action_remove:
             self._action_remove()
             self._action_remove = None
+        self._clear_issues()
 
     async def _resume_session(self):
         """Nach Neustart: Fenster noch offen -> weiterlaufen; sicher zu -> abschließen."""
@@ -342,6 +350,11 @@ class SmartVentilationCoordinator:
     def _state_changed(self, event):
         entity_id = event.data["entity_id"]
         new_state = event.data.get("new_state")
+
+        if entity_id in self.persons and new_state is not None:
+            old_state = event.data.get("old_state")
+            if new_state.state == "home" and (old_state is None or old_state.state != "home"):
+                self.hass.async_create_task(self._welcome_home(entity_id))
 
         if entity_id in self.windows and new_state is not None:
             old_state = event.data.get("old_state")
@@ -438,6 +451,8 @@ class SmartVentilationCoordinator:
             "started": dt_util.now(),
             "initial_diff": diff,
             "initial_indoor": indoor,
+            "initial_co2": self.co2,
+            "dT": self._signed_temp_diff(),
             "wind": wind,
             "angle": angle,
             "temp_diff": temp_diff,
@@ -475,9 +490,19 @@ class SmartVentilationCoordinator:
         # 3) Großteil des Unterschieds abgebaut (wichtig im Winter, wo außen sehr trocken ist)
         if start_diff and start_diff > 0 and current_diff <= start_diff * (1 - TARGET_PROGRESS):
             return True, current_diff
+        # 4) Lüftung wegen CO₂ gestartet und Luft wieder gut
+        co2 = self.co2
+        start_co2 = session.get("initial_co2")
+        if (
+            start_co2 is not None and start_co2 >= CO2_ELEVATED
+            and (start_diff is None or start_diff <= DEFAULT_TARGET_DIFF)
+            and co2 is not None and co2 <= CO2_TARGET
+        ):
+            return True, current_diff
         return False, current_diff
 
     async def _feedback_tick(self, _now=None):
+        self._check_sensor_health()
         if self._roll_periods():
             await self._save()
         if self._forecast_due():
@@ -513,6 +538,50 @@ class SmartVentilationCoordinator:
             ),
             f"smart_ventilation_{self.entry.entry_id}",
         )
+
+    # ------------------------------------------------------------------
+    # Reparatur-Hinweise bei ausgefallenen Sensoren
+    # ------------------------------------------------------------------
+    def _required_sensors(self):
+        return {
+            self.data[CONF_INDOOR_HUMIDITY]: "Absolute Feuchte innen",
+            self.data[CONF_OUTDOOR_HUMIDITY]: "Absolute Feuchte außen",
+            self.data[CONF_INDOOR_TEMP]: "Temperatur innen",
+            self.data[CONF_OUTDOOR_TEMP]: "Temperatur außen",
+            **{w: "Fensterkontakt" for w in self.windows},
+        }
+
+    def _issue_id(self, entity_id):
+        return f"unavailable_{self.entry.entry_id}_{entity_id.replace('.', '_')}"
+
+    def _check_sensor_health(self):
+        now = dt_util.now()
+        for entity_id, role in self._required_sensors().items():
+            state = self.hass.states.get(entity_id)
+            broken = state is None or state.state in ("unavailable", "unknown")
+            issue_id = self._issue_id(entity_id)
+            if not broken:
+                if self._unavailable_since.pop(entity_id, None) is not None:
+                    ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+                continue
+            since = self._unavailable_since.setdefault(entity_id, now)
+            if (now - since).total_seconds() >= ISSUE_AFTER_MINUTES * 60:
+                ir.async_create_issue(
+                    self.hass, DOMAIN, issue_id,
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key="sensor_unavailable",
+                    translation_placeholders={
+                        "room": str(self.data.get(CONF_NAME)),
+                        "role": role,
+                        "entity": entity_id,
+                        "minutes": str(ISSUE_AFTER_MINUTES),
+                    },
+                )
+
+    def _clear_issues(self):
+        for entity_id in self._required_sensors():
+            ir.async_delete_issue(self.hass, DOMAIN, self._issue_id(entity_id))
 
     # ------------------------------------------------------------------
     # Warnungen während des Lüftens
@@ -731,35 +800,33 @@ class SmartVentilationCoordinator:
             targets = [legacy] if legacy else []
         return [t for t in targets if isinstance(t, str) and t.startswith("notify.")]
 
-    async def _send(self, title, message, tag, actions=None):
-        """An alle gewählten Empfänger senden; ein fehlerhafter Dienst stoppt die anderen nicht."""
-        sent = False
-        for target in self.notify_targets:
-            service_name = target.partition(".")[2]
-            if not self.hass.services.has_service("notify", service_name):
-                continue
-            try:
-                await self.hass.services.async_call(
-                    "notify",
-                    service_name,
-                    {
-                        "title": title,
-                        "message": message,
-                        "data": {"tag": tag, **({"actions": actions} if actions else {})},
-                    },
-                    blocking=False,
-                )
-                sent = True
-            except Exception:  # noqa: BLE001 – ein Handy offline darf nichts blockieren
-                continue
-        return sent
+    async def _send(self, title, message, tag, actions=None, targets=None):
+        return await notify_util.send(
+            self.hass,
+            self.notify_targets if targets is None else targets,
+            title, message, tag, actions,
+        )
 
-    def _record_stats(self, elapsed, success):
+    def _session_energy_kwh(self, session, elapsed):
+        """Wärmeverlust durch Luftaustausch: 0,34 Wh/(m³K) · V · ΔT · (1 − e^(−n·t))."""
+        d_t = session.get("dT")
+        if d_t is None or d_t <= 0:
+            return 0.0
+        n, _ = self._model_ach(
+            session.get("wind"), session.get("angle"), session.get("temp_diff"),
+            session.get("cross", False),
+        )
+        volume = float(self.data.get(CONF_VOLUME, 40))
+        exchanged = 1 - math.exp(-n * elapsed / 3600)
+        return AIR_HEAT_CAPACITY_WH * volume * d_t * exchanged / 1000
+
+    def _record_stats(self, elapsed, success, kwh=0.0):
         self._roll_periods()
         for period in ("day", "week", "month", "total"):
             p = self.stats[period]
             p["count"] += 1
             p["seconds"] += elapsed
+            p["kwh"] = p.get("kwh", 0.0) + kwh
             if success:
                 p["ok"] += 1
             else:
@@ -788,7 +855,7 @@ class SmartVentilationCoordinator:
                 elapsed >= DEFAULT_MIN_SESSION
                 and (session["target_reached"] or reached)
             )
-            self._record_stats(elapsed, success)
+            self._record_stats(elapsed, success, self._session_energy_kwh(session, elapsed))
             self._last_session_end = ended or dt_util.now()
         await self._save()
         self._notify_listeners()
@@ -940,16 +1007,61 @@ class SmartVentilationCoordinator:
 
         return True, False, ""
 
+    async def _welcome_home(self, person):
+        """Beim Heimkommen einmal erinnern, falls Lüften fällig ist."""
+        self._update_recommendation()
+        now = dt_util.now()
+        if not self.reminder_allowed(now) or self._combined_by_overview():
+            return
+        if self.in_quiet_hours(now) or self._skip_date == now.date():
+            return
+        targets = notify_util.filter_targets(
+            self.hass, self.notify_targets, self.persons, only_person=person
+        )
+        if not targets:
+            return
+        await self._send(
+            f"Willkommen zu Hause – {self.data[CONF_NAME]}",
+            f"{self.data[CONF_NAME]} sollte gelüftet werden: {self.recommendation}",
+            f"smart_ventilation_{self.entry.entry_id}",
+            targets=targets,
+        )
+
     def in_quiet_hours(self, now=None):
+        return notify_util.in_quiet_hours(
+            now or dt_util.now(),
+            self.data.get(CONF_QUIET_START), self.data.get(CONF_QUIET_END),
+            DEFAULT_QUIET_START, DEFAULT_QUIET_END,
+        )
+
+    @property
+    def persons(self):
+        return [p for p in (self.data.get(CONF_PERSONS) or []) if p]
+
+    @property
+    def anyone_home(self):
+        return notify_util.anyone_home(self.hass, self.persons)
+
+    def _combined_by_overview(self):
+        """Übersicht mit Sammel-Benachrichtigung vorhanden -> Raum schickt keine eigenen Erinnerungen."""
+        for other in self.hass.data.get(DOMAIN, {}).values():
+            if getattr(other, "is_overview", False) and other.combine:
+                return True
+        return False
+
+    def reminder_allowed(self, now=None):
+        """Darf dieser Raum gerade an Lüften erinnern? (auch von der Übersicht genutzt)"""
         now = now or dt_util.now()
-        start = _parse_time(self.data.get(CONF_QUIET_START), DEFAULT_QUIET_START)
-        end = _parse_time(self.data.get(CONF_QUIET_END), DEFAULT_QUIET_END)
-        minute = now.hour * 60 + now.minute
-        if start == end:
+        if self.recommended_minutes <= 0 or self.session or self.open_windows():
             return False
-        if start < end:
-            return start <= minute < end
-        return minute >= start or minute < end  # über Mitternacht
+        if self.block_reason and "Sonne" not in self.block_reason and "CO₂" not in self.block_reason:
+            return False
+        if (
+            self._last_session_end is not None
+            and (now - self._last_session_end).total_seconds() < POST_VENT_PAUSE_MINUTES * 60
+        ):
+            return False
+        return True
 
     def _notification_key(self):
         if self.recommended_minutes <= 0:
@@ -957,14 +1069,12 @@ class SmartVentilationCoordinator:
         return f"{self.recommended_mode}|{self.block_reason}"
 
     async def _send_notification_if_needed(self):
-        if not self.notify_targets or self.recommended_minutes <= 0:
+        if not self.notify_targets or not self.reminder_allowed():
             return
-
-        if self.block_reason and "Sonne" not in self.block_reason:
+        if self._combined_by_overview():
             return
-
-        # Nicht erinnern, während bereits gelüftet wird
-        if self.session or self.open_windows():
+        # Niemand zu Hause -> keine Erinnerung (Hinweis kommt beim Heimkommen)
+        if not self.anyone_home:
             return
 
         key = self._notification_key()
@@ -973,12 +1083,6 @@ class SmartVentilationCoordinator:
 
         now = dt_util.now()
         if self.in_quiet_hours(now) or self._skip_date == now.date():
-            return
-        # Direkt nach dem Lüften nicht gleich wieder erinnern
-        if (
-            self._last_session_end is not None
-            and (now - self._last_session_end).total_seconds() < POST_VENT_PAUSE_MINUTES * 60
-        ):
             return
 
         snooze_over = False
@@ -1008,6 +1112,9 @@ class SmartVentilationCoordinator:
                 f"{self.recommended_minutes} Minuten."
             ),
             f"smart_ventilation_{self.entry.entry_id}",
+            targets=notify_util.filter_targets(
+                self.hass, self.notify_targets, self.persons, only_home=True
+            ),
             actions=[
                 {"action": f"{ACTION_SNOOZE}{self.entry.entry_id}",
                  "title": f"In {SNOOZE_MINUTES} Min. erinnern"},
@@ -1031,8 +1138,17 @@ class SmartVentilationCoordinator:
             return
 
         diff = indoor - outdoor
+        co2 = self.co2
+        need_humidity = diff > DEFAULT_TARGET_DIFF
+        need_co2 = co2 is not None and co2 >= CO2_ELEVATED
+        self.recommend_reason = (
+            "Feuchte + CO₂" if need_humidity and need_co2
+            else "Feuchte" if need_humidity
+            else "CO₂" if need_co2
+            else ""
+        )
 
-        if diff <= DEFAULT_TARGET_DIFF:
+        if not need_humidity and not need_co2:
             self.recommendation = "Keine Lüftung erforderlich"
             self.recommended_minutes = 0
             self.recommended_mode = "Keine Lüftung"
@@ -1046,7 +1162,9 @@ class SmartVentilationCoordinator:
             return
 
         temp_block, temp_reason = self._temperature_block()
-        if temp_block:
+        # Sehr schlechte Luft: trotz Hitze kurz lüften
+        co2_override = temp_block and co2 is not None and co2 >= CO2_HIGH
+        if temp_block and not co2_override:
             self.recommendation = "Nicht lüften – draußen zu warm"
             self.recommended_minutes = 0
             self.recommended_mode = "Geschlossen"
@@ -1069,9 +1187,17 @@ class SmartVentilationCoordinator:
                 else:
                     effective_ach *= 0.9
 
-        ratio = DEFAULT_TARGET_DIFF / max(diff, DEFAULT_TARGET_DIFF + 0.01)
-        minutes = -60 / effective_ach * math.log(ratio)
+        minutes = 0.0
+        if need_humidity:
+            ratio = DEFAULT_TARGET_DIFF / max(diff, DEFAULT_TARGET_DIFF + 0.01)
+            minutes = -60 / effective_ach * math.log(ratio)
+        if need_co2:
+            co2_ratio = (CO2_TARGET - CO2_OUTDOOR) / max(co2 - CO2_OUTDOOR, 1)
+            minutes = max(minutes, -60 / effective_ach * math.log(co2_ratio))
         minutes = max(2, min(60, minutes))
+        if co2_override:
+            minutes = min(minutes, 5)
+            self.block_reason = f"{temp_reason} – aber CO₂ {co2:.0f} ppm"
 
         if self.season == SEASON_WINTER:
             # Winter: nie kippen (kühlt Wände aus), kurz und komplett öffnen
@@ -1091,8 +1217,58 @@ class SmartVentilationCoordinator:
 
         self.recommended_minutes = round(minutes)
         self.recommended_mode = mode
-        self.recommendation = f"{mode} – ca. {self.recommended_minutes} Min."
+        suffix = " (CO₂)" if self.recommend_reason == "CO₂" else ""
+        self.recommendation = f"{mode} – ca. {self.recommended_minutes} Min.{suffix}"
         self.hass.async_create_task(self._send_notification_if_needed())
+
+    @property
+    def progress(self):
+        """Lüftungsfortschritt in % (Abbau des Feuchteunterschieds seit dem Öffnen)."""
+        if not self.session:
+            return 0
+        initial = self.session.get("initial_diff")
+        current = self.humidity_difference
+        if initial is None or current is None or initial <= 0:
+            return 0
+        return round(max(0, min(100, (1 - current / initial) * 100)))
+
+    def card_data(self):
+        """Alles, was die Dashboard-Karte braucht, in einem Attribut."""
+        r = lambda v, n=1: round(v, n) if v is not None else None  # noqa: E731
+        today = self.period_stats("day")
+        return {
+            "name": self.data.get(CONF_NAME),
+            "status": self.recommendation,
+            "modus": self.recommended_mode,
+            "minuten": self.recommended_minutes,
+            "grund": self.recommend_reason,
+            "blockiert": self.block_reason,
+            "laeuft": self.session is not None,
+            "dauer_s": self.current_duration_seconds,
+            "fortschritt": self.progress,
+            "fenster_offen": len(self.open_windows()),
+            "querlueften": bool((self.session or {}).get("cross")),
+            "innen_t": r(_float_state(self.hass, self.data[CONF_INDOOR_TEMP])),
+            "innen_ah": r(_float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])),
+            "innen_rh": r(self.indoor_rh, 0),
+            "aussen_t": r(_float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])),
+            "aussen_ah": r(_float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])),
+            "wand_t": r(self.wall_temperature),
+            "wand_rh": r(self.wall_rh, 0),
+            "schimmel": self.mold_risk,
+            "co2": r(self.co2, 0),
+            "luft": self.air_quality,
+            "saison": self.season,
+            "bester_zeitpunkt": self.best_reason if self.data.get(CONF_WEATHER) else None,
+            "heute_anzahl": today["count"],
+            "heute_ok": today["ok"],
+            "heute_min": today["minutes"],
+            "heute_kwh": today["kwh"],
+            "heute_eur": today["cost"],
+            "gelueftet": self.ventilated_today,
+            "kuehlt_aus": self.cooling_down,
+            "ruhezeit": self.in_quiet_hours(),
+        }
 
     @property
     def humidity_difference(self):
@@ -1132,8 +1308,59 @@ class SmartVentilationCoordinator:
         temp = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         return _dew_point(temp, self.outdoor_rh)
 
+    def _signed_temp_diff(self):
+        indoor = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+        outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
+        if indoor is None or outdoor is None:
+            return None
+        return indoor - outdoor
+
+    @property
+    def co2(self):
+        entity_id = self.data.get(CONF_CO2)
+        return _float_state(self.hass, entity_id) if entity_id else None
+
+    @property
+    def air_quality(self):
+        co2 = self.co2
+        if co2 is None:
+            return None
+        if co2 >= CO2_HIGH:
+            return "schlecht"
+        if co2 >= CO2_ELEVATED:
+            return "mäßig"
+        return "gut"
+
+    @property
+    def u_value(self):
+        return U_VALUES.get(self.data.get(CONF_BUILDING, DEFAULT_BUILDING), 1.0)
+
+    @property
+    def wall_temperature(self):
+        """Oberflächentemperatur an der kältesten Stelle: θi − Rsi·U·(θi − θe)."""
+        indoor = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+        outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
+        if indoor is None or outdoor is None:
+            return None
+        if outdoor >= indoor:
+            return indoor
+        return indoor - RSI_CORNER * self.u_value * (indoor - outdoor)
+
+    @property
+    def wall_rh(self):
+        """Relative Feuchte direkt an der kalten Wand – entscheidend für Schimmel."""
+        ah = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        return _relative_humidity_from_absolute(ah, self.wall_temperature)
+
     @property
     def mold_risk(self):
+        wall = self.wall_rh
+        if wall is not None:
+            if wall >= MOLD_RH_HIGH:
+                return "hoch"
+            if wall >= MOLD_RH_ELEVATED:
+                return "erhöht"
+            return "niedrig"
         rh = self.indoor_rh
         dp = self.indoor_dew_point
         temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
