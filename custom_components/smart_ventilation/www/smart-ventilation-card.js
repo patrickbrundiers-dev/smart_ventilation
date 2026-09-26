@@ -167,6 +167,7 @@ class SmartVentilationCard extends HTMLElement {
       k.kuehlen_plan ? `<span class="chip"><ha-icon icon="mdi:weather-night"></ha-icon>Kühlen: ${esc(k.kuehlen_plan)}</span>` : "",
       k.nach_dusche ? `<span class="chip warn-chip"><ha-icon icon="mdi:shower"></ha-icon>Nach dem Duschen</span>` : "",
       k.urlaub ? `<span class="chip"><ha-icon icon="mdi:palm-tree"></ha-icon>Urlaub</span>` : "",
+      k.schimmel_tage >= 2 ? `<span class="chip bad-chip"><ha-icon icon="mdi:alert-octagon-outline"></ha-icon>Wand ${k.schimmel_tage} Tage kritisch</span>` : "",
       k.entfeuchter ? `<span class="chip"><ha-icon icon="mdi:air-humidifier"></ha-icon>Entfeuchter läuft</span>` : "",
     ].join("");
 
@@ -250,6 +251,7 @@ const STYLE = `
   .rstate { color: var(--secondary-text-color); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .empty { color: var(--secondary-text-color); padding: 8px 0; }
   .chip.warn-chip { color: var(--warning-color, #ffa600); }
+  .chip.bad-chip { color: var(--error-color, #db4437); }
   .trace { margin-top: 12px; }
   .trace-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--secondary-text-color); }
   .trace-head b { color: var(--primary-text-color); font-weight: 600; }

@@ -109,7 +109,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.1.1"
+VERSION = "2.2.0"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -143,3 +143,14 @@ REPORT_HOUR = 19
 # Verlauf
 TRACE_MAX_POINTS = 240            # 2 h bei 30 s
 TRACE_CARD_POINTS = 60
+
+# Schimmel-Frühwarnung über mehrere Tage
+MOLD_CRITICAL_MINUTES = 360       # ≥ 6 h Wandfeuchte ≥ 80 % = kritischer Tag
+MOLD_STREAK_WARN = 3              # Warnung ab 3 kritischen Tagen in Folge
+MOLD_REWARN_DAYS = 7              # bei anhaltender Lage erneut nach einer Woche
+MOLD_LOG_DAYS = 62
+
+# Monats-/Jahresvergleich
+CONF_MONTHLY_REPORT = "monthly_report"
+MONTHLY_REPORT_HOUR = 9           # am 1. des Monats ab 9 Uhr
+HISTORY_MONTHS = 36

@@ -102,7 +102,8 @@
               "notification_cooldown": "Time between reminders",
               "weekly_report": "Weekly report",
               "vacation_entity": "Vacation",
-              "vacation_keyword": "Calendar keyword"
+              "vacation_keyword": "Calendar keyword",
+              "monthly_report": "Monthly report"
             },
             "data_description": {
               "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
@@ -111,7 +112,8 @@
               "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
               "weekly_report": "A summary of the week on Sundays at 7 pm.",
               "vacation_entity": "Optional: calendar, switch or binary sensor. No reminders during vacation, only mould warnings.",
-              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event."
+              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event.",
+              "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
             }
           },
           "devices": {
@@ -139,7 +141,8 @@
           "quiet_start": "Quiet hours from",
           "quiet_end": "Quiet hours until",
           "notification_cooldown": "Time between reminders",
-          "weekly_report": "Weekly report"
+          "weekly_report": "Weekly report",
+          "monthly_report": "Monthly report"
         },
         "data_description": {
           "combine_notifications": "One notification for all rooms instead of one per room.",
@@ -147,7 +150,8 @@
           "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
           "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
           "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
-          "weekly_report": "A summary of the week on Sundays at 7 pm."
+          "weekly_report": "A summary of the week on Sundays at 7 pm.",
+          "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
         }
       }
     },
@@ -248,7 +252,8 @@
               "notification_cooldown": "Time between reminders",
               "weekly_report": "Weekly report",
               "vacation_entity": "Vacation",
-              "vacation_keyword": "Calendar keyword"
+              "vacation_keyword": "Calendar keyword",
+              "monthly_report": "Monthly report"
             },
             "data_description": {
               "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
@@ -257,7 +262,8 @@
               "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
               "weekly_report": "A summary of the week on Sundays at 7 pm.",
               "vacation_entity": "Optional: calendar, switch or binary sensor. No reminders during vacation, only mould warnings.",
-              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event."
+              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event.",
+              "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
             }
           },
           "devices": {
@@ -281,7 +287,8 @@
           "quiet_start": "Quiet hours from",
           "quiet_end": "Quiet hours until",
           "notification_cooldown": "Time between reminders",
-          "weekly_report": "Weekly report"
+          "weekly_report": "Weekly report",
+          "monthly_report": "Monthly report"
         },
         "data_description": {
           "combine_notifications": "One notification for all rooms instead of one per room.",
@@ -289,7 +296,8 @@
           "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
           "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
           "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
-          "weekly_report": "A summary of the week on Sundays at 7 pm."
+          "weekly_report": "A summary of the week on Sundays at 7 pm.",
+          "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
         }
       }
     }
@@ -423,6 +431,12 @@
       },
       "rooms_needing": {
         "name": "Rooms needing ventilation"
+      },
+      "mold_streak": {
+        "name": "Critical mould days in a row"
+      },
+      "need_month": {
+        "name": "Ventilation need this month"
       }
     },
     "binary_sensor": {
@@ -437,6 +451,9 @@
       },
       "quiet_hours": {
         "name": "Quiet hours"
+      },
+      "mold_alarm": {
+        "name": "Mould danger"
       }
     },
     "button": {

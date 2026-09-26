@@ -13,6 +13,7 @@ from homeassistant.util import dt as dt_util
 from .const import *
 from . import notify_util
 from .extras import RoomExtrasMixin
+from .history import HistoryMixin
 
 
 def _float_state(hass, entity_id):
@@ -97,7 +98,7 @@ def _dew_point(temperature_c, rh):
     return (243.12 * gamma) / (17.62 - gamma)
 
 
-class SmartVentilationCoordinator(RoomExtrasMixin):
+class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self.entry = entry
@@ -139,6 +140,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin):
         self._unavailable_since = {}
         self.cool_plan = None
         self._init_extras()
+        self._init_history()
 
     # ------------------------------------------------------------------
     # Statistik
@@ -162,6 +164,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin):
         changed = False
         for period, key in self._period_keys(dt_util.now()).items():
             if self.stats.get(period, {}).get("key") != key:
+                if period == "month" and self.stats.get("month"):
+                    self._archive_month(self.stats["month"])
                 self.stats[period] = self._empty_period(key)
                 changed = True
         self.stats.setdefault("max_seconds", 0.0)
@@ -178,6 +182,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin):
             "minutes": round(p["seconds"] / 60, 1),
             "avg_minutes": round(p["seconds"] / count / 60, 1) if count else 0.0,
             "kwh": round(p.get("kwh", 0.0), 2),
+            "need_hours": round(p.get("need_minutes", 0.0) / 60, 1),
             "cost": round(p.get("kwh", 0.0) * self.energy_price, 2),
         }
 
@@ -265,6 +270,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin):
         if stored.get("last_session_end"):
             self._last_session_end = dt_util.parse_datetime(stored["last_session_end"])
         self._extras_load(stored)
+        self._history_load(stored)
 
         # Laufende Lüftung aus der Zeit vor dem Neustart übernehmen
         saved = stored.get("session")
@@ -317,6 +323,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin):
             "skip_date": self._skip_date.isoformat() if self._skip_date else None,
             "last_session_end": self._last_session_end.isoformat() if self._last_session_end else None,
             **self._extras_store(),
+            **self._history_store(),
         })
 
     def async_unload(self):
@@ -527,6 +534,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin):
         if self._forecast_due():
             await self._update_forecast()
         await self._extras_tick()
+        await self._history_tick(dt_util.now())
         self._update_recommendation()
         self._notify_listeners()
         if not self.session:
@@ -1304,6 +1312,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin):
             "nach_dusche": self.after_shower,
             "urlaub": self.on_vacation,
             "entfeuchter": self.dehumidifier_active,
+            "schimmel_tage": self.mold_streak()[0],
+            "schimmel_h_heute": self.mold_hours_today,
         }
 
     @property

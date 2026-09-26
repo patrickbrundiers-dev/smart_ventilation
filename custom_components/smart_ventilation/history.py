@@ -1,0 +1,226 @@
+"""Schimmel-Frühwarnung über mehrere Tage sowie Monats- und Jahresvergleich (Mixin der Raum-Logik)."""
+from __future__ import annotations
+
+from datetime import date, timedelta
+
+from homeassistant.util import dt as dt_util
+
+from .const import (
+    CONF_MONTHLY_REPORT, CONF_NAME, DOMAIN, HISTORY_MONTHS, MOLD_CRITICAL_MINUTES,
+    MOLD_LOG_DAYS, MOLD_REWARN_DAYS, MOLD_RH_HIGH, MOLD_STREAK_WARN, MONTHLY_REPORT_HOUR,
+)
+from . import notify_util
+
+MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+          "August", "September", "Oktober", "November", "Dezember"]
+MAX_STEP_MINUTES = 10  # Lücken (z. B. Neustart) nicht voll mitzählen
+
+
+def month_name(key: str) -> str:
+    year, month = key.split("-")
+    return f"{MONTHS[int(month) - 1]} {year}"
+
+
+def previous_month(key: str) -> str:
+    year, month = (int(x) for x in key.split("-"))
+    return f"{year - 1}-12" if month == 1 else f"{year}-{month - 1:02d}"
+
+
+def change_percent(new, old):
+    if not old:
+        return None
+    return round((new - old) / old * 100)
+
+
+def de(value, digits=1):
+    return f"{value:.{digits}f}".replace(".", ",")
+
+
+class HistoryMixin:
+    """Erwartet die Attribute/Methoden des SmartVentilationCoordinator."""
+
+    def _init_history(self):
+        self.mold_log = {}            # {"2026-12-05": Minuten mit Wandfeuchte ≥ 80 %}
+        self.history = {}             # {"2026-11": {...Monatswerte...}}
+        self._mold_warned = None      # {"start": Beginn der Serie, "on": Datum der Warnung}
+        self._mold_pending = False
+        self._last_month_report = None
+        self._last_measure = None
+
+    def _history_store(self):
+        return {
+            "mold_log": self.mold_log,
+            "history": self.history,
+            "mold_warned": self._mold_warned,
+            "last_month_report": self._last_month_report,
+        }
+
+    def _history_load(self, stored):
+        self.mold_log = stored.get("mold_log") or {}
+        self.history = stored.get("history") or {}
+        self._mold_warned = stored.get("mold_warned")
+        self._last_month_report = stored.get("last_month_report")
+
+    # ------------------------------------------------------------------
+    # Messen (alle 30 s)
+    # ------------------------------------------------------------------
+    def _measure(self, now):
+        """Kritische Wand-Minuten und Lüftungsbedarf aufsummieren."""
+        step = 0.5
+        if self._last_measure is not None:
+            step = min((now - self._last_measure).total_seconds() / 60, MAX_STEP_MINUTES)
+        self._last_measure = now
+        if step <= 0:
+            return
+
+        wall = self.wall_rh
+        if wall is not None and wall >= MOLD_RH_HIGH:
+            today = now.date().isoformat()
+            self.mold_log[today] = round(self.mold_log.get(today, 0) + step, 1)
+
+        if self.recommended_minutes > 0:
+            for period in ("day", "week", "month", "total"):
+                p = self.stats[period]
+                p["need_minutes"] = p.get("need_minutes", 0.0) + step
+
+        cutoff = (now.date() - timedelta(days=MOLD_LOG_DAYS)).isoformat()
+        for day in [d for d in self.mold_log if d < cutoff]:
+            del self.mold_log[day]
+
+    # ------------------------------------------------------------------
+    # Schimmel-Frühwarnung
+    # ------------------------------------------------------------------
+    def _critical(self, day: date) -> bool:
+        return self.mold_log.get(day.isoformat(), 0) >= MOLD_CRITICAL_MINUTES
+
+    def mold_streak(self, today=None):
+        """(Anzahl kritischer Tage in Folge bis gestern, erster Tag der Serie)."""
+        today = today or dt_util.now().date()
+        day, count = today - timedelta(days=1), 0
+        while self._critical(day):
+            count += 1
+            day -= timedelta(days=1)
+        return count, (day + timedelta(days=1)) if count else None
+
+    @property
+    def mold_hours_today(self):
+        return round(self.mold_log.get(dt_util.now().date().isoformat(), 0) / 60, 1)
+
+    @property
+    def mold_alarm(self):
+        return self.mold_streak()[0] >= MOLD_STREAK_WARN
+
+    async def _mold_early_warning(self, now):
+        streak, start = self.mold_streak(now.date())
+        if streak < MOLD_STREAK_WARN:
+            return
+        warned = self._mold_warned or {}
+        same_series = warned.get("start") == start.isoformat()
+        if same_series and (now.date() - date.fromisoformat(warned["on"])).days < MOLD_REWARN_DAYS:
+            return
+        if self.in_quiet_hours(now):
+            return  # nach der Ruhezeit nachholen
+        self._mold_warned = {"start": start.isoformat(), "on": now.date().isoformat()}
+        await self._save()
+        hours = [self.mold_log.get((now.date() - timedelta(days=i)).isoformat(), 0) / 60 for i in range(1, streak + 1)]
+        await self._send(
+            f"Schimmelgefahr: {self.data[CONF_NAME]}",
+            (
+                f"Seit {streak} Tagen ist die Wand täglich rund {de(sum(hours) / len(hours), 0)} Stunden "
+                "feuchter als 80 % – dann kann Schimmel wachsen. Tipps: mehrmals täglich kurz stoßlüften, "
+                "den Raum nicht unter 18 °C auskühlen lassen und Möbel ein paar Zentimeter von Außenwänden abrücken."
+            ),
+            f"smart_ventilation_{self.entry.entry_id}_mold",
+        )
+
+    # ------------------------------------------------------------------
+    # Monatsarchiv und -vergleich
+    # ------------------------------------------------------------------
+    def _archive_month(self, old_period):
+        """Beim Monatswechsel: abgelaufenen Monat ins Archiv."""
+        key = old_period.get("key")
+        if not key or key == "total":
+            return
+        critical = sum(1 for d, m in self.mold_log.items() if d.startswith(key) and m >= MOLD_CRITICAL_MINUTES)
+        kwh = old_period.get("kwh", 0.0)
+        self.history[key] = {
+            "lueftungen": old_period.get("count", 0),
+            "erfolgreich": old_period.get("ok", 0),
+            "minuten": round(old_period.get("seconds", 0.0) / 60),
+            "bedarf_h": round(old_period.get("need_minutes", 0.0) / 60, 1),
+            "kwh": round(kwh, 2),
+            "kosten": round(kwh * self.energy_price, 2),
+            "schimmeltage": critical,
+        }
+        for old in sorted(self.history)[:-HISTORY_MONTHS]:
+            del self.history[old]
+
+    def month_comparison(self):
+        """Letzter abgeschlossener Monat im Vergleich zum Vormonat und zum Vorjahr."""
+        if not self.history:
+            return None
+        last = sorted(self.history)[-1]
+        cur = self.history[last]
+        prev = self.history.get(previous_month(last))
+        year, month = last.split("-")
+        ly = self.history.get(f"{int(year) - 1}-{month}")
+        return {
+            "monat": month_name(last),
+            **cur,
+            "vormonat": ({"monat": month_name(previous_month(last)), **prev} if prev else None),
+            "bedarf_vs_vormonat_prozent": change_percent(cur["bedarf_h"], prev["bedarf_h"]) if prev else None,
+            "vorjahr": ({"monat": month_name(f"{int(year) - 1}-{month}"), **ly} if ly else None),
+            "bedarf_vs_vorjahr_prozent": change_percent(cur["bedarf_h"], ly["bedarf_h"]) if ly else None,
+        }
+
+    @property
+    def need_hours_month(self):
+        return round(self.period_stats("month").get("need_hours", 0.0), 1)
+
+    def monthly_text(self):
+        c = self.month_comparison()
+        if not c:
+            return None
+        text = (
+            f"{c['monat']}: {c['lueftungen']}× gelüftet ({c['erfolgreich']} erfolgreich), "
+            f"Lüftungsbedarf {de(c['bedarf_h'])} h, {de(c['kwh'])} kWh ≈ {de(c['kosten'], 2)} €."
+        )
+        if c["bedarf_vs_vormonat_prozent"] is not None:
+            p = c["bedarf_vs_vormonat_prozent"]
+            text += f" {abs(p)} % {'mehr' if p > 0 else 'weniger'} Bedarf als im {c['vormonat']['monat'].split()[0]}." if p else " Bedarf wie im Vormonat."
+        if c["bedarf_vs_vorjahr_prozent"] is not None:
+            p = c["bedarf_vs_vorjahr_prozent"]
+            text += f" Gegenüber dem Vorjahr {abs(p)} % {'mehr' if p > 0 else 'weniger'}." if p else ""
+        if c["schimmeltage"]:
+            text += f" {c['schimmeltage']} kritische Schimmeltage."
+        return text
+
+    def _monthly_due(self, now, last_sent):
+        if now.day != 1 or now.hour < MONTHLY_REPORT_HOUR or not self.history:
+            return False
+        return last_sent != sorted(self.history)[-1]
+
+    async def _monthly_report(self, now):
+        if not self.data.get(CONF_MONTHLY_REPORT) or not self._monthly_due(now, self._last_month_report):
+            return
+        self._last_month_report = sorted(self.history)[-1]
+        await self._save()
+        if self._monthly_by_overview():
+            return
+        text = self.monthly_text()
+        if text:
+            await self._send(
+                f"Monatsbericht: {self.data[CONF_NAME]}", text,
+                f"smart_ventilation_{self.entry.entry_id}_month",
+            )
+
+    def _monthly_by_overview(self):
+        for other in self.hass.data.get(DOMAIN, {}).values():
+            if getattr(other, "is_overview", False) and other.monthly_report:
+                return True
+        return False
+
+    async def _history_tick(self, now):
+        self._measure(now)
+        await self._mold_early_warning(now)
+        await self._monthly_report(now)

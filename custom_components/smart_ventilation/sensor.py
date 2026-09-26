@@ -53,6 +53,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         AirQualitySensor(coordinator),
         HeatLossTodaySensor(coordinator),
         CostMonthSensor(coordinator),
+        MoldStreakSensor(coordinator),
+        NeedMonthSensor(coordinator),
     ])
 
 
@@ -72,7 +74,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.1.1",
+            sw_version="2.2.0",
         )
 
     async def async_added_to_hass(self):
@@ -477,7 +479,7 @@ class OverviewBase(SensorEntity):
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.1.1",
+            sw_version="2.2.0",
         )
 
     async def async_added_to_hass(self):
@@ -507,3 +509,43 @@ class RoomsNeedingSensor(OverviewBase):
     def native_value(self): return len(self.coordinator.rooms_needing())
     @property
     def native_unit_of_measurement(self): return "Räume"
+
+
+class MoldStreakSensor(BaseSensor):
+    """Kritische Tage in Folge (Wand ≥ 6 h/Tag über 80 % Feuchte)."""
+    _unrecorded_attributes = frozenset({"letzte_14_tage_h"})
+    _attr_icon = "mdi:wall"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, c): super().__init__(c, "mold_streak", "Kritische Schimmeltage in Folge")
+    @property
+    def native_value(self): return self.coordinator.mold_streak()[0]
+    @property
+    def native_unit_of_measurement(self): return "d"
+    @property
+    def extra_state_attributes(self):
+        log = self.coordinator.mold_log
+        return {
+            "stunden_heute": self.coordinator.mold_hours_today,
+            "letzte_14_tage_h": {d: round(m / 60, 1) for d, m in sorted(log.items())[-14:]},
+        }
+
+
+class NeedMonthSensor(BaseSensor):
+    """Stunden mit Lüftungsbedarf im laufenden Monat, Attribute: Vergleich des letzten Monats."""
+    _unrecorded_attributes = frozenset({"verlauf", "letzter_monat"})
+    _attr_icon = "mdi:chart-timeline-variant"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_device_class = SensorDeviceClass.DURATION
+
+    def __init__(self, c): super().__init__(c, "need_month", "Lüftungsbedarf diesen Monat")
+    @property
+    def native_value(self): return self.coordinator.period_stats("month")["need_hours"]
+    @property
+    def native_unit_of_measurement(self): return "h"
+    @property
+    def extra_state_attributes(self):
+        return {
+            "letzter_monat": self.coordinator.month_comparison(),
+            "verlauf": self.coordinator.history,
+        }

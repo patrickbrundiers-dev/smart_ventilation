@@ -102,7 +102,8 @@
               "notification_cooldown": "Abstand zwischen Erinnerungen",
               "weekly_report": "Wochenbericht",
               "vacation_entity": "Urlaub",
-              "vacation_keyword": "Stichwort im Kalender"
+              "vacation_keyword": "Stichwort im Kalender",
+              "monthly_report": "Monatsbericht"
             },
             "data_description": {
               "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
@@ -111,7 +112,8 @@
               "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
               "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
               "vacation_entity": "Optional: Kalender, Schalter oder Binärsensor. Im Urlaub keine Erinnerungen, nur Schimmelwarnungen.",
-              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin."
+              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin.",
+              "monthly_report": "Am 1. des Monats: Bilanz des Vormonats mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr."
             }
           },
           "devices": {
@@ -139,7 +141,8 @@
           "quiet_start": "Ruhezeit von",
           "quiet_end": "Ruhezeit bis",
           "notification_cooldown": "Abstand zwischen Erinnerungen",
-          "weekly_report": "Wochenbericht"
+          "weekly_report": "Wochenbericht",
+          "monthly_report": "Monatsbericht"
         },
         "data_description": {
           "combine_notifications": "Eine Nachricht für alle Räume statt einer pro Raum.",
@@ -147,7 +150,8 @@
           "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
           "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
           "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
-          "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche."
+          "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
+          "monthly_report": "Am 1. des Monats: Bilanz des Vormonats mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr."
         }
       }
     },
@@ -248,7 +252,8 @@
               "notification_cooldown": "Abstand zwischen Erinnerungen",
               "weekly_report": "Wochenbericht",
               "vacation_entity": "Urlaub",
-              "vacation_keyword": "Stichwort im Kalender"
+              "vacation_keyword": "Stichwort im Kalender",
+              "monthly_report": "Monatsbericht"
             },
             "data_description": {
               "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
@@ -257,7 +262,8 @@
               "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
               "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
               "vacation_entity": "Optional: Kalender, Schalter oder Binärsensor. Im Urlaub keine Erinnerungen, nur Schimmelwarnungen.",
-              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin."
+              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin.",
+              "monthly_report": "Am 1. des Monats: Bilanz des Vormonats mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr."
             }
           },
           "devices": {
@@ -281,7 +287,8 @@
           "quiet_start": "Ruhezeit von",
           "quiet_end": "Ruhezeit bis",
           "notification_cooldown": "Abstand zwischen Erinnerungen",
-          "weekly_report": "Wochenbericht"
+          "weekly_report": "Wochenbericht",
+          "monthly_report": "Monatsbericht"
         },
         "data_description": {
           "combine_notifications": "Eine Nachricht für alle Räume statt einer pro Raum.",
@@ -289,7 +296,8 @@
           "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
           "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
           "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
-          "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche."
+          "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
+          "monthly_report": "Am 1. des Monats: Bilanz des Vormonats mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr."
         }
       }
     }
@@ -423,6 +431,12 @@
       },
       "rooms_needing": {
         "name": "Räume mit Lüftungsbedarf"
+      },
+      "mold_streak": {
+        "name": "Kritische Schimmeltage in Folge"
+      },
+      "need_month": {
+        "name": "Lüftungsbedarf diesen Monat"
       }
     },
     "binary_sensor": {
@@ -437,6 +451,9 @@
       },
       "quiet_hours": {
         "name": "Ruhezeit"
+      },
+      "mold_alarm": {
+        "name": "Schimmelgefahr"
       }
     },
     "button": {

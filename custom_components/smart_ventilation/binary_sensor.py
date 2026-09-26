@@ -19,6 +19,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         VentilationRecommendedSensor(coordinator),
         CoolingDownSensor(coordinator),
         QuietHoursSensor(coordinator),
+        MoldAlarmSensor(coordinator),
     ])
 
 
@@ -91,3 +92,15 @@ class QuietHoursSensor(BaseBinary):
     @property
     def is_on(self):
         return self.coordinator.in_quiet_hours()
+
+
+class MoldAlarmSensor(BaseBinary):
+    """An, wenn die Wand mehrere Tage in Folge kritisch feucht war."""
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:alert-octagon-outline"
+
+    def __init__(self, c): super().__init__(c, "mold_alarm", "Schimmelgefahr")
+
+    @property
+    def is_on(self):
+        return self.coordinator.mold_alarm

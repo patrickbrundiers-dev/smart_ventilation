@@ -19,6 +19,8 @@ from .const import (
 from . import notify_util
 from .const import CONF_WEEKLY_REPORT, REPORT_HOUR, REPORT_WEEKDAY
 from .extras import _week_key, de_num
+from .const import CONF_MONTHLY_REPORT, MONTHLY_REPORT_HOUR
+from .history import change_percent, de, month_name
 
 MOLD_WEIGHT = {"hoch": 3.0, "erhöht": 1.5}
 
@@ -37,11 +39,16 @@ class OverviewCoordinator:
         self._snooze_until = None
         self._skip_date = None
         self._last_report = None
+        self._last_month_report = None
 
     # ------------------------------------------------------------------
     @property
     def combine(self):
         return bool(self.data.get(CONF_COMBINE, True))
+
+    @property
+    def monthly_report(self):
+        return bool(self.data.get(CONF_MONTHLY_REPORT))
 
     @property
     def weekly_report(self):
@@ -102,6 +109,7 @@ class OverviewCoordinator:
         if stored.get("last_notification_at"):
             self.last_notification_at = dt_util.parse_datetime(stored["last_notification_at"])
         self._last_report = stored.get("last_report")
+        self._last_month_report = stored.get("last_month_report")
         self._unsubs.append(
             async_track_time_interval(self.hass, self._tick, timedelta(seconds=60))
         )
@@ -138,6 +146,7 @@ class OverviewCoordinator:
         if self.combine:
             await self._send_combined()
         await self._send_weekly_report()
+        await self._send_monthly_report()
 
     async def _send_combined(self):
         now = dt_util.now()
@@ -193,6 +202,7 @@ class OverviewCoordinator:
         await self.store.async_save({
             "last_notification_at": self.last_notification_at.isoformat() if self.last_notification_at else None,
             "last_report": self._last_report,
+            "last_month_report": self._last_month_report,
         })
 
     async def _send_weekly_report(self):
@@ -220,4 +230,40 @@ class OverviewCoordinator:
         await notify_util.send(
             self.hass, self.notify_targets, "Lüften – Wochenbericht", "\n".join(lines),
             f"smart_ventilation_{self.entry.entry_id}_report",
+        )
+
+    async def _send_monthly_report(self):
+        """Am 1. des Monats: alle Räume im Vergleich, mit Rangfolge nach Lüftungsbedarf."""
+        now = dt_util.now()
+        if not self.monthly_report or not self.notify_targets:
+            return
+        if now.day != 1 or now.hour < MONTHLY_REPORT_HOUR:
+            return
+        comparisons = [(r.data.get("name"), r.month_comparison()) for r in self.rooms()]
+        comparisons = [(n, c) for n, c in comparisons if c]
+        if not comparisons:
+            return
+        month_key = max(r_key for r in self.rooms() for r_key in r.history) if any(r.history for r in self.rooms()) else None
+        if month_key is None or self._last_month_report == month_key:
+            return
+        self._last_month_report = month_key
+        await self._save()
+
+        need = sum(c["bedarf_h"] for _, c in comparisons)
+        prev = [c["vormonat"]["bedarf_h"] for _, c in comparisons if c["vormonat"]]
+        kwh = sum(c["kwh"] for _, c in comparisons)
+        cost = sum(c["kosten"] for _, c in comparisons)
+        lines = [f"{month_name(month_key)}: Lüftungsbedarf {de(need)} h, {de(kwh)} kWh ≈ {de(cost, 2)} €"]
+        change = change_percent(need, sum(prev)) if len(prev) == len(comparisons) else None
+        if change:
+            lines.append(f"{abs(change)} % {'mehr' if change > 0 else 'weniger'} Bedarf als im Vormonat")
+        for name, c in sorted(comparisons, key=lambda x: -x[1]["bedarf_h"]):
+            mold = f", {c['schimmeltage']} Schimmeltage" if c["schimmeltage"] else ""
+            lines.append(f"• {name}: {de(c['bedarf_h'])} h Bedarf, {c['lueftungen']}× gelüftet{mold}")
+        top = max(comparisons, key=lambda x: x[1]["bedarf_h"])
+        if top[1]["bedarf_h"] > 0:
+            lines.append(f"Am häufigsten Lüftungsbedarf: {top[0]}")
+        await notify_util.send(
+            self.hass, self.notify_targets, "Lüften – Monatsbericht", "\n".join(lines),
+            f"smart_ventilation_{self.entry.entry_id}_month",
         )

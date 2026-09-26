@@ -73,7 +73,8 @@ def _options_input(entry, **changes):
     for name in SECTIONS:
         keys = [str(k) for k in _section_fields(name, None, current, with_name=False) if name != "notify"] \
             if name != "notify" else ["notify_services", "persons", "quiet_start", "quiet_end",
-                                      "notification_cooldown", "weekly_report", "vacation_entity", "vacation_keyword"]
+                                      "notification_cooldown", "weekly_report", "monthly_report",
+                                      "vacation_entity", "vacation_keyword"]
         user_input[name] = {k: current[k] for k in keys if k in current and current[k] not in ("", None)}
         user_input[name].update({k: v for k, v in changes.items() if k in keys})
     return user_input

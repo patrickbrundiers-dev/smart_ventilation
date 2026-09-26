@@ -25,7 +25,7 @@ from .const import (
     CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE, CONF_PERSONS, CONF_ENTRY_TYPE,
     ENTRY_TYPE_ROOM, ENTRY_TYPE_OVERVIEW, CONF_COMBINE, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP,
-    CONF_DEHUMIDIFIER, CONF_WEEKLY_REPORT,
+    CONF_DEHUMIDIFIER, CONF_WEEKLY_REPORT, CONF_MONTHLY_REPORT,
 )
 
 # Reihenfolge der Bereiche im Formular
@@ -184,6 +184,7 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
                 CONF_NOTIFICATION_COOLDOWN, default=g(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
             ): _number(5, 1440, 5, "min"),
             vol.Required(CONF_WEEKLY_REPORT, default=g(CONF_WEEKLY_REPORT, True)): bool,
+            vol.Required(CONF_MONTHLY_REPORT, default=g(CONF_MONTHLY_REPORT, True)): bool,
             _opt(CONF_VACATION, g(CONF_VACATION)): _entity(["calendar", "input_boolean", "binary_sensor"]),
             _opt(CONF_VACATION_KEYWORD, g(CONF_VACATION_KEYWORD)): str,
         }
@@ -221,6 +222,7 @@ def overview_schema(hass: HomeAssistant, d: dict) -> vol.Schema:
             CONF_NOTIFICATION_COOLDOWN, default=d.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
         ): _number(5, 1440, 5, "min"),
         vol.Required(CONF_WEEKLY_REPORT, default=d.get(CONF_WEEKLY_REPORT, True)): bool,
+        vol.Required(CONF_MONTHLY_REPORT, default=d.get(CONF_MONTHLY_REPORT, True)): bool,
     })
 
 
