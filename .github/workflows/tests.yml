@@ -18,14 +18,19 @@ jobs:
           - ha: beta
             pre: "--pre"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
       - name: Home Assistant + Testumgebung installieren
         run: |
           python -m pip install --upgrade pip
           pip install ${{ matrix.pre }} pytest-homeassistant-custom-component pytest-github-actions-annotate-failures
-          python -c "import homeassistant.const as c; print('Home Assistant', c.__version__)"
+          echo "::notice title=Version::Home Assistant $(python -c 'import homeassistant.const as c; print(c.__version__)')"
       - name: Tests
-        run: pytest -v
+        run: |
+          set -o pipefail
+          pytest -v 2>&1 | tee pytest.log
+      - name: Ergebnis
+        if: always()
+        run: echo "::notice title=Ergebnis::$(tail -n 1 pytest.log)"
