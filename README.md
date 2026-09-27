@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.12
+
+- **Feuchte-Empfehlung flackert nicht mehr:** Die Empfehlung „wegen Feuchte lüften“ konnte direkt an der Schwelle bei jeder kleinen Sensorschwankung an- und ausgehen (sichtbar als ständiger Wechsel zwischen „Kippfenster …“ und „Keine Lüftung erforderlich“ im Verlauf, teils im Minutentakt). Jetzt gilt eine Hysterese: Ist die Empfehlung erst aktiv, braucht es einen spürbar deutlicheren Rückgang (Feuchteunterschied, Zielwert, rel. Feuchte und Schimmelrisiko gemeinsam klar unter der Schwelle), bevor sie wieder ausgeht.
+
 ### Version 2.3.11
 
 - **Pause nach dem Lüften nutzt die Wettervorhersage:** Statt starr 60 Minuten zu warten, gilt bei eingerichteter Wetter-Entität der nächste günstige Zeitpunkt aus der Vorhersage – aber höchstens 4 Stunden voraus, sonst bleibt es bei 60 Minuten. So kommt keine Erinnerung, während draußen gerade Regen oder Hitze herrscht, aber auch keine unnötig lange Pause.

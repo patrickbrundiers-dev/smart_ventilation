@@ -262,6 +262,46 @@ async def test_card_shows_heating_lowered(hass: HomeAssistant, freezer: FrozenDa
     assert karte["heizung_extern"] == []
 
 
+async def test_humidity_recommendation_has_hysteresis(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Die Feuchte-Empfehlung darf nicht bei jeder kleinen Sensorschwankung um die Schwelle
+    kippen (siehe Logbuch: ständiger Wechsel „Kippfenster …“ / „Keine Lüftung erforderlich“
+    im Minutentakt). Direkt an/knapp unter der Einstiegsschwelle muss die Empfehlung im
+    Hysterese-Puffer aktiv bleiben, erst deutlich darunter darf sie ausgehen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass)
+    rec = eid(hass, "sensor", entry, "recommendation")
+
+    # Ausgangslage (Standard-Fixture): Feuchteunterschied deutlich über der Schwelle -> aktiv
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
+
+    # Knapp unter der reinen Einstiegsschwelle (diff <= START_DIFF = 1.0), aber noch im
+    # Hysterese-Puffer (> START_DIFF - HUMID_HYSTERESIS = 0,6) -> darf NICHT sofort ausgehen.
+    hass.states.async_set("sensor.aussen_ah", 9.7)  # diff = 10,5 - 9,7 = 0,8
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["minuten"] > 0, "Empfehlung sollte im Hysterese-Puffer aktiv bleiben"
+
+    # Jetzt deutlich unter allen Schwellen inkl. Puffer (diff, Zielwert, rel. Feuchte, Schimmel)
+    # -> darf jetzt ausgehen.
+    hass.states.async_set("sensor.innen_ah", 8.0)
+    hass.states.async_set("sensor.aussen_ah", 7.5)  # diff = 0,5
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["schimmel"] == "niedrig"
+    assert karte["minuten"] == 0
+    assert hass.states.get(rec).state == "Keine Lüftung erforderlich"
+
+    # Bleibt aus bei minimaler Schwankung knapp unterhalb der Schwelle - kein erneutes Flackern.
+    hass.states.async_set("sensor.aussen_ah", 7.6)  # diff = 0,4
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
+
+
 async def test_post_vent_pause_uses_forecast_and_extreme_override(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:

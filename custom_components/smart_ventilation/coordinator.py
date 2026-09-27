@@ -138,6 +138,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._snooze_until = None
         self._skip_date = None
         self._last_session_end = None
+        self._humidity_active = False
         self._unavailable_since = {}
         self.cool_plan = None
         self._init_extras()
@@ -1302,18 +1303,37 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
     def _humidity_need(self, indoor, diff):
         """Wegen Feuchte lüften nur, wenn es sich lohnt UND die Raumluft zu feucht ist.
 
-        - draußen deutlich trockener (Start ab 1 g/m³, beendet wird bei 0,5 -> kein Hin und Her)
+        - draußen deutlich trockener (ab START_DIFF g/m³)
         - und innen über dem Tagesziel, relative Feuchte hoch oder Schimmelrisiko an der Wand
+
+        Mit Hysterese: Ist die Empfehlung schon aktiv, braucht es einen deutlicheren Rückgang
+        (alle Werte klar unter der jeweiligen Schwelle), bevor sie wieder ausgeht. Ohne diesen
+        Puffer kippt die Empfehlung bei jeder kleinen Sensorschwankung genau an der Schwelle
+        hin und her – sichtbar als ständiger Wechsel zwischen „Kippfenster …“ und
+        „Keine Lüftung erforderlich“ im Verlauf.
         """
-        if diff <= START_DIFF:
-            return False
         target_abs = float(self.data.get(CONF_TARGET_ABS, DEFAULT_TARGET_ABS))
         rh = self.indoor_rh
-        return (
+        mold = self.mold_risk
+
+        enter = diff > START_DIFF and (
             indoor > target_abs
             or (rh is not None and rh >= HUMID_RH)
-            or self.mold_risk in ("erhöht", "hoch")
+            or mold in ("erhöht", "hoch")
         )
+        if not self._humidity_active:
+            self._humidity_active = enter
+            return enter
+
+        # aktiv -> erst wieder aus, wenn alles klar unter der Schwelle liegt (Puffer siehe const.py)
+        clearly_below = (
+            diff <= START_DIFF - HUMID_HYSTERESIS
+            and indoor <= target_abs - HUMID_HYSTERESIS
+            and (rh is None or rh < HUMID_RH - HUMID_RH_HYSTERESIS)
+            and mold not in ("erhöht", "hoch")
+        )
+        self._humidity_active = not clearly_below
+        return self._humidity_active
 
     def _update_recommendation(self):
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
