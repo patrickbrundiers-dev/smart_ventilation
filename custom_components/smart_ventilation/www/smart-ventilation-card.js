@@ -36,12 +36,40 @@ const join = (parts) => parts.filter(Boolean).join(" · ");
 let UID = 0;
 
 /* Ein Chip statt zwei getrennter für Wärmeverlust und Vorheiz-Ersparnis: zeigt die Netto-Bilanz,
-   die Aufschlüsselung steht im Titel-Tooltip. */
-function renderChip([ent, icon, text, tone, title]) {
+   die Aufschlüsselung steht im Titel-Tooltip. Mit "toggle" statt Entität wird kein More-Info-Dialog
+   geöffnet, sondern ein lokales Klapp-Panel umgeschaltet (siehe [data-toggle] in _render). */
+function renderChip([ent, icon, text, tone, title, toggle, expanded]) {
   const t = title ? ` title="${esc(title)}"` : "";
+  if (toggle) {
+    const caret = `<ha-icon class="chip-caret" icon="${expanded ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>`;
+    return `<button class="chip ${tone ? `tone-${tone}` : ""}" data-toggle="${esc(toggle)}" aria-expanded="${!!expanded}"${t}><ha-icon icon="${icon}"></ha-icon>${esc(text)}${caret}</button>`;
+  }
   return ent
     ? `<button class="chip ${tone ? `tone-${tone}` : ""}" data-entity="${esc(ent)}"${t}><ha-icon icon="${icon}"></ha-icon>${esc(text)}</button>`
     : `<span class="chip ${tone ? `tone-${tone}` : ""}"${t}><ha-icon icon="${icon}"></ha-icon>${esc(text)}</span>`;
+}
+
+/* ---------- Aufklappbare Statistik (Woche/Monat/Gesamt) unter dem "heute"-Chip ---------- */
+function statsPanel(stats) {
+  if (!stats) return "";
+  const rows = [
+    ["Woche", stats.woche],
+    ["Monat", stats.monat],
+    ["Gesamt", stats.gesamt],
+  ];
+  return `<div class="breakdown">${rows
+    .map(([label, s]) => {
+      if (!s) return "";
+      const netKwh = (s.kwh || 0) - (s.kwh_gespart || 0);
+      const netEur = (s.cost || 0) - (s.kosten_gespart || 0);
+      const good = netKwh < -0.004;
+      const netText = good
+        ? `−${fmt(-netKwh, 2)} kWh · −${fmt(-netEur, 2)} €`
+        : `${fmt(netKwh, 2)} kWh · ${fmt(netEur, 2)} €`;
+      const durText = s.minutes >= 60 ? `${fmt(s.minutes / 60, 1)} h` : `${fmt(s.minutes, 0)} Min.`;
+      return `<div class="breakdown-row"><span>${label} · ${s.count}× · ${durText}</span><span class="${good ? "tone-good" : ""}">${netText}</span></div>`;
+    })
+    .join("")}</div>`;
 }
 
 function costChip(entity, kwh, eur, kwhSaved, eurSaved) {
@@ -183,6 +211,7 @@ class SmartVentilationCard extends HTMLElement {
     super();
     this._overviewSort = "dringlichkeit";
     this._overviewExpanded = false;
+    this._roomStatsExpanded = false;
   }
 
   static getStubConfig(hass) {
@@ -308,6 +337,7 @@ class SmartVentilationCard extends HTMLElement {
       const toggle = (ev) => {
         ev.stopPropagation();
         if (el.dataset.toggle === "breakdown") this._overviewExpanded = !this._overviewExpanded;
+        else if (el.dataset.toggle === "stats") this._roomStatsExpanded = !this._roomStatsExpanded;
         this._render(this._lastState);
       };
       el.addEventListener("click", toggle);
@@ -358,9 +388,14 @@ class SmartVentilationCard extends HTMLElement {
     const chart = this._config.show_chart ? this._chart(k.verlauf) : "";
     const trend = this._config.show_trend !== false ? trendChart(k.trend_tage) : "";
 
+    const heuteText = `${k.heute_anzahl}× heute · ${fmt(k.heute_min, 0)} Min.`;
+    const heuteTone = k.gelueftet && "good";
     const chips = [
       k.bester_zeitpunkt && [e.bester, "mdi:clock-check-outline", k.bester_zeitpunkt],
-      [e.heute, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", `${k.heute_anzahl}× heute · ${fmt(k.heute_min, 0)} Min.`, k.gelueftet && "good"],
+      k.statistik
+        ? [null, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", heuteText, heuteTone,
+            "Woche, Monat und Gesamt anzeigen", "stats", this._roomStatsExpanded]
+        : [e.heute, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", heuteText, heuteTone],
       costChip(e.kosten, k.heute_kwh, k.heute_eur, k.heute_kwh_gespart, k.heute_eur_gespart),
       k.kuehlen_plan && !(k.minuten > 0 && k.grund === "Kühlen") && [null, "mdi:weather-night", `Kühlen ${k.kuehlen_plan}`],
       k.vorheizen_plan && !(k.minuten > 0 && k.grund === "Vorheizen") && [null, "mdi:thermometer-chevron-up", `Vorheizen ${k.vorheizen_plan}`],
@@ -370,6 +405,7 @@ class SmartVentilationCard extends HTMLElement {
       .filter(Boolean)
       .map(renderChip)
       .join("");
+    const stats = k.statistik && this._roomStatsExpanded ? statsPanel(k.statistik) : "";
 
     const actions = this._config.show_actions !== false && k.minuten > 0 && !k.laeuft && !k.pausiert && e.snooze && e.skip
       ? `<div class="actions">
@@ -394,7 +430,7 @@ class SmartVentilationCard extends HTMLElement {
         ${h.sub ? `<div class="sub">${esc(h.sub)}</div>` : ""}
       </div>
       ${progress}${actions}${alertHtml}${tiles}${chart}${trend}
-      ${chips ? `<div class="chips">${chips}</div>` : ""}`;
+      ${chips ? `<div class="chips">${chips}</div>` : ""}${stats}`;
   }
 
   _tiles(k, e) {

@@ -151,7 +151,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.5.0"
+VERSION = "2.6.0"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus

@@ -143,6 +143,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.6.0
+
+- **Statistik per Klick auf der Karte**: Ein Klick auf den „heute“-Chip im Raum klappt jetzt eine Übersicht mit Woche, Monat und Gesamt auf (Anzahl, Dauer, Netto-Kosten bzw. -Ersparnis je Zeitraum) – bislang war das nur über die einzelnen Statistik-Sensoren im More-Info-Dialog einsehbar.
+
 ### Version 2.5.0
 
 - **7-Tage-Trend auf der Karte**: Sowohl Raum- als auch Übersichtskarte zeigen jetzt eine kleine Sparkline mit der Lüftungshäufigkeit der letzten 7 Tage (Tooltip mit Kosten pro Tag). Neuer Umschalter „7-Tage-Trend anzeigen“ im Karten-Editor.

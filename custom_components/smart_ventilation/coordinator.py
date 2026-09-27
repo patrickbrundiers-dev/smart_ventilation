@@ -1742,6 +1742,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "pausiert": self.pause_reason(),
             "verlauf": self.trace_for_card(),
             "trend_tage": self.day_trend(7),
+            # Für die aufklappbare Statistik auf der Karte (Klick auf den "heute"-Chip) -
+            # dieselben Werte wie die stats_*/cost_month-Sensoren, hier gebündelt.
+            "statistik": {
+                "woche": self.period_stats("week"),
+                "monat": self.period_stats("month"),
+                "gesamt": self.period_stats("total"),
+            },
             "kuehlen_plan": self.cool_plan,
             "vorheizen_plan": self.preheat_plan_text,
             "nach_dusche": self.after_shower,
