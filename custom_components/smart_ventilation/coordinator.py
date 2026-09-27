@@ -1040,10 +1040,23 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def season(self):
-        """'summer' oder 'winter' – manuell gesetzt oder automatisch per Außentemperatur."""
+        """'summer' oder 'winter' – manuell gesetzt oder automatisch per Kalendermonat/Außentemperatur.
+
+        Dezember–Februar und Juni–August gelten fest als Winter bzw. Sommer, ein einzelner
+        milder Wintertag oder kühler Sommertag soll den Modus nicht umschalten. Nur in den
+        Übergangsmonaten (März–Mai, September–November) entscheidet die Außentemperatur.
+        """
         mode = self.data.get(CONF_SEASON_MODE, DEFAULT_SEASON_MODE)
         if mode in (SEASON_SUMMER, SEASON_WINTER):
             return mode
+
+        month = dt_util.now().month
+        if month in SEASON_FIXED_WINTER_MONTHS:
+            self._auto_season = SEASON_WINTER
+            return SEASON_WINTER
+        if month in SEASON_FIXED_SUMMER_MONTHS:
+            self._auto_season = SEASON_SUMMER
+            return SEASON_SUMMER
 
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
@@ -1059,10 +1072,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return self._auto_season
 
     def _temperature_block(self):
-        """Winter: nie sperren (Stoßlüften). Sommer: sperren, wenn draußen deutlich wärmer."""
-        if self.season == SEASON_WINTER:
-            return False, ""
-
+        """Sperren, wenn es draußen deutlich wärmer ist als drinnen – unabhängig von der
+        Jahreszeit. Das gilt nicht nur im Sommer (Kühleffekt verpufft), sondern auch an
+        milden Tagen im Winter: Lüften heizt den Raum dann unnötig auf, statt ihn zu kühlen
+        oder zu trocknen."""
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         if indoor is None or outdoor is None:

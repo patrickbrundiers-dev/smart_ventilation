@@ -65,6 +65,11 @@ SEASON_WINTER = "winter"
 DEFAULT_SEASON_MODE = SEASON_AUTO
 DEFAULT_SEASON_THRESHOLD = 15.0  # °C – Heizgrenztemperatur
 SEASON_HYSTERESIS = 1.0  # °C – verhindert ständiges Hin- und Herspringen
+# Meteorologische Jahreszeit: in diesen Monaten gilt Winter/Sommer fest, unabhängig von der
+# Außentemperatur (ein einzelner milder Wintertag oder kühler Sommertag soll den Modus nicht
+# umschalten). Nur in den Übergangsmonaten entscheidet weiter die Temperatur wie bisher.
+SEASON_FIXED_WINTER_MONTHS = (12, 1, 2)
+SEASON_FIXED_SUMMER_MONTHS = (6, 7, 8)
 
 # Benachrichtigungen: Liste von notify-Diensten (ersetzt das alte Textfeld)
 CONF_NOTIFY_SERVICES = "notify_services"
@@ -131,7 +136,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.3.13"
+VERSION = "2.3.14"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus

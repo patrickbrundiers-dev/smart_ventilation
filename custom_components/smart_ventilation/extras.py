@@ -267,13 +267,14 @@ class RoomExtrasMixin:
         return f"{text} bis {end.strftime('%H:%M')} Uhr" if end else f"{text} Uhr"
 
     async def _warm_outside_warning(self):
-        """Sommer: ans Schließen erinnern, wenn das Lüften den Raum aufheizt.
+        """Ans Schließen erinnern, wenn das Lüften den Raum aufheizt – unabhängig von der
+        Jahreszeit (an milden Wintertagen kann es genauso vorkommen).
 
         Dieselbe Grenze wie bei der Empfehlung, sonst widersprechen sich „Lüften“ und „Schließen“:
         - zum Kühlen gelüftet: sobald draußen wärmer als drinnen (Kühlen klappt nicht mehr)
-        - wegen Feuchte/CO₂ gelüftet: erst ab der eingestellten Sommer-Grenze
+        - wegen Feuchte/CO₂ gelüftet: erst ab der eingestellten Grenze
         """
-        if not self.session or self.season != SEASON_SUMMER or self._warm_warned:
+        if not self.session or self._warm_warned:
             return
         ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
         to = _num_state(self.hass, self.data[CONF_OUTDOOR_TEMP])

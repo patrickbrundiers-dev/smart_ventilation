@@ -36,6 +36,64 @@ async def test_entities_and_recommendation(hass: HomeAssistant, berlin) -> None:
     assert hass.states.get(eid(hass, "button", entry, "reset_learning")) is not None
 
 
+async def test_auto_season_uses_calendar_month(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Automatik-Modus: Dezember-Februar/Juni-August gelten fest, unabhängig von der
+    Außentemperatur. Nur in den Übergangsmonaten entscheidet weiter die Temperatur wie bisher."""
+    freezer.move_to("2026-07-15 12:00:00+02:00")  # Juli -> fester Sommer
+    entry = await setup_room(hass, season_mode="auto")
+    season = eid(hass, "sensor", entry, "season")
+    hass.states.async_set("sensor.aussen_t", 5.0)  # kalt - würde ohne Monat "Winter" ergeben
+    await hass.async_block_till_done()
+    assert hass.states.get(season).state == "summer"
+
+    freezer.move_to("2026-12-15 12:00:00+01:00")  # Dezember -> fester Winter
+    hass.states.async_set("sensor.aussen_t", 22.0)  # warm - würde ohne Monat "Sommer" ergeben
+    await hass.async_block_till_done()
+    assert hass.states.get(season).state == "winter"
+
+    freezer.move_to("2026-04-15 12:00:00+02:00")  # April -> Übergangsmonat, Temperatur entscheidet
+    hass.states.async_set("sensor.aussen_t", 20.0)  # deutlich über der Schwelle (15 °C)
+    await hass.async_block_till_done()
+    assert hass.states.get(season).state == "summer"
+
+    hass.states.async_set("sensor.aussen_t", 5.0)  # deutlich darunter
+    await hass.async_block_till_done()
+    assert hass.states.get(season).state == "winter"
+
+
+async def test_no_venting_when_warmer_outside_even_in_winter(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Auch im Winter nicht lüften, wenn es draußen deutlich wärmer ist als drinnen (z. B.
+    milder Herbsttag) - vorher wurde die Wärme-Sperre im Winter komplett übersprungen und
+    trotz feuchter Raumluft trotzdem „Lüften“ empfohlen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    entry = await setup_room(hass)  # season_mode="winter" per ROOM_DATA-Fixture
+    rec = eid(hass, "sensor", entry, "recommendation")
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0  # Ausgangslage: feucht genug
+
+    hass.states.async_set("sensor.aussen_t", 24.0)  # > 3 °C wärmer als innen (20,5 °C)
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    state = hass.states.get(rec)
+    assert state.state == "Nicht lüften – draußen zu warm"
+    assert state.attributes["karte"]["minuten"] == 0
+    assert "wärmer" in state.attributes["karte"]["blockiert"]
+
+    # Ist trotzdem schon gelüftet worden (Fenster offen) und wird es dabei wärmer,
+    # kommt zusätzlich der Hinweis zum Schließen - auch im Winter.
+    hass.states.async_set("sensor.aussen_t", 20.5)
+    await hass.async_block_till_done()
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    hass.states.async_set("sensor.aussen_t", 24.0)
+    await _tick(hass, freezer, 1)
+    assert any(t.startswith("Fenster schließen") for t in [c.data["title"] for c in pushes])
+
+
 async def test_ventilation_session(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     freezer.move_to("2026-12-05 10:00:00+01:00")
     pushes = async_mock_service(hass, "notify", "mobile_app_test")

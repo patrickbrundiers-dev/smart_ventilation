@@ -114,6 +114,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.14
+
+- **Fix: Im Winter wurde trotz wärmerer Außenluft weiter „Lüften“ empfohlen.** Die Wärme-Sperre („draußen zu warm“) galt bisher nur im Sommer – im Winter wurde sie komplett übersprungen, auch an milden Tagen, an denen es draußen tatsächlich wärmer war als drinnen. Jetzt gilt dieselbe Grenze (Standard 3 °C) unabhängig von der Jahreszeit; ebenso der Hinweis zum Fenster schließen, falls es während des Lüftens wärmer wird.
+- **Automatik-Modus berücksichtigt jetzt den Kalendermonat:** Dezember–Februar gelten fest als Winter, Juni–August fest als Sommer – ein einzelner milder Wintertag oder kühler Sommertag schaltet den Modus nicht mehr um. Nur in den Übergangsmonaten (März–Mai, September–November) entscheidet weiter die Außentemperatur wie bisher.
+
 ### Version 2.3.13
 
 - **Richtwert für das Tagesziel je Raumtyp:** Beim Einrichten eines Raums lässt sich jetzt ein Raumtyp wählen (Schlafzimmer, Bad, Wohnzimmer/Büro, Küche, Sonstige). Danach wird das Tagesziel Luftfeuchte automatisch auf einen dazu passenden Richtwert vorbelegt (z. B. Schlafzimmer niedriger wegen Schimmelrisiko an Außenwänden, Bad höher wegen kurzfristiger Spitzen durchs Duschen) – lässt sich aber jederzeit manuell überschreiben, dann bleibt der eigene Wert erhalten.
