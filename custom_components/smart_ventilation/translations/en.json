@@ -114,11 +114,21 @@
               "persons": "People",
               "quiet_start": "Quiet hours from",
               "quiet_end": "Quiet hours until",
+              "quiet_weekend_different": "Different quiet hours on weekends",
+              "quiet_start_weekend": "Quiet hours from (Sat/Sun)",
+              "quiet_end_weekend": "Quiet hours until (Sat/Sun)",
               "notification_cooldown": "Time between reminders",
               "weekly_report": "Weekly report",
               "monthly_report": "Monthly report",
               "vacation_entity": "Vacation",
-              "vacation_keyword": "Calendar keyword"
+              "vacation_keyword": "Calendar keyword",
+              "notify_targets_reminder": "Targets: ventilation reminder",
+              "notify_targets_finished": "Targets: ventilation finished",
+              "notify_targets_warning": "Targets: warnings (cooling, window open)",
+              "notify_targets_shower": "Targets: after showering",
+              "notify_targets_mold": "Targets: mould risk",
+              "notify_targets_welcome": "Targets: welcome home",
+              "notify_targets_report": "Targets: weekly/monthly report"
             },
             "data_description": {
               "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
@@ -128,7 +138,17 @@
               "weekly_report": "A summary of the week on Sundays at 7 pm.",
               "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year.",
               "vacation_entity": "Optional: calendar, switch or binary sensor. No reminders during vacation, only mould warnings.",
-              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event."
+              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event.",
+              "quiet_weekend_different": "Saturday and Sunday get their own quiet hours instead of the ones above – e.g. to sleep in.",
+              "quiet_start_weekend": "Only applies when enabled above.",
+              "quiet_end_weekend": "Only applies when enabled above.",
+              "notify_targets_reminder": "Who gets this type of message. Only shown once two targets are selected; with nothing chosen, all targets selected above get this type.",
+              "notify_targets_finished": "Who gets this type of message.",
+              "notify_targets_warning": "Who gets this type of message.",
+              "notify_targets_shower": "Who gets this type of message.",
+              "notify_targets_mold": "Who gets this type of message.",
+              "notify_targets_welcome": "Who gets this type of message.",
+              "notify_targets_report": "Who gets this type of message."
             }
           },
           "devices": {
@@ -160,14 +180,24 @@
               "persons": "People",
               "quiet_start": "Quiet hours from",
               "quiet_end": "Quiet hours until",
-              "notification_cooldown": "Time between reminders"
+              "quiet_weekend_different": "Different quiet hours on weekends",
+              "quiet_start_weekend": "Quiet hours from (Sat/Sun)",
+              "quiet_end_weekend": "Quiet hours until (Sat/Sun)",
+              "notification_cooldown": "Time between reminders",
+              "notify_targets_reminder": "Targets: ventilation reminder",
+              "notify_targets_report": "Targets: weekly/monthly report"
             },
             "data_description": {
               "combine_notifications": "One notification for all rooms instead of one per room.",
               "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
               "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
               "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
-              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time."
+              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
+              "quiet_weekend_different": "Saturday and Sunday get their own quiet hours instead of the ones above – e.g. to sleep in.",
+              "quiet_start_weekend": "Only applies when enabled above.",
+              "quiet_end_weekend": "Only applies when enabled above.",
+              "notify_targets_reminder": "Who gets this type of message. Only shown once two targets are selected; with nothing chosen, all targets selected above get this type.",
+              "notify_targets_report": "Who gets this type of message."
             }
           },
           "reports": {
@@ -290,11 +320,21 @@
               "persons": "People",
               "quiet_start": "Quiet hours from",
               "quiet_end": "Quiet hours until",
+              "quiet_weekend_different": "Different quiet hours on weekends",
+              "quiet_start_weekend": "Quiet hours from (Sat/Sun)",
+              "quiet_end_weekend": "Quiet hours until (Sat/Sun)",
               "notification_cooldown": "Time between reminders",
               "weekly_report": "Weekly report",
               "monthly_report": "Monthly report",
               "vacation_entity": "Vacation",
-              "vacation_keyword": "Calendar keyword"
+              "vacation_keyword": "Calendar keyword",
+              "notify_targets_reminder": "Targets: ventilation reminder",
+              "notify_targets_finished": "Targets: ventilation finished",
+              "notify_targets_warning": "Targets: warnings (cooling, window open)",
+              "notify_targets_shower": "Targets: after showering",
+              "notify_targets_mold": "Targets: mould risk",
+              "notify_targets_welcome": "Targets: welcome home",
+              "notify_targets_report": "Targets: weekly/monthly report"
             },
             "data_description": {
               "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
@@ -304,7 +344,17 @@
               "weekly_report": "A summary of the week on Sundays at 7 pm.",
               "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year.",
               "vacation_entity": "Optional: calendar, switch or binary sensor. No reminders during vacation, only mould warnings.",
-              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event."
+              "vacation_keyword": "Only events containing this word count as vacation. Empty = every event.",
+              "quiet_weekend_different": "Saturday and Sunday get their own quiet hours instead of the ones above – e.g. to sleep in.",
+              "quiet_start_weekend": "Only applies when enabled above.",
+              "quiet_end_weekend": "Only applies when enabled above.",
+              "notify_targets_reminder": "Who gets this type of message. Only shown once two targets are selected; with nothing chosen, all targets selected above get this type.",
+              "notify_targets_finished": "Who gets this type of message.",
+              "notify_targets_warning": "Who gets this type of message.",
+              "notify_targets_shower": "Who gets this type of message.",
+              "notify_targets_mold": "Who gets this type of message.",
+              "notify_targets_welcome": "Who gets this type of message.",
+              "notify_targets_report": "Who gets this type of message."
             }
           },
           "devices": {
@@ -330,14 +380,24 @@
               "persons": "People",
               "quiet_start": "Quiet hours from",
               "quiet_end": "Quiet hours until",
-              "notification_cooldown": "Time between reminders"
+              "quiet_weekend_different": "Different quiet hours on weekends",
+              "quiet_start_weekend": "Quiet hours from (Sat/Sun)",
+              "quiet_end_weekend": "Quiet hours until (Sat/Sun)",
+              "notification_cooldown": "Time between reminders",
+              "notify_targets_reminder": "Targets: ventilation reminder",
+              "notify_targets_report": "Targets: weekly/monthly report"
             },
             "data_description": {
               "combine_notifications": "One notification for all rooms instead of one per room.",
               "notify_services": "Phones with the Home Assistant app. Nothing selected = no push notifications.",
               "persons": "Optional. Reminders only to people at home, a hint on arrival and a warning when everyone left with a window open.",
               "quiet_start": "No ventilation reminders. Warnings (cooling, window open, after showering) are still sent.",
-              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time."
+              "notification_cooldown": "The next ventilation reminder is sent at the earliest after this time.",
+              "quiet_weekend_different": "Saturday and Sunday get their own quiet hours instead of the ones above – e.g. to sleep in.",
+              "quiet_start_weekend": "Only applies when enabled above.",
+              "quiet_end_weekend": "Only applies when enabled above.",
+              "notify_targets_reminder": "Who gets this type of message. Only shown once two targets are selected; with nothing chosen, all targets selected above get this type.",
+              "notify_targets_report": "Who gets this type of message."
             }
           },
           "reports": {

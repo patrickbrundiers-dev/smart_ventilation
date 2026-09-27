@@ -11,6 +11,7 @@ from datetime import timedelta
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CAT_MOLD, CAT_REPORT, CAT_SHOWER, CAT_WARNING,
     CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF,
     CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP,
     CONF_NAME, CONF_OUTDOOR_HUMIDITY, CONF_OUTDOOR_TEMP, CONF_SHOWER, CONF_SHOWER_DETECT,
@@ -153,6 +154,7 @@ class RoomExtrasMixin:
             f"Jetzt lüften – {self.recommendation}",
             f"smart_ventilation_{self.entry.entry_id}_shower",
             targets=notify_util.filter_targets(self.hass, self.notify_targets, self.persons),
+            category=CAT_SHOWER,
         )
 
     async def _shower_followup(self, now):
@@ -171,6 +173,7 @@ class RoomExtrasMixin:
                 f"Seit dem Duschen wurde nicht gelüftet. {self.recommendation}",
                 f"smart_ventilation_{self.entry.entry_id}_shower",
                 targets=notify_util.filter_targets(self.hass, self.notify_targets, self.persons),
+                category=CAT_SHOWER,
             )
 
     # ------------------------------------------------------------------
@@ -201,6 +204,7 @@ class RoomExtrasMixin:
                 "oder den Luftentfeuchter einschalten."
             ),
             f"smart_ventilation_{self.entry.entry_id}_vacation",
+            category=CAT_MOLD,
         )
         await self._save()
 
@@ -218,6 +222,7 @@ class RoomExtrasMixin:
             f"Fenster offen: {self.data[CONF_NAME]}",
             f"Niemand ist zu Hause, aber noch offen: {names}.",
             f"smart_ventilation_{self.entry.entry_id}_left",
+            category=CAT_WARNING,
         )
 
     # ------------------------------------------------------------------
@@ -390,6 +395,7 @@ class RoomExtrasMixin:
             f"Draußen ist es jetzt {to - ti:.1f} °C wärmer ({to:.1f} °C) als drinnen ({ti:.1f} °C) – "
             "der Raum heizt sich sonst auf.",
             f"smart_ventilation_{self.entry.entry_id}_warm",
+            category=CAT_WARNING,
         )
 
     # ------------------------------------------------------------------
@@ -491,6 +497,7 @@ class RoomExtrasMixin:
                 f"{de_num(s['kwh'], 1)} kWh ≈ {de_num(s['kosten'], 2)} €. {mold}{savings}"
             ),
             f"smart_ventilation_{self.entry.entry_id}_report",
+            category=CAT_REPORT,
         )
 
     def _report_by_overview(self):

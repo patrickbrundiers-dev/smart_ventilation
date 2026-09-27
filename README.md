@@ -143,6 +143,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.7.0
+
+- **Eigene Ruhezeit am Wochenende**: Optional lässt sich unter „Benachrichtigungen“ jetzt eine abweichende Ruhezeit für Samstag/Sonntag einstellen (z. B. um am Wochenende länger schlafen zu können), während unter der Woche die gewohnte Ruhezeit gilt. Ohne Aktivierung ändert sich nichts.
+- **Empfänger je Benachrichtigungsart wählbar**: Sind mindestens zwei Ziele unter „Benachrichtigen über“ ausgewählt, lässt sich für jede der 7 Nachrichtenarten (Erinnerung ans Lüften, Lüftung beendet, Warnungen, nach dem Duschen, Schimmelgefahr, Willkommen zu Hause, Wochen-/Monatsbericht) frei festlegen, welches Ziel sie bekommt – z. B. das Handy alle Nachrichten, Alexa aber nur „Lüften“ und „fertig“. Ohne eigene Auswahl bekommen weiterhin alle Ziele jede Nachrichtenart wie bisher.
+
 ### Version 2.6.0
 
 - **Statistik per Klick auf der Karte**: Ein Klick auf den „heute“-Chip im Raum klappt jetzt eine Übersicht mit Woche, Monat und Gesamt auf (Anzahl, Dauer, Netto-Kosten bzw. -Ersparnis je Zeitraum) – bislang war das nur über die einzelnen Statistik-Sensoren im More-Info-Dialog einsehbar.

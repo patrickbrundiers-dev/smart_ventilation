@@ -5,6 +5,11 @@ import re
 
 from homeassistant.core import HomeAssistant
 
+from .const import (
+    CATEGORY_CONF_KEYS, CONF_QUIET_END, CONF_QUIET_END_WEEKEND, CONF_QUIET_START,
+    CONF_QUIET_START_WEEKEND, CONF_QUIET_WEEKEND_DIFFERENT,
+)
+
 
 def parse_time(value, fallback):
     """'22:00' oder '22:00:00' -> Minuten seit Mitternacht."""
@@ -15,7 +20,7 @@ def parse_time(value, fallback):
         return parse_time(fallback, "00:00")
 
 
-def in_quiet_hours(now, start, end, default_start, default_end) -> bool:
+def _time_in_range(now, start, end, default_start, default_end) -> bool:
     start_min = parse_time(start, default_start)
     end_min = parse_time(end, default_end)
     minute = now.hour * 60 + now.minute
@@ -24,6 +29,36 @@ def in_quiet_hours(now, start, end, default_start, default_end) -> bool:
     if start_min < end_min:
         return start_min <= minute < end_min
     return minute >= start_min or minute < end_min  # über Mitternacht
+
+
+def quiet_hours_range(now, data):
+    """(Anfang, Ende) der für 'now' geltenden Ruhezeit - je nach Wochentag."""
+    if now.weekday() >= 5 and data.get(CONF_QUIET_WEEKEND_DIFFERENT):
+        return data.get(CONF_QUIET_START_WEEKEND), data.get(CONF_QUIET_END_WEEKEND)
+    return data.get(CONF_QUIET_START), data.get(CONF_QUIET_END)
+
+
+def in_quiet_hours(now, data, default_start, default_end) -> bool:
+    """Ruhezeit für 'now' - am Wochenende (Sa/So) mit eigener Ruhezeit, sofern aktiviert."""
+    start, end = quiet_hours_range(now, data)
+    return _time_in_range(now, start, end, default_start, default_end)
+
+
+def targets_for_category(data, category, targets):
+    """Nur die Ziele, die diese Benachrichtigungsart abonniert haben.
+
+    Ist die Kategorie noch nicht konfiguriert (alter Eintrag oder frisch hinzugefügtes Ziel),
+    bekommen weiterhin alle übergebenen `targets` diese Kategorie - das Verhalten ändert sich
+    ohne bewusste Einschränkung durch den Nutzer nicht.
+    """
+    if not category:
+        return list(targets)
+    key = CATEGORY_CONF_KEYS.get(category)
+    stored = data.get(key) if key else None
+    if not stored:
+        return list(targets)
+    allowed = set(stored)
+    return [t for t in targets if t in allowed]
 
 
 def owner_map(hass: HomeAssistant, persons: list[str]) -> dict[str, str]:

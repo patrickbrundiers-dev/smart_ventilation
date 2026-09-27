@@ -6,8 +6,9 @@ from datetime import date, timedelta
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CONF_MONTHLY_REPORT, CONF_NAME, DAY_LOG_DAYS, DOMAIN, HISTORY_MONTHS, MOLD_CRITICAL_MINUTES,
-    MOLD_LOG_DAYS, MOLD_REWARN_DAYS, MOLD_RH_HIGH, MOLD_STREAK_WARN, MONTHLY_REPORT_HOUR,
+    CAT_MOLD, CAT_REPORT, CONF_MONTHLY_REPORT, CONF_NAME, DAY_LOG_DAYS, DOMAIN, HISTORY_MONTHS,
+    MOLD_CRITICAL_MINUTES, MOLD_LOG_DAYS, MOLD_REWARN_DAYS, MOLD_RH_HIGH, MOLD_STREAK_WARN,
+    MONTHLY_REPORT_HOUR,
 )
 from . import notify_util
 
@@ -134,6 +135,7 @@ class HistoryMixin:
                 "den Raum nicht unter 18 °C auskühlen lassen und Möbel ein paar Zentimeter von Außenwänden abrücken."
             ),
             f"smart_ventilation_{self.entry.entry_id}_mold",
+            category=CAT_MOLD,
         )
 
     # ------------------------------------------------------------------
@@ -261,6 +263,7 @@ class HistoryMixin:
             await self._send(
                 f"Monatsbericht: {self.data[CONF_NAME]}", text,
                 f"smart_ventilation_{self.entry.entry_id}_month",
+                category=CAT_REPORT,
             )
 
     def _monthly_by_overview(self):

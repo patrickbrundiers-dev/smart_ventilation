@@ -114,11 +114,21 @@
               "persons": "Personen",
               "quiet_start": "Ruhezeit von",
               "quiet_end": "Ruhezeit bis",
+              "quiet_weekend_different": "Andere Ruhezeit am Wochenende",
+              "quiet_start_weekend": "Ruhezeit von (Sa/So)",
+              "quiet_end_weekend": "Ruhezeit bis (Sa/So)",
               "notification_cooldown": "Abstand zwischen Erinnerungen",
               "weekly_report": "Wochenbericht",
               "monthly_report": "Monatsbericht",
               "vacation_entity": "Urlaub",
-              "vacation_keyword": "Stichwort im Kalender"
+              "vacation_keyword": "Stichwort im Kalender",
+              "notify_targets_reminder": "Ziele: Erinnerung ans Lüften",
+              "notify_targets_finished": "Ziele: Lüftung beendet",
+              "notify_targets_warning": "Ziele: Warnungen (Auskühlen, Fenster offen)",
+              "notify_targets_shower": "Ziele: Nach dem Duschen",
+              "notify_targets_mold": "Ziele: Schimmelgefahr",
+              "notify_targets_welcome": "Ziele: Willkommen zu Hause",
+              "notify_targets_report": "Ziele: Wochen-/Monatsbericht"
             },
             "data_description": {
               "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
@@ -128,7 +138,17 @@
               "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
               "monthly_report": "Am 1. des Monats: Bilanz des Vormonats mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr.",
               "vacation_entity": "Optional: Kalender, Schalter oder Binärsensor. Im Urlaub keine Erinnerungen, nur Schimmelwarnungen.",
-              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin."
+              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin.",
+              "quiet_weekend_different": "Am Samstag und Sonntag gilt eine eigene Ruhezeit statt der obigen – z. B. um länger schlafen zu können.",
+              "quiet_start_weekend": "Gilt nur, wenn oben aktiviert.",
+              "quiet_end_weekend": "Gilt nur, wenn oben aktiviert.",
+              "notify_targets_reminder": "Wer diese Nachrichtenart bekommt. Erscheint erst ab zwei gewählten Zielen; ohne Auswahl bekommen alle oben gewählten Ziele diese Nachrichten.",
+              "notify_targets_finished": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_warning": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_shower": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_mold": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_welcome": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_report": "Wer diese Nachrichtenart bekommt."
             }
           },
           "devices": {
@@ -160,14 +180,24 @@
               "persons": "Personen",
               "quiet_start": "Ruhezeit von",
               "quiet_end": "Ruhezeit bis",
-              "notification_cooldown": "Abstand zwischen Erinnerungen"
+              "quiet_weekend_different": "Andere Ruhezeit am Wochenende",
+              "quiet_start_weekend": "Ruhezeit von (Sa/So)",
+              "quiet_end_weekend": "Ruhezeit bis (Sa/So)",
+              "notification_cooldown": "Abstand zwischen Erinnerungen",
+              "notify_targets_reminder": "Ziele: Erinnerung ans Lüften",
+              "notify_targets_report": "Ziele: Wochen-/Monatsbericht"
             },
             "data_description": {
               "combine_notifications": "Eine Nachricht für alle Räume statt einer pro Raum.",
               "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
               "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
               "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
-              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung."
+              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
+              "quiet_weekend_different": "Am Samstag und Sonntag gilt eine eigene Ruhezeit statt der obigen – z. B. um länger schlafen zu können.",
+              "quiet_start_weekend": "Gilt nur, wenn oben aktiviert.",
+              "quiet_end_weekend": "Gilt nur, wenn oben aktiviert.",
+              "notify_targets_reminder": "Wer diese Nachrichtenart bekommt. Erscheint erst ab zwei gewählten Zielen; ohne Auswahl bekommen alle oben gewählten Ziele diese Nachrichten.",
+              "notify_targets_report": "Wer diese Nachrichtenart bekommt."
             }
           },
           "reports": {
@@ -290,11 +320,21 @@
               "persons": "Personen",
               "quiet_start": "Ruhezeit von",
               "quiet_end": "Ruhezeit bis",
+              "quiet_weekend_different": "Andere Ruhezeit am Wochenende",
+              "quiet_start_weekend": "Ruhezeit von (Sa/So)",
+              "quiet_end_weekend": "Ruhezeit bis (Sa/So)",
               "notification_cooldown": "Abstand zwischen Erinnerungen",
               "weekly_report": "Wochenbericht",
               "monthly_report": "Monatsbericht",
               "vacation_entity": "Urlaub",
-              "vacation_keyword": "Stichwort im Kalender"
+              "vacation_keyword": "Stichwort im Kalender",
+              "notify_targets_reminder": "Ziele: Erinnerung ans Lüften",
+              "notify_targets_finished": "Ziele: Lüftung beendet",
+              "notify_targets_warning": "Ziele: Warnungen (Auskühlen, Fenster offen)",
+              "notify_targets_shower": "Ziele: Nach dem Duschen",
+              "notify_targets_mold": "Ziele: Schimmelgefahr",
+              "notify_targets_welcome": "Ziele: Willkommen zu Hause",
+              "notify_targets_report": "Ziele: Wochen-/Monatsbericht"
             },
             "data_description": {
               "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
@@ -304,7 +344,17 @@
               "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
               "monthly_report": "Am 1. des Monats: Bilanz des Vormonats mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr.",
               "vacation_entity": "Optional: Kalender, Schalter oder Binärsensor. Im Urlaub keine Erinnerungen, nur Schimmelwarnungen.",
-              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin."
+              "vacation_keyword": "Nur Termine, die dieses Wort enthalten, gelten als Urlaub (z. B. „Urlaub“). Leer = jeder Termin.",
+              "quiet_weekend_different": "Am Samstag und Sonntag gilt eine eigene Ruhezeit statt der obigen – z. B. um länger schlafen zu können.",
+              "quiet_start_weekend": "Gilt nur, wenn oben aktiviert.",
+              "quiet_end_weekend": "Gilt nur, wenn oben aktiviert.",
+              "notify_targets_reminder": "Wer diese Nachrichtenart bekommt. Erscheint erst ab zwei gewählten Zielen; ohne Auswahl bekommen alle oben gewählten Ziele diese Nachrichten.",
+              "notify_targets_finished": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_warning": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_shower": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_mold": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_welcome": "Wer diese Nachrichtenart bekommt.",
+              "notify_targets_report": "Wer diese Nachrichtenart bekommt."
             }
           },
           "devices": {
@@ -330,14 +380,24 @@
               "persons": "Personen",
               "quiet_start": "Ruhezeit von",
               "quiet_end": "Ruhezeit bis",
-              "notification_cooldown": "Abstand zwischen Erinnerungen"
+              "quiet_weekend_different": "Andere Ruhezeit am Wochenende",
+              "quiet_start_weekend": "Ruhezeit von (Sa/So)",
+              "quiet_end_weekend": "Ruhezeit bis (Sa/So)",
+              "notification_cooldown": "Abstand zwischen Erinnerungen",
+              "notify_targets_reminder": "Ziele: Erinnerung ans Lüften",
+              "notify_targets_report": "Ziele: Wochen-/Monatsbericht"
             },
             "data_description": {
               "combine_notifications": "Eine Nachricht für alle Räume statt einer pro Raum.",
               "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
               "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
               "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
-              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung."
+              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
+              "quiet_weekend_different": "Am Samstag und Sonntag gilt eine eigene Ruhezeit statt der obigen – z. B. um länger schlafen zu können.",
+              "quiet_start_weekend": "Gilt nur, wenn oben aktiviert.",
+              "quiet_end_weekend": "Gilt nur, wenn oben aktiviert.",
+              "notify_targets_reminder": "Wer diese Nachrichtenart bekommt. Erscheint erst ab zwei gewählten Zielen; ohne Auswahl bekommen alle oben gewählten Ziele diese Nachrichten.",
+              "notify_targets_report": "Wer diese Nachrichtenart bekommt."
             }
           },
           "reports": {

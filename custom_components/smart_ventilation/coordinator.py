@@ -627,6 +627,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 f"Gelüftet seit ca. {minutes} Minuten. Fenster kann zu."
             ),
             f"smart_ventilation_{self.entry.entry_id}",
+            category=CAT_FINISHED,
         )
 
     # ------------------------------------------------------------------
@@ -696,6 +697,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 f"Raum kühlt aus: {name}",
                 f"Nur noch {temp:.1f} °C bei offenem Fenster – bitte schließen.",
                 tag,
+                category=CAT_WARNING,
             )
             await self._save()
 
@@ -711,6 +713,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                         f"reichen {limit} Minuten Stoßlüften."
                     ),
                     tag,
+                    category=CAT_WARNING,
                 )
                 await self._save()
 
@@ -1032,12 +1035,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             targets = [legacy] if legacy else []
         return [t for t in targets if isinstance(t, str) and t.startswith("notify.")]
 
-    async def _send(self, title, message, tag, actions=None, targets=None):
-        return await notify_util.send(
-            self.hass,
-            self.notify_targets if targets is None else targets,
-            title, message, tag, actions,
-        )
+    async def _send(self, title, message, tag, actions=None, targets=None, category=None):
+        targets = self.notify_targets if targets is None else targets
+        targets = notify_util.targets_for_category(self.data, category, targets)
+        return await notify_util.send(self.hass, targets, title, message, tag, actions)
 
     def _session_energy_kwh(self, session, elapsed):
         """Wärmeverlust durch Luftaustausch: 0,34 Wh/(m³K) · V · ΔT · (1 − e^(−n·t))."""
@@ -1152,6 +1153,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 f"{raw_final:.1f} g/m³ ({min(reduction, 1) * 100:.0f}% reduziert)."
             ),
             f"smart_ventilation_{self.entry.entry_id}_result",
+            category=CAT_FINISHED,
         )
 
         if _is_raining(self.hass, self.data[CONF_RAIN]):
@@ -1360,6 +1362,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             f"{self.data[CONF_NAME]} sollte gelüftet werden: {self.recommendation}",
             f"smart_ventilation_{self.entry.entry_id}",
             targets=targets,
+            category=CAT_WELCOME,
         )
 
     def pause_reason(self, now=None):
@@ -1385,7 +1388,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         if snooze is not None and now < snooze:
             return f"Erinnerung um {dt_util.as_local(snooze).strftime('%H:%M')} Uhr"
         if self.in_quiet_hours(now):
-            end = str(self.data.get(CONF_QUIET_END) or DEFAULT_QUIET_END)[:5]
+            _, quiet_end = notify_util.quiet_hours_range(now, self.data)
+            end = str(quiet_end or DEFAULT_QUIET_END)[:5]
             return f"Ruhezeit bis {end} Uhr"
         if not self.anyone_home:
             return "Niemand zu Hause"
@@ -1393,9 +1397,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     def in_quiet_hours(self, now=None):
         return notify_util.in_quiet_hours(
-            now or dt_util.now(),
-            self.data.get(CONF_QUIET_START), self.data.get(CONF_QUIET_END),
-            DEFAULT_QUIET_START, DEFAULT_QUIET_END,
+            now or dt_util.now(), self.data, DEFAULT_QUIET_START, DEFAULT_QUIET_END,
         )
 
     @property
@@ -1511,6 +1513,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 {"action": f"{ACTION_SKIP}{self.entry.entry_id}",
                  "title": "Heute nicht mehr"},
             ],
+            category=CAT_REMINDER,
         )
         if sent:
             self.last_notification_key = key

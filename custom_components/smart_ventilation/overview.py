@@ -10,11 +10,10 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    ACTION_SKIP, ACTION_SNOOZE, CO2_ELEVATED, CO2_HIGH, CONF_COMBINE,
-    CONF_NOTIFICATION_COOLDOWN, CONF_NOTIFY_SERVICES, CONF_PERSONS,
-    CONF_QUIET_END, CONF_QUIET_START, DEFAULT_NOTIFICATION_COOLDOWN,
-    DEFAULT_QUIET_END, DEFAULT_QUIET_START, DOMAIN, SNOOZE_MINUTES, STORE_KEY,
-    STORE_VERSION,
+    ACTION_SKIP, ACTION_SNOOZE, CAT_REMINDER, CAT_REPORT, CO2_ELEVATED, CO2_HIGH,
+    CONF_COMBINE, CONF_NOTIFICATION_COOLDOWN, CONF_NOTIFY_SERVICES, CONF_PERSONS,
+    DEFAULT_NOTIFICATION_COOLDOWN, DEFAULT_QUIET_END, DEFAULT_QUIET_START, DOMAIN,
+    SNOOZE_MINUTES, STORE_KEY, STORE_VERSION,
 )
 from . import notify_util
 from .const import CONF_WEEKLY_REPORT, REPORT_HOUR, REPORT_WEEKDAY
@@ -197,8 +196,7 @@ class OverviewCoordinator:
         if not notify_util.anyone_home(self.hass, self.persons):
             return
         if self._skip_date == now.date() or notify_util.in_quiet_hours(
-            now, self.data.get(CONF_QUIET_START), self.data.get(CONF_QUIET_END),
-            DEFAULT_QUIET_START, DEFAULT_QUIET_END,
+            now, self.data, DEFAULT_QUIET_START, DEFAULT_QUIET_END,
         ):
             return
 
@@ -223,9 +221,11 @@ class OverviewCoordinator:
             f"Lüften: {due[0].data.get('name')}" if len(due) == 1
             else f"Lüften: {len(due)} Räume"
         )
+        targets = notify_util.targets_for_category(self.data, CAT_REMINDER, self.notify_targets)
+        targets = notify_util.filter_targets(self.hass, targets, self.persons)
         sent = await notify_util.send(
             self.hass,
-            notify_util.filter_targets(self.hass, self.notify_targets, self.persons),
+            targets,
             title,
             "\n".join(lines),
             f"smart_ventilation_{self.entry.entry_id}",
@@ -268,8 +268,9 @@ class OverviewCoordinator:
         worst = max(rooms, key=lambda x: (x["schimmeltage"], x["anzahl"]))
         if worst["schimmeltage"]:
             lines.append(f"Am meisten Bedarf: {worst['raum']}")
+        targets = notify_util.targets_for_category(self.data, CAT_REPORT, self.notify_targets)
         await notify_util.send(
-            self.hass, self.notify_targets, "Lüften – Wochenbericht", "\n".join(lines),
+            self.hass, targets, "Lüften – Wochenbericht", "\n".join(lines),
             f"smart_ventilation_{self.entry.entry_id}_report",
         )
 
@@ -304,7 +305,8 @@ class OverviewCoordinator:
         top = max(comparisons, key=lambda x: x[1]["bedarf_h"])
         if top[1]["bedarf_h"] > 0:
             lines.append(f"Am häufigsten Lüftungsbedarf: {top[0]}")
+        targets = notify_util.targets_for_category(self.data, CAT_REPORT, self.notify_targets)
         await notify_util.send(
-            self.hass, self.notify_targets, "Lüften – Monatsbericht", "\n".join(lines),
+            self.hass, targets, "Lüften – Monatsbericht", "\n".join(lines),
             f"smart_ventilation_{self.entry.entry_id}_month",
         )

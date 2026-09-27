@@ -29,6 +29,8 @@ from .const import (
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP,
     CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP,
     CONF_DEHUMIDIFIER, CONF_WEEKLY_REPORT, CONF_MONTHLY_REPORT,
+    CONF_QUIET_WEEKEND_DIFFERENT, CONF_QUIET_START_WEEKEND, CONF_QUIET_END_WEEKEND,
+    CATEGORY_CONF_KEYS, CAT_REMINDER, CAT_REPORT,
 )
 
 # Reihenfolge der Bereiche im Formular
@@ -109,6 +111,43 @@ def _notify_selector(hass: HomeAssistant, current: list[str]):
             mode=selector.SelectSelectorMode.LIST,
         )
     )
+
+
+def _category_fields(d: dict, current: list[str], categories=None) -> dict:
+    """Je Benachrichtigungsart eigene Empfänger wählbar – nur sinnvoll ab zwei Zielen.
+
+    Auswahl-Optionen sind absichtlich nur die bereits unter „Benachrichtigen über“ gewählten
+    Ziele (nicht alle System-Dienste): hier wird nur eingeschränkt, wer von den gewählten
+    Zielen welche Art Nachricht bekommt. Ohne bewusste Auswahl bleiben alle Ziele aktiv.
+
+    `categories` schränkt ein, welche der 7 Arten angeboten werden – die Übersicht verschickt
+    z. B. nur Erinnerungen und Berichte, keine Dusch- oder Schimmelwarnungen.
+    """
+    if len(current) < 2:
+        return {}
+    options = [selector.SelectOptionDict(value=s, label=_notify_label(s)) for s in current]
+    keys = CATEGORY_CONF_KEYS if categories is None else {c: CATEGORY_CONF_KEYS[c] for c in categories}
+    fields = {}
+    for category, key in keys.items():
+        fields[vol.Optional(key, default=d.get(key) or current)] = selector.SelectSelector(
+            selector.SelectSelectorConfig(options=options, multiple=True, mode=selector.SelectSelectorMode.LIST)
+        )
+    return fields
+
+
+def _weekend_quiet_fields(d: dict) -> dict:
+    g = d.get
+    return {
+        vol.Required(
+            CONF_QUIET_WEEKEND_DIFFERENT, default=g(CONF_QUIET_WEEKEND_DIFFERENT, False)
+        ): bool,
+        vol.Required(
+            CONF_QUIET_START_WEEKEND, default=g(CONF_QUIET_START_WEEKEND, g(CONF_QUIET_START, DEFAULT_QUIET_START))
+        ): selector.TimeSelector(),
+        vol.Required(
+            CONF_QUIET_END_WEEKEND, default=g(CONF_QUIET_END_WEEKEND, g(CONF_QUIET_END, DEFAULT_QUIET_END))
+        ): selector.TimeSelector(),
+    }
 
 
 def _current_notify(d: dict) -> list[str]:
@@ -197,11 +236,14 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
 
     if name == "notify":
         current = _current_notify(d)
-        return {
+        fields = {
             vol.Optional(CONF_NOTIFY_SERVICES, default=current): _notify_selector(hass, current),
             _opt(CONF_PERSONS, g(CONF_PERSONS, [])): _entity("person", multiple=True),
             vol.Required(CONF_QUIET_START, default=g(CONF_QUIET_START, DEFAULT_QUIET_START)): selector.TimeSelector(),
             vol.Required(CONF_QUIET_END, default=g(CONF_QUIET_END, DEFAULT_QUIET_END)): selector.TimeSelector(),
+        }
+        fields.update(_weekend_quiet_fields(d))
+        fields.update({
             vol.Required(
                 CONF_NOTIFICATION_COOLDOWN, default=g(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
             ): _number(5, 1440, 5, "min"),
@@ -209,7 +251,9 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             vol.Required(CONF_MONTHLY_REPORT, default=g(CONF_MONTHLY_REPORT, True)): bool,
             _opt(CONF_VACATION, g(CONF_VACATION)): _entity(["calendar", "input_boolean", "binary_sensor"]),
             _opt(CONF_VACATION_KEYWORD, g(CONF_VACATION_KEYWORD)): str,
-        }
+        })
+        fields.update(_category_fields(d, current))
+        return fields
 
     if name == "devices":
         return {
@@ -240,10 +284,12 @@ def overview_schema(hass: HomeAssistant, d: dict) -> vol.Schema:
         _opt(CONF_PERSONS, d.get(CONF_PERSONS, [])): _entity("person", multiple=True),
         vol.Required(CONF_QUIET_START, default=d.get(CONF_QUIET_START, DEFAULT_QUIET_START)): selector.TimeSelector(),
         vol.Required(CONF_QUIET_END, default=d.get(CONF_QUIET_END, DEFAULT_QUIET_END)): selector.TimeSelector(),
-        vol.Required(
-            CONF_NOTIFICATION_COOLDOWN, default=d.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
-        ): _number(5, 1440, 5, "min"),
     }
+    messages.update(_weekend_quiet_fields(d))
+    messages[vol.Required(
+        CONF_NOTIFICATION_COOLDOWN, default=d.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
+    )] = _number(5, 1440, 5, "min")
+    messages.update(_category_fields(d, current, categories=(CAT_REMINDER, CAT_REPORT)))
     reports = {
         vol.Required(CONF_WEEKLY_REPORT, default=d.get(CONF_WEEKLY_REPORT, True)): bool,
         vol.Required(CONF_MONTHLY_REPORT, default=d.get(CONF_MONTHLY_REPORT, True)): bool,

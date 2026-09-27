@@ -108,6 +108,10 @@ CONF_QUIET_START = "quiet_start"
 CONF_QUIET_END = "quiet_end"
 DEFAULT_QUIET_START = "22:00:00"
 DEFAULT_QUIET_END = "07:00:00"
+# Abweichende Ruhezeit am Wochenende (Sa/So) - z. B. länger schlafen als unter der Woche
+CONF_QUIET_WEEKEND_DIFFERENT = "quiet_weekend_different"
+CONF_QUIET_START_WEEKEND = "quiet_start_weekend"
+CONF_QUIET_END_WEEKEND = "quiet_end_weekend"
 SNOOZE_MINUTES = 30
 ACTION_SNOOZE = "SV_SNOOZE_"
 ACTION_SKIP = "SV_SKIP_"
@@ -151,7 +155,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.6.0"
+VERSION = "2.7.0"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -209,4 +213,34 @@ MONTHLY_REPORT_HOUR = 9           # am 1. des Monats ab 9 Uhr
 
 # Tagesarchiv für den 7-Tage-Trend auf der Dashboard-Karte
 DAY_LOG_DAYS = 14
+
+# Je Benachrichtigungsart eigene Empfänger wählbar (z. B. Handy alles, Alexa nur Erinnerung + Fertig).
+# Fehlt eine Kategorie in den Einstellungen (noch nicht konfiguriert oder alter Eintrag), bekommen
+# weiterhin alle gewählten Ziele diese Kategorie - das Verhalten ändert sich ohne Konfiguration nicht.
+CAT_REMINDER = "reminder"    # Erinnerung ans Lüften
+CAT_FINISHED = "finished"    # Lüftung/Lüftungsziel erreicht bzw. abgeschlossen
+CAT_WARNING = "warning"      # Auskühlen, Fenster offen (weg/Sonne)
+CAT_SHOWER = "shower"        # Nach dem Duschen
+CAT_MOLD = "mold"            # Schimmelgefahr
+CAT_WELCOME = "welcome"      # Willkommen-zu-Hause-Hinweis
+CAT_REPORT = "report"        # Wochen-/Monatsbericht
+NOTIFY_CATEGORIES = (CAT_REMINDER, CAT_FINISHED, CAT_WARNING, CAT_SHOWER, CAT_MOLD, CAT_WELCOME, CAT_REPORT)
+
+CONF_NOTIFY_TARGETS_REMINDER = "notify_targets_reminder"
+CONF_NOTIFY_TARGETS_FINISHED = "notify_targets_finished"
+CONF_NOTIFY_TARGETS_WARNING = "notify_targets_warning"
+CONF_NOTIFY_TARGETS_SHOWER = "notify_targets_shower"
+CONF_NOTIFY_TARGETS_MOLD = "notify_targets_mold"
+CONF_NOTIFY_TARGETS_WELCOME = "notify_targets_welcome"
+CONF_NOTIFY_TARGETS_REPORT = "notify_targets_report"
+
+CATEGORY_CONF_KEYS = {
+    CAT_REMINDER: CONF_NOTIFY_TARGETS_REMINDER,
+    CAT_FINISHED: CONF_NOTIFY_TARGETS_FINISHED,
+    CAT_WARNING: CONF_NOTIFY_TARGETS_WARNING,
+    CAT_SHOWER: CONF_NOTIFY_TARGETS_SHOWER,
+    CAT_MOLD: CONF_NOTIFY_TARGETS_MOLD,
+    CAT_WELCOME: CONF_NOTIFY_TARGETS_WELCOME,
+    CAT_REPORT: CONF_NOTIFY_TARGETS_REPORT,
+}
 HISTORY_MONTHS = 36
