@@ -76,7 +76,7 @@ Einstellungen später ändern: Gerät öffnen → **Konfigurieren** → Bereich 
 
 ## Dashboard-Karte
 
-Die Karte wird mit der Integration installiert und automatisch unter *Einstellungen → Dashboards → Ressourcen* eingetragen (ggf. einmal App/Browser neu laden).
+Die Karte wird mit der Integration installiert und automatisch nach `/config/www/smart_ventilation/` kopiert und unter *Einstellungen → Dashboards → Ressourcen* eingetragen (ggf. einmal App/Browser neu laden).
 
 ```yaml
 type: custom:smart-ventilation-card
@@ -113,6 +113,10 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.3.3
+
+- Karte lädt auch direkt nach einem Neustart: Sie liegt jetzt unter `/config/www/smart_ventilation/` und wird über `/local/` ausgeliefert – das stellt Home Assistant schon zu Beginn des Starts bereit, das Handy speichert die Datei zwischen. Alte oder doppelte Ressourcen-Einträge werden automatisch bereinigt.
 
 ### Version 2.3.2
 
