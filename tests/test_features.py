@@ -139,7 +139,6 @@ async def test_preheat_ignores_slow_auto_label_but_respects_manual_summer(
     freezer.move_to("2026-09-27 23:00:00+02:00")  # innerhalb des Nachtfensters (22-9 Uhr)
     entry = await setup_room(hass, season_mode="auto")
     room = hass.data[DOMAIN][entry.entry_id]
-    room._auto_season = "summer"  # z. B. von einer vorangegangenen warmen Woche übernommen
 
     hass.states.async_set("sensor.aussen_t", 9.0)  # kühle Nacht, unter der Heizgrenze (15 °C)
     await hass.async_block_till_done()
@@ -147,6 +146,13 @@ async def test_preheat_ignores_slow_auto_label_but_respects_manual_summer(
 
     freezer.move_to("2026-09-28 09:30:00+02:00")  # Nachtfenster vorbei -> Tiefstwert übernommen
     await _tick(hass, freezer, 1)
+
+    # Automatik-Label simuliert absichtlich den Fall, dass es (weil die letzten Tage vorher
+    # warm waren) noch nicht auf "winter" umgesprungen ist - genau das kann seit 2.3.19 einige
+    # Tage dauern, obwohl es nachts längst kalt genug ist.
+    room._auto_season = "summer"
+    room._season_pending = None
+    room._season_pending_since = None
 
     hass.states.async_set("sensor.innen_t", 17.0)
     hass.states.async_set("sensor.aussen_t", 21.0)  # spürbar wärmer als drinnen
