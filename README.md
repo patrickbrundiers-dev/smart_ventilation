@@ -9,19 +9,48 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 
 ## Funktionen
 
-- Empfehlung mit Dauer und Modus (Komplett öffnen / Kippfenster)
-- Lernender Luftwechsel, getrennt nach Wind, Windwinkel und Temperaturdifferenz
-- Live-Fortschritt während des Lüftens und Meldung, sobald das Ziel erreicht ist
-- Relative Feuchte, Taupunkt und einfache Schimmelrisiko-Einschätzung
-- Optionale Push-Benachrichtigungen mit Cooldown
+**Kern-Empfehlung**
+- Adaptive Lüftungsempfehlung pro Raum: vergleicht absolute Feuchte innen/außen, berücksichtigt Wind, Windrichtung zum Fenster, Regen, Temperatur und Sonnenstand
+- Lernender Luftwechsel (getrennt nach Wind, Windwinkel und Temperaturdifferenz) – lernt aus jeder echten Lüftung, wie schnell der Raum tatsächlich Feuchte abgibt
+- Live-Fortschritt während des Lüftens, Meldung sobald das Ziel erreicht ist
+- Empfehlung mit Dauer und Modus (Komplett öffnen / Kippfenster / Querlüften bei mehreren Fenstern)
+- Tagesziel absolute Feuchte – mit Raumtyp-Vorschlag beim Einrichten (Schlafzimmer, Bad, Wohnzimmer/Büro, Küche, Sonstige), jederzeit manuell überschreibbar
+- Feuchte-Hysterese gegen Flackern der Empfehlung, mit änderbarem Vorgabewert
+
+**Sommer, Winter & Vorheizen**
+- Sommer-/Wintermodus manuell oder automatisch: Automatik legt Dezember–Februar/Juni–August fest, entscheidet in den Übergangsmonaten per Außentemperatur – und wechselt erst nach mehreren Stunden anhaltendem Trend, damit sie nicht flackert
+- Wärme-Sperre: kein Lüften, wenn es draußen deutlich wärmer ist als drinnen (ganzjährig)
+- Sommer: Kühlen per Lüften (Komforttemperatur einstellbar) inkl. Kühl-Zeitfenster aus der Wettervorhersage
+- Vorheizen: nach einer Nacht unter der Heizgrenze darf tagsüber trotz wärmerer Außenluft gelüftet werden, um Heizkosten zu sparen – inkl. Regen-Vorschau und Vorschau, ab wann es warm genug wird
+
+**Gesundheit & Luftqualität**
+- Relative Feuchte, Taupunkt und Schimmelrisiko-Einschätzung an der kältesten Wandstelle (DIN 4108-2, mehrere Dämmstandards wählbar)
+- Schimmel-Frühwarnung bei mehreren kritischen Tagen in Folge
+- Optional CO₂-Sensor: Luftqualität gut/mäßig/schlecht, eigene CO₂-Lüftungsempfehlung
+
+**Automatisierung & Komfort**
+- Bester Lüftungszeitpunkt aus der stündlichen Wettervorhersage (nächste 24 h)
+- Gekoppelte Heizung wird bei offenem Fenster automatisch abgesenkt und danach wiederhergestellt
+- Auskühl-Warnung, wenn der Raum bei offenem Fenster zu kalt wird
+- Bad-Modus nach dem Duschen (Sensor oder automatische Erkennung über Feuchtesprung) mit Nachfass-Erinnerung
+- Urlaubsmodus: normale Erinnerungen aus, Schimmelrisiko bleibt überwacht
+- Luftentfeuchter-Steuerung nach relativer Feuchte
+- Warnung bei offenem Fenster, wenn niemand zu Hause ist
+
+**Statistik & Kosten**
+- Lüftungsstatistik heute/Woche/Monat/gesamt, ganz ohne eigene Helfer oder Automationen
+- Geschätzter Wärmeverlust (kWh) und Kosten (€) je Lüftung und Monat
+- Monats-/Jahresvergleich des Lüftungsbedarfs mit Vormonats-/Vorjahreswerten
+- Wochenbericht per Push
+
+**Bedienung**
+- Push-Benachrichtigungen mit Cooldown, Ruhezeiten und Snooze-/Überspringen-Aktionen direkt in der Nachricht
+- Übersicht aller Räume mit Sammel-Benachrichtigung statt einer pro Raum
+- Eigene Dashboard-Karte (wird automatisch mitinstalliert) mit Verlaufskurve, Status-Kacheln und Fortschrittsanzeige
+- Sprachsteuerung über Assist („Muss ich lüften?“, „Wo soll ich lüften?“) sowie ein Dienst für eigene Automationen
+- Reparatur-Hinweise bei ausgefallenen Sensoren
 - Alle Einstellungen nachträglich änderbar, ohne Lerndaten zu verlieren
-- Lüftungsstatistik (heute / Woche / Monat / gesamt) und Tagesziel – ohne eigene Helfer oder Automationen
-- Schimmelrisiko an der kältesten Wandstelle (DIN 4108-2), optional CO₂, Wärmeverlust und Kosten pro Lüftung
-- Übersicht aller Räume mit Sammel-Benachrichtigung, Anwesenheitserkennung, Ruhezeiten
-- Eigene Dashboard-Karte – wird automatisch mitgeliefert, mit Verlaufskurve der letzten Lüftung
-- Bad-Modus nach dem Duschen, Warnung bei offenem Fenster wenn alle weg sind, Urlaubsmodus
-- Sommer: Kühlen per Lüften inkl. Nachtplan aus der Vorhersage, Luftentfeuchter-Steuerung
-- Wochenbericht per Push, Sprachsteuerung („Muss ich lüften?“)
+- Deutsch und Englisch
 
 ## Sprachsteuerung
 
