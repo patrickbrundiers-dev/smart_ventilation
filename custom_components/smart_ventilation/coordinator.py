@@ -147,6 +147,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.cool_plan = None
         self.preheat_plan_text = None
         self._rain_soon = False
+        self._forecast_season = None
         self._init_extras()
         self._init_history()
 
@@ -825,6 +826,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         )
         return (response or {}).get(entity_id, {}).get("forecast", [])
 
+    async def _fetch_daily_forecast(self, entity_id):
+        response = await self.hass.services.async_call(
+            "weather",
+            "get_forecasts",
+            {"entity_id": entity_id, "type": "daily"},
+            blocking=True,
+            return_response=True,
+        )
+        return (response or {}).get(entity_id, {}).get("forecast", [])
+
     async def _update_forecast(self):
         self._forecast_checked = dt_util.now()
         entity_id = self.data.get(CONF_WEATHER)
@@ -837,7 +848,38 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.cool_plan = self.cooling_plan(forecast)
         self.preheat_plan_text = self.preheat_plan(forecast)
         self._rain_soon = self._forecast_rain_soon(forecast)
+        try:
+            daily = await self._fetch_daily_forecast(entity_id)
+        except Exception:  # noqa: BLE001 – z. B. Dienst ohne Tagesvorhersage
+            daily = []
+        self._forecast_season = self._forecast_season_trend(daily)
         self._notify_listeners()
+
+    def _forecast_season_trend(self, forecast):
+        """Aus der Tages-Vorhersage: 'summer'/'winter', wenn Hoch UND Tief an mehreren Tagen
+        am Stück eindeutig auf einer Seite der Heizgrenze liegen - ein einzelner Ausreißertag
+        reicht nicht. Sonst None (kein verlässlicher Trend, dann entscheidet weiter die lokale
+        Messung mit Bestätigungszeit, siehe SEASON_CONFIRM_HOURS)."""
+        threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
+        now = dt_util.now()
+        days = []
+        for item in forecast:
+            when = dt_util.parse_datetime(str(item.get("datetime", "")))
+            high = _num(item.get("temperature"))
+            low = _num(item.get("templow"))
+            if when is None or high is None or low is None:
+                continue
+            when = dt_util.as_local(when)
+            if when < now - timedelta(hours=12) or when > now + timedelta(days=SEASON_FORECAST_DAYS):
+                continue
+            days.append((high, low))
+        if len(days) < 2:
+            return None
+        if all(low > threshold + SEASON_HYSTERESIS for _, low in days):
+            return SEASON_SUMMER
+        if all(high < threshold - SEASON_HYSTERESIS for high, _ in days):
+            return SEASON_WINTER
+        return None
 
     def _forecast_rain_soon(self, forecast):
         """True, wenn laut Vorhersage in den nächsten Stunden Regen droht - auch wenn es
@@ -1088,11 +1130,17 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         Dezember–Februar und Juni–August gelten fest als Winter bzw. Sommer, ein einzelner
         milder Wintertag oder kühler Sommertag soll den Modus nicht umschalten. Nur in den
-        Übergangsmonaten (März–Mai, September–November) entscheidet die Außentemperatur – und
-        zwar erst, wenn sie deutlich über/unter der Schwelle liegt (Hysterese) UND das schon
-        einige Stunden ununterbrochen so ist (SEASON_CONFIRM_HOURS). Sonst würde an Tagen mit
-        großer Tag/Nacht-Schwankung (kalte Nacht, warmer Nachmittag) der Modus mehrmals täglich
-        hin- und herspringen, obwohl sich an der eigentlichen Jahreszeit nichts geändert hat.
+        Übergangsmonaten (März–Mai, September–November) entscheidet es sich sonst:
+
+        1. Zeigt die mehrtägige Wettervorhersage (falls eine Wetter-Entität gewählt ist) schon
+           einen eindeutigen Trend – Hoch UND Tief mehrere Tage am Stück klar auf einer Seite
+           der Heizgrenze –, wird das sofort übernommen. Das ist ein verlässlicheres Signal als
+           ein paar Stunden lokale Messwerte.
+        2. Sonst entscheidet die aktuelle Außentemperatur – und zwar erst, wenn sie deutlich
+           über/unter der Schwelle liegt (Hysterese) UND das schon einige Stunden ununterbrochen
+           so ist (SEASON_CONFIRM_HOURS). Sonst würde an Tagen mit großer Tag/Nacht-Schwankung
+           (kalte Nacht, warmer Nachmittag) der Modus mehrmals täglich hin- und herspringen,
+           obwohl sich an der eigentlichen Jahreszeit nichts geändert hat.
         """
         mode = self.data.get(CONF_SEASON_MODE, DEFAULT_SEASON_MODE)
         if mode in (SEASON_SUMMER, SEASON_WINTER):
@@ -1107,6 +1155,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self._auto_season = SEASON_SUMMER
             self._season_pending = None
             return SEASON_SUMMER
+
+        if (
+            self.data.get(CONF_WEATHER)
+            and self._forecast_season in (SEASON_SUMMER, SEASON_WINTER)
+            and self._forecast_season != self._auto_season
+        ):
+            self._auto_season = self._forecast_season
+            self._season_pending = None
+            self._season_pending_since = None
+            return self._auto_season
 
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))

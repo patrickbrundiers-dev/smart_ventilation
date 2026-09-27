@@ -143,6 +143,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.25
+
+- **Automatik-Modus nutzt jetzt zusätzlich die mehrtägige Wettervorhersage** (nur wenn eine Wetter-Entität gewählt ist): Zeigt die Vorhersage für die nächsten Tage durchgehend eindeutig Hoch UND Tief auf einer Seite der Heizgrenze, wird der Sommer-/Wintermodus sofort übernommen – ohne erst mehrere Stunden auf die lokale Außentemperatur zu warten (SEASON_CONFIRM_HOURS aus 2.3.19). Ein mehrtägiger Vorhersage-Trend ist ein verlässlicheres, längerfristigeres Signal als ein paar Stunden lokale Messwerte. Ohne Wetter-Entität oder bei uneindeutiger Vorhersage bleibt es beim bisherigen Verhalten.
+
 ### Version 2.3.24
 
 - Korrektur zu 2.3.23: Der Versuch, die kurze GitHub-Repo-Beschreibung automatisch bei jedem Release zu aktualisieren, hat die Release-Pipeline lahmgelegt (der Standard-Workflow-Token kann keine Repo-Einstellungen ändern, egal welche Berechtigung man ihm gibt). Zurückgenommen – kein Verhaltensunterschied in der Integration selbst.

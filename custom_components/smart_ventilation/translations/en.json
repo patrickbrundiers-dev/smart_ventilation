@@ -86,7 +86,7 @@
               "humidity_hysteresis": "Humidity buffer against flickering"
             },
             "data_description": {
-              "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible. With \"Automatic\", calendar month and outdoor temperature decide – a change only takes effect after several hours of a sustained trend, so the mode does not keep flipping back and forth.",
+              "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible. With \"Automatic\", calendar month, a multi-day weather forecast trend (if a weather entity is selected) and otherwise outdoor temperature decide – a change based on outdoor temperature only takes effect after several hours of a sustained trend, so the mode does not keep flipping back and forth.",
               "target_absolute_humidity": "Once the indoor absolute humidity drops below this while venting, the day counts as sufficiently aired. The room type above suggests a matching value when setting up.",
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
@@ -270,7 +270,7 @@
               "humidity_hysteresis": "Humidity buffer against flickering"
             },
             "data_description": {
-              "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible. With \"Automatic\", calendar month and outdoor temperature decide – a change only takes effect after several hours of a sustained trend, so the mode does not keep flipping back and forth.",
+              "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible. With \"Automatic\", calendar month, a multi-day weather forecast trend (if a weather entity is selected) and otherwise outdoor temperature decide – a change based on outdoor temperature only takes effect after several hours of a sustained trend, so the mode does not keep flipping back and forth.",
               "target_absolute_humidity": "Once the indoor absolute humidity drops below this while venting, the day counts as sufficiently aired. The room type above suggests a matching value when setting up.",
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",

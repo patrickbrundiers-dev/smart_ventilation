@@ -86,7 +86,7 @@
               "humidity_hysteresis": "Feuchte-Puffer gegen Flackern"
             },
             "data_description": {
-              "season_mode": "Winter: kurzes Stoßlüften, nie Kippfenster. Sommer: nicht lüften, wenn es draußen wärmer ist; Kühlen per Lüften möglich. Bei \"Automatisch\" entscheiden Kalendermonat und Außentemperatur – ein Wechsel wird erst nach mehreren Stunden anhaltendem Trend übernommen, damit der Modus nicht ständig hin- und herspringt.",
+              "season_mode": "Winter: kurzes Stoßlüften, nie Kippfenster. Sommer: nicht lüften, wenn es draußen wärmer ist; Kühlen per Lüften möglich. Bei \"Automatisch\" entscheiden Kalendermonat, mehrtägiger Wettervorhersage-Trend (falls Wetter-Entität gewählt) und sonst die Außentemperatur – ein Wechsel per Außentemperatur wird erst nach mehreren Stunden anhaltendem Trend übernommen, damit der Modus nicht ständig hin- und herspringt.",
               "target_absolute_humidity": "Sinkt die absolute Feuchte innen beim Lüften unter diesen Wert, gilt der Tag als ausreichend gelüftet. Der Raumtyp oben schlägt beim Einrichten einen passenden Wert vor.",
               "max_temperature_difference": "Nicht lüften, wenn es draußen um mehr als diesen Wert wärmer ist als drinnen.",
               "comfort_temperature": "Ist es drinnen wärmer und draußen mindestens 2 °C kühler, wird Lüften zum Abkühlen empfohlen.",
@@ -270,7 +270,7 @@
               "humidity_hysteresis": "Feuchte-Puffer gegen Flackern"
             },
             "data_description": {
-              "season_mode": "Winter: kurzes Stoßlüften, nie Kippfenster. Sommer: nicht lüften, wenn es draußen wärmer ist; Kühlen per Lüften möglich. Bei \"Automatisch\" entscheiden Kalendermonat und Außentemperatur – ein Wechsel wird erst nach mehreren Stunden anhaltendem Trend übernommen, damit der Modus nicht ständig hin- und herspringt.",
+              "season_mode": "Winter: kurzes Stoßlüften, nie Kippfenster. Sommer: nicht lüften, wenn es draußen wärmer ist; Kühlen per Lüften möglich. Bei \"Automatisch\" entscheiden Kalendermonat, mehrtägiger Wettervorhersage-Trend (falls Wetter-Entität gewählt) und sonst die Außentemperatur – ein Wechsel per Außentemperatur wird erst nach mehreren Stunden anhaltendem Trend übernommen, damit der Modus nicht ständig hin- und herspringt.",
               "target_absolute_humidity": "Sinkt die absolute Feuchte innen beim Lüften unter diesen Wert, gilt der Tag als ausreichend gelüftet. Der Raumtyp oben schlägt beim Einrichten einen passenden Wert vor.",
               "max_temperature_difference": "Nicht lüften, wenn es draußen um mehr als diesen Wert wärmer ist als drinnen.",
               "comfort_temperature": "Ist es drinnen wärmer und draußen mindestens 2 °C kühler, wird Lüften zum Abkühlen empfohlen.",

@@ -97,6 +97,46 @@ async def test_season_does_not_flap_within_a_single_day(
     assert hass.states.get(season).state == "winter"  # nie wirklich auf Sommer gesprungen
 
 
+async def test_season_uses_daily_forecast_trend_without_waiting(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Zeigt die mehrtägige Vorhersage schon einen eindeutigen Trend (Hoch UND Tief mehrere
+    Tage am Stück klar unter der Heizgrenze), wird das sofort als Winter übernommen - ohne
+    erst SEASON_CONFIRM_HOURS auf lokale Bestätigung zu warten. Das ist ein verlässlicheres
+    Signal, gerade für die längerfristige Einordnung."""
+    freezer.move_to("2026-09-27 12:00:00+02:00")  # Übergangsmonat
+    forecast_holder: dict = {"daily": []}
+
+    async def _handle_get_forecasts(call):
+        if call.data.get("type") == "daily":
+            return {"weather.home": {"forecast": forecast_holder["daily"]}}
+        return {"weather.home": {"forecast": []}}
+
+    hass.services.async_register(
+        "weather", "get_forecasts", _handle_get_forecasts,
+        supports_response=SupportsResponse.ONLY,
+    )
+    entry = await setup_room(hass, season_mode="auto", weather_entity="weather.home")
+    room = hass.data[DOMAIN][entry.entry_id]
+    room._auto_season = "summer"  # simuliert: bisher als Sommer eingestuft
+    room._season_pending = None
+    room._season_pending_since = None
+
+    hass.states.async_set("sensor.aussen_t", 20.0)  # aktuell noch warm
+    await hass.async_block_till_done()
+
+    now = dt_util.now()
+    forecast_holder["daily"] = [
+        {"datetime": (now + timedelta(days=d)).isoformat(), "temperature": high, "templow": low}
+        for d, (high, low) in enumerate([(12.0, 4.0), (11.0, 3.0), (13.0, 5.0)])
+    ]
+    await _tick(hass, freezer, 6)  # über die Retry-Zeit hinaus -> neue Vorhersage wird geholt
+
+    # Trotz aktuell warmer Außenluft (würde sonst Richtung Sommer bleiben bzw. erst nach
+    # Stunden umschalten) übernimmt der eindeutige mehrtägige Vorhersage-Trend sofort "Winter".
+    assert hass.states.get(eid(hass, "sensor", entry, "season")).state == "winter"
+
+
 async def test_no_venting_when_warmer_outside_even_in_winter(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:

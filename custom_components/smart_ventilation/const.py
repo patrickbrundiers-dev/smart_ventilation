@@ -71,6 +71,11 @@ SEASON_HYSTERESIS = 1.0  # °C – verhindert ständiges Hin- und Herspringen
 # eine kalte Nacht gefolgt von einem warmen Nachmittag (oder umgekehrt) den Modus am selben
 # Tag mehrfach hin- und herspringen lassen.
 SEASON_CONFIRM_HOURS = 6
+# Zeigt die mehrtägige Wettervorhersage (falls konfiguriert) schon einen eindeutigen Trend -
+# Hoch UND Tief an mehreren Tagen am Stück klar auf einer Seite der Heizgrenze -, ist das ein
+# verlässlicheres Signal als ein paar Stunden lokale Messwerte und wird sofort übernommen,
+# ohne auf SEASON_CONFIRM_HOURS zu warten.
+SEASON_FORECAST_DAYS = 3
 # Meteorologische Jahreszeit: in diesen Monaten gilt Winter/Sommer fest, unabhängig von der
 # Außentemperatur (ein einzelner milder Wintertag oder kühler Sommertag soll den Modus nicht
 # umschalten). Nur in den Übergangsmonaten entscheidet weiter die Temperatur wie bisher.
@@ -142,7 +147,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.3.24"
+VERSION = "2.3.25"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
