@@ -94,8 +94,11 @@ async def async_register_card(hass: HomeAssistant) -> None:
         _LOGGER.exception("Dashboard-Karte konnte nicht bereitgestellt werden")
         return
 
+    # Frontend-Modul so früh wie möglich (sonst fehlt es in Seiten, die während des Starts geladen werden)
+    early_module = _add_extra_module(hass)
+
     async def _register(_event: Event | None = None) -> None:
-        module_ok = _add_extra_module(hass)
+        module_ok = early_module or _add_extra_module(hass)
         try:
             resource_ok = await _async_register_resource(hass)
         except Exception:  # noqa: BLE001
