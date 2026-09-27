@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.16
+
+- **Feuchte-Hysterese jetzt pro Raum einstellbar:** Der Puffer gegen das Flackern der Feuchte-Empfehlung an der Schwelle (seit 2.3.12 fest im Code) lässt sich jetzt unter „Lüftungsverhalten“ als „Feuchte-Puffer gegen Flackern“ anpassen. Vorgabewert bleibt 0,1 g/m³, höher = ruhiger/träger, niedriger = reagiert schneller.
+
 ### Version 2.3.15
 
 - **Fix: Statistik nach Neustart konnte verfälscht sein.** Schloss sich ein Fenster während HA nicht lief (Neustart, Update) und kamen zwischen dem tatsächlichen Schließen und dem Wiederhochfahren mehrere Stunden zusammen, wurde beim Nachtragen der Lüftung fälschlich mit den dann aktuellen (aber längst nicht mehr aussagekräftigen) Sensorwerten geprüft, ob das Ziel erreicht wurde – eine zufällig trockene Raumluft Stunden später konnte so eine eigentlich wirkungslose Lüftung als „erfolgreich“ in die Statistik eintragen. Zählt jetzt nur noch, was schon vor dem Neustart als erreicht festgehalten war.

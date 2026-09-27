@@ -393,6 +393,24 @@ async def test_humidity_recommendation_has_hysteresis(
     assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
 
 
+async def test_humidity_hysteresis_is_configurable(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Der Feuchte-Puffer (humidity_hysteresis) ist kein fester Wert im Code, sondern pro Raum
+    einstellbar - Standard 0,1 g/m³, hier auf 0 gestellt (kein Puffer, wie vor 2.3.12)."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass, humidity_hysteresis=0.0)
+    rec = eid(hass, "sensor", entry, "recommendation")
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
+
+    # Mit Puffer 0 schaltet die Empfehlung schon bei diff <= START_DIFF (1,0) sofort ab -
+    # ohne den in test_humidity_recommendation_has_hysteresis geprüften Nachlauf.
+    hass.states.async_set("sensor.aussen_ah", 9.55)  # diff = 0,95, sonst (Standardpuffer) noch aktiv
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
+
+
 async def test_post_vent_pause_uses_forecast_and_extreme_override(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:

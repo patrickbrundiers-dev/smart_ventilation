@@ -1328,11 +1328,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         Mit Hysterese: Ist die Empfehlung schon aktiv, bleibt sie es, bis entweder der
         Feuchteunterschied ODER alle Einzelgründe (Zielwert, rel. Feuchte, Schimmel) klar
-        unter ihrer jeweiligen Schwelle liegen (Puffer siehe const.py) – genau die Umkehrung
-        der Bedingung oben, nur mit etwas Abstand zur Schwelle. Ohne diesen Puffer kippt die
-        Empfehlung bei jeder kleinen Sensorschwankung genau an der Schwelle hin und her –
-        sichtbar als ständiger Wechsel zwischen „Kippfenster …“ und „Keine Lüftung
-        erforderlich“ im Verlauf.
+        unter ihrer jeweiligen Schwelle liegen (Puffer einstellbar, siehe CONF_HUMID_HYSTERESIS)
+        – genau die Umkehrung der Bedingung oben, nur mit etwas Abstand zur Schwelle. Ohne
+        diesen Puffer kippt die Empfehlung bei jeder kleinen Sensorschwankung genau an der
+        Schwelle hin und her – sichtbar als ständiger Wechsel zwischen „Kippfenster …“ und
+        „Keine Lüftung erforderlich“ im Verlauf.
         """
         target_abs = float(self.data.get(CONF_TARGET_ABS, DEFAULT_TARGET_ABS))
         rh = self.indoor_rh
@@ -1351,11 +1351,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         # oder (wenn er das noch nicht tut) alle anderen Gründe klar unter ihrer Schwelle
         # liegen. Nur eines von beidem reicht - so bleibt es beim gleichen Entweder-oder wie
         # bei der Einstiegsbedingung, nur mit Puffer statt einer scharfen Kante.
+        hysteresis = float(self.data.get(CONF_HUMID_HYSTERESIS, DEFAULT_HUMID_HYSTERESIS))
         # (1e-6 Toleranz gegen Fließkomma-Rundung, z. B. 10,1 - 9,2 = 0,9000000000000004.)
-        diff_clearly_below = diff <= START_DIFF - HUMID_HYSTERESIS + 1e-6
+        diff_clearly_below = diff <= START_DIFF - hysteresis + 1e-6
         reasons_clearly_below = (
-            indoor <= target_abs - HUMID_HYSTERESIS + 1e-6
-            and (rh is None or rh < HUMID_RH - HUMID_RH_HYSTERESIS)
+            indoor <= target_abs - hysteresis + 1e-6
+            and (rh is None or rh < HUMID_RH - hysteresis * HUMID_RH_HYSTERESIS_RATIO)
             and mold not in ("erhöht", "hoch")
         )
         self._humidity_active = not (diff_clearly_below or reasons_clearly_below)

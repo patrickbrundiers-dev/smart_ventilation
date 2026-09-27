@@ -81,7 +81,8 @@
               "max_temperature_difference": "Summer: heat lock from",
               "comfort_temperature": "Summer: cool from",
               "cool_limit": "Cooling warning below",
-              "building_standard": "Wall insulation standard"
+              "building_standard": "Wall insulation standard",
+              "humidity_hysteresis": "Humidity buffer against flickering"
             },
             "data_description": {
               "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible.",
@@ -89,7 +90,8 @@
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
               "cool_limit": "Warns when the room gets colder than this while a window is open. 0 = off.",
-              "building_standard": "Determines the estimated temperature at the coldest wall spot and therefore the mould risk."
+              "building_standard": "Determines the estimated temperature at the coldest wall spot and therefore the mould risk.",
+              "humidity_hysteresis": "How much conditions must clearly improve before an active \"vent due to humidity\" recommendation switches off again. Higher = steadier but reacts a bit slower; lower = reacts faster but can flicker more with noisy sensors."
             }
           },
           "notify": {
@@ -261,7 +263,8 @@
               "max_temperature_difference": "Summer: heat lock from",
               "comfort_temperature": "Summer: cool from",
               "cool_limit": "Cooling warning below",
-              "building_standard": "Wall insulation standard"
+              "building_standard": "Wall insulation standard",
+              "humidity_hysteresis": "Humidity buffer against flickering"
             },
             "data_description": {
               "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible.",
@@ -269,7 +272,8 @@
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
               "cool_limit": "Warns when the room gets colder than this while a window is open. 0 = off.",
-              "building_standard": "Determines the estimated temperature at the coldest wall spot and therefore the mould risk."
+              "building_standard": "Determines the estimated temperature at the coldest wall spot and therefore the mould risk.",
+              "humidity_hysteresis": "How much conditions must clearly improve before an active \"vent due to humidity\" recommendation switches off again. Higher = steadier but reacts a bit slower; lower = reacts faster but can flicker more with noisy sensors."
             }
           },
           "notify": {
