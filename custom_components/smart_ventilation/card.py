@@ -152,7 +152,10 @@ async def async_register_card(hass: HomeAssistant) -> None:
     _LOGGER.debug("Dashboard-Karte wird geladen von %s", url)
 
     async def _register(final: bool) -> bool:
-        module_ok = _add_extra_module(hass, url)
+        # Bewusst andere Adresse als die Ressource: schlägt ein Weg fehl (z. B. Laden während HA
+        # neu startet), merkt sich der Browser den Fehler nur für diese Adresse – der andere Weg lädt trotzdem.
+        # Doppeltes Laden ist harmlos, die Karte meldet sich nur einmal an.
+        module_ok = _add_extra_module(hass, CARD_URL_VERSIONED)
         try:
             resource_ok = await _async_register_resource(hass, url)
         except Exception:  # noqa: BLE001

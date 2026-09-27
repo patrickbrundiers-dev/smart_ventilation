@@ -84,6 +84,7 @@ class OverviewCoordinator:
             rooms.append({
                 "raum": room.data.get("name"),
                 "lueften": room.recommended_minutes > 0,
+                "pausiert": room.pause_reason(),
                 "empfehlung": room.recommendation,
                 "minuten": room.recommended_minutes,
                 "feuchteunterschied": room.humidity_difference,
@@ -93,7 +94,7 @@ class OverviewCoordinator:
                 "dringlichkeit": self.urgency(room),
                 "entity_id": room.own_entity("sensor", "recommendation"),
             })
-        rooms.sort(key=lambda r: (not r["lueften"], -r["dringlichkeit"]))
+        rooms.sort(key=lambda r: (not r["lueften"], bool(r["pausiert"]), -r["dringlichkeit"]))
         return rooms
 
     def rooms_needing(self):

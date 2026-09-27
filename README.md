@@ -114,6 +114,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.9
+
+- **„Pausiert“ auf der Karte:** Gelten gerade dieselben Sperren wie für Benachrichtigungen (Pause nach dem Lüften, Ruhezeit, „In 30 Min. erinnern“, „Heute nicht mehr“, Urlaub, niemand zu Hause), zeigt die Karte „Pausiert“ mit Grund statt „Lüften“. Die Empfehlung bleibt klein darunter sichtbar; die Übersicht zählt pausierte Räume nicht mehr mit.
+- Karte lädt robuster: Frontend-Modul und Dashboard-Ressource nutzen getrennte Adressen – schlägt ein Weg fehl (z. B. beim Laden während eines Neustarts), lädt der andere trotzdem.
+
 ### Version 2.3.8
 
 - **Better Thermostat + Climate Group Helper:** Die Heizungs-Hierarchie wird erkannt (Thermostate → Climate Group Helper → Better Thermostat). Geschaltet wird immer die oberste Ebene – egal ob im Raum das BT, die Gruppe oder ein einzelnes Thermostat gewählt ist. So regelt Better Thermostat nicht dagegen.

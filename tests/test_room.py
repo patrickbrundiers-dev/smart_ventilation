@@ -220,3 +220,22 @@ async def test_heating_left_to_climate_group_helper_window(hass: HomeAssistant, 
     assert not hvac
     running = hass.states.get(eid(hass, "sensor", entry, "ventilation_running"))
     assert running.attributes["heizung_selbst_geregelt"] == {"climate.bad_bt": "Climate Group Helper"}
+
+
+async def test_card_shows_pause_after_ventilation(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    """Nach dem Lüften: Karte zeigt „Pausiert“ statt erneut „Lüften“ – wie bei den Benachrichtigungen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass)
+    rec = eid(hass, "sensor", entry, "recommendation")
+    assert hass.states.get(rec).attributes["karte"]["pausiert"] is None
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 3)
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["minuten"] > 0
+    assert karte["pausiert"].startswith("Pause nach dem Lüften bis 11:0")
+    await _tick(hass, freezer, 61)
+    assert hass.states.get(rec).attributes["karte"]["pausiert"] is None

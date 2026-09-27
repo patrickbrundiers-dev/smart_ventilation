@@ -1137,6 +1137,33 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             targets=targets,
         )
 
+    def pause_reason(self, now=None):
+        """Warum gerade nicht zum Lüften aufgefordert wird (gleiche Regeln wie bei Benachrichtigungen)."""
+        now = now or dt_util.now()
+        if self.recommended_minutes <= 0 or self.session or self.open_windows():
+            return None
+        if self.on_vacation:
+            return "Urlaub"
+        if self._last_session_end is not None:
+            until = dt_util.as_local(self._last_session_end) + timedelta(minutes=POST_VENT_PAUSE_MINUTES)
+            if now < until:
+                return f"Pause nach dem Lüften bis {until.strftime('%H:%M')} Uhr"
+        skip, snooze = self._skip_date, self._snooze_until
+        for other in self.hass.data.get(DOMAIN, {}).values():
+            if getattr(other, "is_overview", False) and other.combine:
+                skip = skip or getattr(other, "_skip_date", None)
+                snooze = snooze or getattr(other, "_snooze_until", None)
+        if skip == now.date():
+            return "Heute nicht mehr erinnern"
+        if snooze is not None and now < snooze:
+            return f"Erinnerung um {dt_util.as_local(snooze).strftime('%H:%M')} Uhr"
+        if self.in_quiet_hours(now):
+            end = str(self.data.get(CONF_QUIET_END) or DEFAULT_QUIET_END)[:5]
+            return f"Ruhezeit bis {end} Uhr"
+        if not self.anyone_home:
+            return "Niemand zu Hause"
+        return None
+
     def in_quiet_hours(self, now=None):
         return notify_util.in_quiet_hours(
             now or dt_util.now(),
@@ -1409,6 +1436,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "gelueftet": self.ventilated_today,
             "kuehlt_aus": self.cooling_down,
             "ruhezeit": self.in_quiet_hours(),
+            "pausiert": self.pause_reason(),
             "verlauf": self.trace_for_card(),
             "kuehlen_plan": self.cool_plan,
             "nach_dusche": self.after_shower,

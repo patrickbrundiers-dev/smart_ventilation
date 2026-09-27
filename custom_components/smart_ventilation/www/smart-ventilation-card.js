@@ -40,6 +40,7 @@ function roomState(k) {
   if (k.laeuft && k.kuehlt_aus) return { tone: "bad", icon: "mdi:snowflake-alert", pill: "Kühlt aus" };
   if (k.laeuft) return { tone: "info", icon: "mdi:window-open-variant", pill: "Läuft", pulse: true };
   if (k.minuten > 0 && k.grund === "Kühlen") return { tone: "info", icon: "mdi:snowflake-thermometer", pill: "Kühlen" };
+  if (k.minuten > 0 && k.pausiert) return { tone: "neutral", icon: "mdi:pause-circle-outline", pill: "Pausiert" };
   if (k.nach_dusche && k.minuten > 0) return { tone: "warn", icon: "mdi:shower-head", pill: "Lüften" };
   if (k.minuten > 0) return { tone: "warn", icon: "mdi:window-open-variant", pill: "Lüften" };
   if (k.blockiert) return { tone: "neutral", icon: "mdi:window-closed-variant", pill: "Gesperrt" };
@@ -54,6 +55,10 @@ function headline(k) {
   }
   if (k.minuten > 0 && k.grund === "Kühlen") {
     return { title: "Jetzt abkühlen", sub: join([`Fenster auf, ca. ${k.minuten} Min.`, k.kuehlen_plan && `Nacht: ${k.kuehlen_plan}`]) };
+  }
+  if (k.minuten > 0 && k.pausiert) {
+    const mode = String(k.modus || "Lüften").replace(" (Querlüften)", "");
+    return { title: k.pausiert, sub: join([`Später: ${mode}`, `ca. ${k.minuten} Min.`, reason]) };
   }
   if (k.minuten > 0) {
     const cross = String(k.modus || "").includes("Querlüften");
@@ -229,7 +234,7 @@ class SmartVentilationCard extends HTMLElement {
       k.heute_kwh > 0 && [e.kosten, "mdi:fire", `${fmt(k.heute_kwh, 2)} kWh · ${fmt(k.heute_eur, 2)} €`],
       k.kuehlen_plan && !(k.minuten > 0 && k.grund === "Kühlen") && [null, "mdi:weather-night", `Kühlen ${k.kuehlen_plan}`],
       k.entfeuchter && [null, "mdi:air-humidifier", "Entfeuchter läuft"],
-      k.ruhezeit && [null, "mdi:sleep", "Ruhezeit"],
+      k.ruhezeit && !String(k.pausiert || "").startsWith("Ruhezeit") && [null, "mdi:sleep", "Ruhezeit"],
     ]
       .filter(Boolean)
       .map(([ent, icon, text, tone]) =>
@@ -365,13 +370,14 @@ class SmartVentilationCard extends HTMLElement {
 
   /* ---------- Übersicht ---------- */
   _overview(rooms) {
-    const needing = rooms.filter((r) => r.lueften && !r.laeuft).length;
+    const needing = rooms.filter((r) => r.lueften && !r.laeuft && !r.pausiert).length;
     const running = rooms.filter((r) => r.laeuft).length;
     const tone = needing ? "warn" : running ? "info" : "good";
     const pill = needing ? `${needing} lüften` : running ? `${running} läuft` : "Alles gut";
     const rows = rooms
       .map((r) => {
         const t = r.laeuft ? ["info", "mdi:window-open-variant", "Lüftung läuft", "läuft"]
+          : r.lueften && r.pausiert ? ["neutral", "mdi:pause-circle-outline", r.pausiert, "Pausiert"]
           : r.lueften ? ["warn", "mdi:window-open-variant", r.empfehlung, `${r.minuten} Min.`]
           : ["good", "mdi:check", "Kein Lüften nötig", ""];
         const risk = r.schimmelrisiko === "hoch" ? `<ha-icon class="risk" icon="mdi:alert-octagon-outline" title="Schimmelrisiko hoch"></ha-icon>` : "";
