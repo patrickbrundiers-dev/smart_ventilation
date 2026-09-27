@@ -17,7 +17,7 @@ from .const import (
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_WEEKLY_REPORT, COOL_MAX_EXTRA_HUMIDITY,
     COOL_MIN_DIFF, DEFAULT_COMFORT_TEMP, DEFAULT_TARGET_DIFF, DEHUM_MIN_RUNTIME_MINUTES,
     DEHUM_OFF_RH, DEHUM_ON_RH, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
-    SEASON_SUMMER, SEASON_WINTER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
+    SEASON_SUMMER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
     CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER,
     CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD,
@@ -243,7 +243,7 @@ class RoomExtrasMixin:
         return max(10, min(60, -60 / n * math.log((target - to) / (ti - to)) if ti > target else 10))
 
     # ------------------------------------------------------------------
-    # Winter: Vorheizen per Lüften (nach kalter Nacht wärmere Luft tagsüber nutzen)
+    # Vorheizen per Lüften (nach kalter Nacht wärmere Luft tagsüber nutzen)
     # ------------------------------------------------------------------
     @property
     def preheat_temp(self):
@@ -252,13 +252,15 @@ class RoomExtrasMixin:
     def preheat_minutes(self):
         """Minuten zum Vorheizen, 0 = nicht sinnvoll.
 
-        Nur im Winter, nur nach einer Nacht mit Tiefstwerten unter der Heizgrenze (sonst macht
-        das Vorziehen der Heizung keinen Sinn) und nur, wenn draußen jetzt spürbar wärmer ist
-        als drinnen und der Raum noch unter der Vorheiz-Schwelle liegt. Droht laut Vorhersage
-        in Kürze Regen, lohnt sich das Öffnen nicht – auch wenn es gerade noch trocken ist.
+        Bewusst NICHT an die Sommer/Winter-Einstufung gekoppelt: die reagiert seit 2.3.19 erst
+        nach mehreren Stunden Trend, damit sie nicht ständig hin- und herspringt - genau in der
+        Übergangszeit (Herbst/Frühling) gibt es aber schon einzelne kalte Nächte, obwohl der
+        Modus noch "Sommer" zeigt. Die eigentliche Voraussetzung ist die Nacht-Tiefsttemperatur:
+        nur nach einer Nacht mit Tiefstwerten unter der Heizgrenze (sonst macht das Vorziehen
+        der Heizung keinen Sinn) und nur, wenn draußen jetzt spürbar wärmer ist als drinnen und
+        der Raum noch unter der Vorheiz-Schwelle liegt. Droht laut Vorhersage in Kürze Regen,
+        lohnt sich das Öffnen nicht – auch wenn es gerade noch trocken ist.
         """
-        if self.season != SEASON_WINTER:
-            return 0
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
         if self._last_night_low is None or self._last_night_low >= threshold:
             return 0
@@ -274,12 +276,13 @@ class RoomExtrasMixin:
 
     def preheat_plan(self, forecast):
         """Aus der Stundenvorhersage: ab wann es heute/morgen warm genug zum Vorheizen wird,
-        bis wann noch – nur wenn die Nacht-Voraussetzung (kalte Nacht) bereits erfüllt ist."""
+        bis wann noch – nur wenn die Nacht-Voraussetzung (kalte Nacht) bereits erfüllt ist.
+        Bewusst unabhängig von der (träger reagierenden) Sommer/Winter-Einstufung, siehe
+        preheat_minutes()."""
         ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
         if (
-            self.season != SEASON_WINTER
-            or ti is None
+            ti is None
             or ti >= self.preheat_temp
             or self._last_night_low is None
             or self._last_night_low >= threshold

@@ -80,7 +80,7 @@
               "target_absolute_humidity": "Daily humidity target",
               "max_temperature_difference": "Summer: heat lock from",
               "comfort_temperature": "Summer: cool from",
-              "preheat_temperature": "Winter: preheat below",
+              "preheat_temperature": "Preheat below (after cold night)",
               "cool_limit": "Cooling warning below",
               "building_standard": "Wall insulation standard",
               "humidity_hysteresis": "Humidity buffer against flickering"
@@ -264,7 +264,7 @@
               "target_absolute_humidity": "Daily humidity target",
               "max_temperature_difference": "Summer: heat lock from",
               "comfort_temperature": "Summer: cool from",
-              "preheat_temperature": "Winter: preheat below",
+              "preheat_temperature": "Preheat below (after cold night)",
               "cool_limit": "Cooling warning below",
               "building_standard": "Wall insulation standard",
               "humidity_hysteresis": "Humidity buffer against flickering"

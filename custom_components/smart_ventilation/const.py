@@ -142,7 +142,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.3.19"
+VERSION = "2.3.20"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -162,8 +162,9 @@ DEFAULT_COMFORT_TEMP = 23.0
 COOL_MIN_DIFF = 2.0               # draußen mind. 2 °C kühler
 COOL_MAX_EXTRA_HUMIDITY = 1.0     # g/m³ – nicht kühlen, wenn draußen viel feuchter
 
-# Winter: Vorheizen per Lüften (nach einer kalten Nacht tagsüber wärmere Außenluft nutzen,
-# um das Heizen hinauszuzögern bzw. den Raum warm zu halten)
+# Vorheizen per Lüften (nach einer kalten Nacht tagsüber wärmere Außenluft nutzen, um das
+# Heizen hinauszuzögern bzw. den Raum warm zu halten) - bewusst unabhängig vom Sommer/
+# Winter-Modus, siehe preheat_minutes() in extras.py
 CONF_PREHEAT_TEMP = "preheat_temperature"
 DEFAULT_PREHEAT_TEMP = 19.0       # °C – unter dieser Innentemperatur "braucht" der Raum Wärme
 PREHEAT_MIN_WARMER = 2.0          # draußen mind. so viel wärmer als drinnen

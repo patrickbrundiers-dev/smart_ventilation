@@ -80,7 +80,7 @@
               "target_absolute_humidity": "Tagesziel Luftfeuchte",
               "max_temperature_difference": "Sommer: Hitzesperre ab",
               "comfort_temperature": "Sommer: kühlen ab",
-              "preheat_temperature": "Winter: vorheizen ab",
+              "preheat_temperature": "Vorheizen ab (nach kalter Nacht)",
               "cool_limit": "Auskühl-Warnung unter",
               "building_standard": "Dämmstandard der Außenwände",
               "humidity_hysteresis": "Feuchte-Puffer gegen Flackern"
@@ -264,7 +264,7 @@
               "target_absolute_humidity": "Tagesziel Luftfeuchte",
               "max_temperature_difference": "Sommer: Hitzesperre ab",
               "comfort_temperature": "Sommer: kühlen ab",
-              "preheat_temperature": "Winter: vorheizen ab",
+              "preheat_temperature": "Vorheizen ab (nach kalter Nacht)",
               "cool_limit": "Auskühl-Warnung unter",
               "building_standard": "Dämmstandard der Außenwände",
               "humidity_hysteresis": "Feuchte-Puffer gegen Flackern"

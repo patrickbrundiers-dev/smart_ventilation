@@ -126,6 +126,34 @@ async def test_preheat_after_cold_night_overrides_warm_outside_block(
     assert "Vorheizen" in rec.state
 
 
+async def test_preheat_works_independent_of_season_mode(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Vorheizen hängt bewusst nicht an der Sommer/Winter-Einstufung: die reagiert seit 2.3.19
+    erst nach Stunden Trend (gegen Flackern), aber gerade in der Übergangszeit gibt es schon
+    einzelne kalte Nächte, obwohl der Modus noch „Sommer“ zeigt (z. B. Herbst-Tag mit 9 °C
+    morgens, 26 °C mittags, wieder kühler abends) - Vorheizen soll trotzdem funktionieren."""
+    freezer.move_to("2026-09-27 23:00:00+02:00")  # innerhalb des Nachtfensters (22-9 Uhr)
+    entry = await setup_room(hass, season_mode="summer")  # Modus zeigt (noch) "Sommer"
+    hass.states.async_set("sensor.aussen_t", 9.0)  # kühle Nacht, unter der Heizgrenze (15 °C)
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)  # Nacht-Tiefsttemperatur wird mitgeschrieben
+
+    freezer.move_to("2026-09-28 09:30:00+02:00")  # Nachtfenster vorbei -> Tiefstwert übernommen
+    await _tick(hass, freezer, 1)
+
+    hass.states.async_set("sensor.innen_t", 17.0)
+    hass.states.async_set("sensor.aussen_t", 21.0)  # spürbar wärmer als drinnen
+    hass.states.async_set("sensor.innen_ah", 6.0)
+    hass.states.async_set("sensor.aussen_ah", 5.8)
+    await _tick(hass, freezer, 1)
+
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    assert hass.states.get(eid(hass, "sensor", entry, "season")).state == "summer"
+    assert rec.attributes["grund"] == "Vorheizen"
+    assert rec.attributes["karte"]["minuten"] > 0
+
+
 async def test_preheat_uses_forecast_for_rain_and_upcoming_window(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:

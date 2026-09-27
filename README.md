@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.20
+
+- **Fix: Vorheizen funktionierte nicht mehr, solange der Modus noch „Sommer“ zeigte.** Seit 2.3.19 reagiert die Sommer/Winter-Automatik erst nach mehreren Stunden anhaltendem Trend, damit sie nicht mehr flackert. Gerade in der Übergangszeit (Herbst/Frühling) gibt es aber schon einzelne kalte Nächte, obwohl der Modus wegen warmer Tage noch auf „Sommer“ steht – Vorheizen wäre dadurch blockiert gewesen, obwohl die eigentliche Voraussetzung (kalte Nacht) erfüllt war. Vorheizen prüft jetzt nur noch die Nacht-Tiefsttemperatur direkt und ist unabhängig von der Sommer/Winter-Einstufung.
+
 ### Version 2.3.19
 
 - **Fix: Automatik-Modus konnte an einem Tag mehrfach zwischen Sommer und Winter hin- und herspringen.** In den Übergangsmonaten (März–Mai, September–November) entschied bisher die aktuelle Außentemperatur sofort – bei Tagen mit großer Spanne (kalte Nacht, warmer Nachmittag) konnte das den Modus (und damit z. B. Vorheizen/Kühlen) mehrmals täglich umschalten, obwohl sich an der Jahreszeit nichts geändert hatte. Die Außentemperatur muss jetzt mindestens 6 Stunden ununterbrochen deutlich über bzw. unter der Heizgrenze liegen, bevor der Modus tatsächlich wechselt.
