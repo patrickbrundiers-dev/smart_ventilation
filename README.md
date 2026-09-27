@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.7
+
+- **Kein Widerspruch mehr zwischen „Lüften“ und „Fenster schließen“:** Die Warnung „draußen zu warm“ nutzt jetzt dieselbe Sommer-Grenze wie die Empfehlung. Nur wenn zum **Kühlen** gelüftet wird, kommt sie schon, sobald es draußen wärmer als drinnen ist.
+
 ### Version 2.3.6
 
 - **Better Thermostat:** Hat ein Better Thermostat einen eigenen Fenstersensor, schaltet es beim Lüften selbst ab – Smart Ventilation greift dann nicht mehr zusätzlich ein (kein doppeltes Schalten). Ohne Fenstersensor übernimmt Smart Ventilation wie bisher.

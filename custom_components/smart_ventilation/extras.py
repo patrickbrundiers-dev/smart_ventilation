@@ -11,6 +11,7 @@ from datetime import timedelta
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF,
     CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP,
     CONF_NAME, CONF_OUTDOOR_HUMIDITY, CONF_OUTDOOR_TEMP, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_WEEKLY_REPORT, COOL_MAX_EXTRA_HUMIDITY,
@@ -266,17 +267,28 @@ class RoomExtrasMixin:
         return f"{text} bis {end.strftime('%H:%M')} Uhr" if end else f"{text} Uhr"
 
     async def _warm_outside_warning(self):
-        """Beim Kühlen: sobald es draußen wärmer als drinnen wird, ans Schließen erinnern."""
+        """Sommer: ans Schließen erinnern, wenn das Lüften den Raum aufheizt.
+
+        Dieselbe Grenze wie bei der Empfehlung, sonst widersprechen sich „Lüften“ und „Schließen“:
+        - zum Kühlen gelüftet: sobald draußen wärmer als drinnen (Kühlen klappt nicht mehr)
+        - wegen Feuchte/CO₂ gelüftet: erst ab der eingestellten Sommer-Grenze
+        """
         if not self.session or self.season != SEASON_SUMMER or self._warm_warned:
             return
         ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
         to = _num_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
-        if ti is None or to is None or to <= ti + 0.5:
+        if ti is None or to is None:
+            return
+        limit = 0.5 if self.session.get("cooling") else float(
+            self.data.get(CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF)
+        )
+        if to - ti <= limit:
             return
         self._warm_warned = True
         await self._send(
             f"Fenster schließen: {self.data[CONF_NAME]}",
-            f"Draußen ist es jetzt wärmer ({to:.1f} °C) als drinnen ({ti:.1f} °C).",
+            f"Draußen ist es jetzt {to - ti:.1f} °C wärmer ({to:.1f} °C) als drinnen ({ti:.1f} °C) – "
+            "der Raum heizt sich sonst auf.",
             f"smart_ventilation_{self.entry.entry_id}_warm",
         )
 

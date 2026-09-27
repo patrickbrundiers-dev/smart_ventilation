@@ -161,3 +161,24 @@ async def test_no_humidity_nag_when_room_is_dry_enough(hass: HomeAssistant, free
     hass.states.async_set("sensor.innen_ah", 12.5)        # jetzt wirklich zu feucht
     await _tick(hass, freezer, 1)
     assert hass.states.get(eid(hass, "sensor", entry, "recommendation")).state != "Keine Lüftung erforderlich"
+
+
+async def test_humidity_airing_not_contradicted_by_warm_warning(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    """Wegen Feuchte empfohlen, draußen 0,6 °C wärmer -> kein „Fenster schließen“; erst ab Sommer-Grenze."""
+    freezer.move_to("2026-09-27 10:00:00+02:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    entry = await setup_room(hass, season_mode="summer")
+    for eid_, val in (("sensor.innen_t", 20.4), ("sensor.aussen_t", 21.0), ("sensor.innen_ah", 12.5), ("sensor.aussen_ah", 9.2)):
+        hass.states.async_set(eid_, val)
+    await _tick(hass, freezer, 1)
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    assert rec.attributes["grund"] == "Feuchte"
+
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 2)
+    assert not any(t.startswith("Fenster schließen") for t in _titles(pushes))
+
+    hass.states.async_set("sensor.aussen_t", 24.0)          # > 3 °C wärmer -> jetzt schließen
+    await _tick(hass, freezer, 1)
+    assert any(t.startswith("Fenster schließen") for t in _titles(pushes))
