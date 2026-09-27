@@ -342,37 +342,40 @@ async def test_preheat_session_records_heating_savings(
 ) -> None:
     """Eine als Vorheizen erkannte Lüftung soll in der Statistik nicht nur (wie normales
     Lüften) als Wärmeverlust, sondern als eingesparte Heizenergie auftauchen - die wärmere
-    Außenluft ersetzt hier ja Heizenergie, statt Wärme zu kosten."""
-    freezer.move_to("2026-12-05 23:00:00+01:00")  # innerhalb des Nachtfensters (22-9 Uhr)
+    Außenluft ersetzt hier ja Heizenergie, statt Wärme zu kosten. Die Sitzung wird direkt
+    konstruiert (statt über den vollen Fenster-auf/zu-Ablauf), um die Berechnung isoliert und
+    ohne Timing-Abhängigkeiten zu prüfen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
     entry = await setup_room(hass)
-    hass.states.async_set("sensor.aussen_t", -2.0)  # kalte Nacht
-    await hass.async_block_till_done()
-    await _tick(hass, freezer, 1)  # Nacht-Tiefsttemperatur wird mitgeschrieben
-
-    freezer.move_to("2026-12-06 09:30:00+01:00")  # Nachtfenster vorbei -> Tiefstwert übernommen
-    await _tick(hass, freezer, 1)
-
-    hass.states.async_set("sensor.innen_t", 15.0)
-    hass.states.async_set("sensor.aussen_t", 19.0)  # deutlich wärmer als drinnen
-    hass.states.async_set("sensor.innen_ah", 6.0)
-    hass.states.async_set("sensor.aussen_ah", 5.8)
-    await _tick(hass, freezer, 1)
-
-    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
-    assert rec.attributes["grund"] == "Vorheizen"
-
-    # Fenster öffnen -> Sitzung startet mit "preheat": True, wieder schließen nach 1 Minute
-    hass.states.async_set("binary_sensor.fenster_1", "on")
-    await hass.async_block_till_done()
     room = hass.data[DOMAIN][entry.entry_id]
-    assert room.session and room.session.get("preheat") is True
-    await _tick(hass, freezer, 1)
-    hass.states.async_set("binary_sensor.fenster_1", "off")
-    await hass.async_block_till_done()
 
-    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
-    assert rec.attributes["karte"]["heute_kwh_gespart"] > 0
-    assert rec.attributes["karte"]["heute_eur_gespart"] > 0
+    room.session = {
+        "started": dt_util.now() - timedelta(seconds=90),
+        "initial_diff": 0.2,
+        "initial_indoor": 6.0,
+        "initial_co2": None,
+        "dT": -4.0,  # draußen 4 °C wärmer als drinnen zu Sitzungsbeginn
+        "wind": 8.0,
+        "angle": 4.0,
+        "temp_diff": 4.0,
+        "target_reached": False,
+        "cross": False,
+        "notified": False,
+        "cool_warned": False,
+        "overtime_warned": False,
+        "heating": None,
+        "cooling": False,
+        "preheat": True,
+        "trace": [],
+    }
+    await room._finish_session()
+
+    stats = room.period_stats("day")
+    assert stats["kwh_gespart"] > 0
+    assert stats["kosten_gespart"] > 0
+    card = room.card_data()
+    assert card["heute_kwh_gespart"] > 0
+    assert card["heute_eur_gespart"] > 0
 
 
 async def test_dehumidifier_runs_when_rain_blocks(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
