@@ -143,6 +143,12 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.8.1
+
+- **Bugfix**: Eine bewusst auf „niemand“ geleerte Ziel-Auswahl bei den Benachrichtigungsarten (z. B. „Schimmelgefahr an kein Gerät“) wurde bislang wie „nicht konfiguriert“ behandelt und ging trotzdem an alle Ziele – jetzt korrekt respektiert.
+- **Bugfix**: Eine Raum-Vorlage übernahm auch Thermostate und Entfeuchter des Quell-Raums, wodurch ein neuer Raum unbemerkt Geräte eines anderen Raums mitgesteuert hätte – jetzt ausgenommen.
+- **Bugfix**: Im Kompaktmodus der Karte zeigten der „heute“- und der Netto-Kosten-Chip weiterhin einen Auf-/Zuklapp-Pfeil, obwohl das zugehörige Panel dort ausgeblendet ist.
+
 ### Version 2.8.0
 
 - **Regen-Vorwarnung**: Droht laut Wettervorhersage bald Regen, wird die normale Lüft-Erinnerung vorgezogen (kürzerer Erinnerungsabstand) und in der Übersicht höher priorisiert – Hinweis dazu auch direkt in der Empfehlung.
