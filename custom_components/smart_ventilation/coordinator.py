@@ -1394,6 +1394,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             return 0
         return round(max(0, min(100, (1 - current / initial) * 100)))
 
+    def _friendly_name(self, entity_id):
+        state = self.hass.states.get(entity_id)
+        return (state.name if state is not None else None) or entity_id
+
     def own_entity(self, platform, key):
         """Entity-ID einer eigenen Entität (für Klick-Ziele in der Karte)."""
         return er.async_get(self.hass).async_get_entity_id(
@@ -1454,6 +1458,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 "kosten": self.own_entity("sensor", "cost_month"),
             },
             "schimmel_h_heute": self.mold_hours_today,
+            "heizung_ab": [self._friendly_name(e) for e in (self.session or {}).get("heating") or {}],
+            "heizung_extern": [self._friendly_name(e) for e in (self.session or {}).get("heating_external") or {}],
         }
 
     @property

@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.10
+
+- **Heizung sichtbar auf der Karte:** Solange gelüftet wird, zeigt die Karte jetzt, welche Heizung abgesenkt wird und wann sie wiederhergestellt wird. Regelt Better Thermostat oder der Climate Group Helper das Fenster selbst, steht das dort ebenfalls.
+
 ### Version 2.3.9
 
 - **„Pausiert“ auf der Karte:** Gelten gerade dieselben Sperren wie für Benachrichtigungen (Pause nach dem Lüften, Ruhezeit, „In 30 Min. erinnern“, „Heute nicht mehr“, Urlaub, niemand zu Hause), zeigt die Karte „Pausiert“ mit Grund statt „Lüften“. Die Empfehlung bleibt klein darunter sichtbar; die Übersicht zählt pausierte Räume nicht mehr mit.

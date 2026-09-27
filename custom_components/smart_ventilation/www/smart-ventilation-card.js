@@ -215,6 +215,12 @@ class SmartVentilationCard extends HTMLElement {
       : "";
 
     const alerts = [];
+    if (k.laeuft && k.heizung_ab && k.heizung_ab.length) {
+      alerts.push(["info", "mdi:radiator-off", "Heizung abgesenkt", `${k.heizung_ab.join(", ")} – wird nach dem Lüften wiederhergestellt.`]);
+    }
+    if (k.laeuft && k.heizung_extern && k.heizung_extern.length) {
+      alerts.push(["info", "mdi:radiator-off", "Heizung wird selbst geregelt", `${k.heizung_extern.join(", ")} schaltet beim Fenster öffnen automatisch ab.`]);
+    }
     if (k.kuehlt_aus) alerts.push(["bad", "mdi:thermometer-alert", "Raum kühlt aus", `${fmt(k.innen_t)} °C – bitte Fenster schließen.`]);
     if (k.schimmel_tage >= 3) alerts.push(["bad", "mdi:alert-octagon-outline", "Schimmelgefahr", `Die Wand war ${k.schimmel_tage} Tage in Folge kritisch feucht.`]);
     else if (k.schimmel_tage === 2) alerts.push(["warn", "mdi:shield-alert-outline", "Wand zwei Tage feucht", "Morgen droht eine Schimmelwarnung – heute gründlich lüften."]);

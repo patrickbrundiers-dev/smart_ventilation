@@ -239,3 +239,17 @@ async def test_card_shows_pause_after_ventilation(hass: HomeAssistant, freezer: 
     assert karte["pausiert"].startswith("Pause nach dem Lüften bis 11:0")
     await _tick(hass, freezer, 61)
     assert hass.states.get(rec).attributes["karte"]["pausiert"] is None
+
+
+async def test_card_shows_heating_lowered(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    """Die Karte zeigt, wenn beim Lüften die Heizung abgesenkt wird."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    hass.states.async_set("climate.wz", "heat", {"hvac_modes": ["heat", "off"], "temperature": 21}, {"friendly_name": "Wohnzimmer Heizung"})
+    async_mock_service(hass, "climate", "set_hvac_mode")
+    entry = await setup_room(hass, climate_entities=["climate.wz"])
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 2)
+    karte = hass.states.get(eid(hass, "sensor", entry, "recommendation")).attributes["karte"]
+    assert karte["heizung_ab"] == ["Wohnzimmer Heizung"]
+    assert karte["heizung_extern"] == []
