@@ -232,10 +232,14 @@ async def test_card_shows_pause_after_ventilation(hass: HomeAssistant, freezer: 
     await hass.async_block_till_done()
     await _tick(hass, freezer, 3)
     hass.states.async_set("binary_sensor.fenster_1", "off")
+    # Feuchte nach dem Lüften realistisch gesunken, aber Schimmelrisiko noch nicht "niedrig"
+    # (bleibt "erhöht", nicht "hoch") – die Pause soll normal gelten, siehe Extrem-Test unten.
+    hass.states.async_set("sensor.innen_ah", 9.0)
     await hass.async_block_till_done()
     await _tick(hass, freezer, 1)
     karte = hass.states.get(rec).attributes["karte"]
     assert karte["minuten"] > 0
+    assert karte["schimmel"] == "erhöht"
     assert karte["pausiert"].startswith("Pause nach dem Lüften bis 11:0")
     await _tick(hass, freezer, 61)
     assert hass.states.get(rec).attributes["karte"]["pausiert"] is None
@@ -268,7 +272,7 @@ async def test_post_vent_pause_uses_forecast_and_extreme_override(
     forecast = [
         {"datetime": (now + timedelta(hours=h)).isoformat(), "temperature": 5, "humidity": rh,
          "precipitation": 0, "precipitation_probability": 0, "wind_speed": 10}
-        for h, rh in [(2, 40), (7, 20)]           # günstigster Punkt: in 2 Std.
+        for h, rh in [(2, 20), (7, 60)]           # günstigster Punkt (trockenste Luft): in 2 Std.
     ]
     async_mock_service(
         hass, "weather", "get_forecasts",
@@ -284,10 +288,14 @@ async def test_post_vent_pause_uses_forecast_and_extreme_override(
     await hass.async_block_till_done()
     await _tick(hass, freezer, 3)
     hass.states.async_set("binary_sensor.fenster_1", "off")
+    # Feuchte nach dem Lüften gesunken, aber noch nicht "niedrig" (erhöht, nicht hoch) –
+    # sonst würde die neue Extrem-Ausnahme schon hier statt erst unten greifen.
+    hass.states.async_set("sensor.innen_ah", 9.0)
     await hass.async_block_till_done()
     await _tick(hass, freezer, 1)
 
     karte = hass.states.get(rec).attributes["karte"]
+    assert karte["schimmel"] == "erhöht"
     assert "nächster günstiger Zeitpunkt" in karte["pausiert"]
     assert karte["pausiert"].startswith("Pause nach dem Lüften bis 10:0")   # in ca. 2 Std., nicht 60 Min.
 
