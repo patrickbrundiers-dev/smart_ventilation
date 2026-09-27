@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.4
+
+- **Alexa sagt den Raum an:** Alexa Media Player liest nur den Nachrichtentext vor, nicht den Titel. Alexa-Empfänger (`notify.alexa_media_…`) bekommen jetzt einen eigenen, vorlesbaren Text: Raum zuerst, Einheiten ausgeschrieben („Grad“, „Prozent“, „Gramm pro Kubikmeter“), Kommazahlen auf Deutsch. Handys bekommen weiterhin Titel und Aktions-Buttons.
+
 ### Version 2.3.3
 
 - Karte lädt auch direkt nach einem Neustart: Sie liegt jetzt unter `/config/www/smart_ventilation/` und wird über `/local/` ausgeliefert – das stellt Home Assistant schon zu Beginn des Starts bereit, das Handy speichert die Datei zwischen. Alte oder doppelte Ressourcen-Einträge werden automatisch bereinigt.

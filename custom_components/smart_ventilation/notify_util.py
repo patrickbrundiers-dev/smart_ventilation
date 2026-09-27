@@ -1,6 +1,8 @@
 """Gemeinsame Benachrichtigungs-Logik für Räume und Übersicht."""
 from __future__ import annotations
 
+import re
+
 from homeassistant.core import HomeAssistant
 
 
@@ -76,6 +78,54 @@ def filter_targets(hass, targets, persons, only_home=True, only_person=None):
     return result
 
 
+# Sprachausgabe (Alexa Media Player): liest nur den Nachrichtentext vor, nicht den Titel
+VOICE_PREFIXES = ("alexa_media",)
+
+_SPEECH_RULES = [
+    (r"\s*\n+\s*•?\s*", ". "),            # Zeilen und Aufzählungen -> Sätze
+    (r"•\s*", ""),
+    (r"(\d)\.(\d)", r"\1,\2"),             # 4.2 -> 4,2
+    (r"\s?g/m³", " Gramm pro Kubikmeter"),
+    (r"\s?°C", " Grad"),
+    (r"\s?%", " Prozent"),
+    (r"\s?kWh", " Kilowattstunden"),
+    (r"\s?€", " Euro"),
+    (r"≈", "etwa"),
+    (r"(\d)\s?×", r"\1 mal"),
+    (r"\s?→\s?", " auf "),
+    (r"CO₂", "CO2"),
+    (r"\bca\.", "circa"),
+    (r"\bMin\.", "Minuten"),
+    (r"(\d) T\.", r"\1 Tage"),
+    (r"(\d) h\b", r"\1 Stunden"),
+    (r"\s*\(\s*", ", "),
+    (r"\s*\)", ""),
+    (r"\s+[–-]\s+", ", "),                 # Gedankenstrich
+    (r":\s+", ", "),
+    (r"\s{2,}", " "),
+    (r"\s+([.,])", r"\1"),
+    (r",\s*\.", "."),
+    (r"\.(\s*\.)+", "."),
+]
+
+
+def is_voice(service_name: str) -> bool:
+    return str(service_name).startswith(VOICE_PREFIXES)
+
+
+def speech_text(title: str, message: str) -> str:
+    """Titel + Nachricht als vorlesbarer Text (Raum steht meist im Titel)."""
+    title = str(title or "")
+    head, sep, room = title.partition(": ")
+    if sep and room and not room[0].isdigit():
+        title = f"{room}, {head}"        # „Lüften fertig: Bad“ -> „Bad, Lüften fertig“
+    text = f"{title}. {message}" if title else str(message)
+    for pattern, repl in _SPEECH_RULES:
+        text = re.sub(pattern, repl, text)
+    text = text.strip(" ,")
+    return text if text.endswith((".", "!", "?")) else f"{text}."
+
+
 async def send(hass: HomeAssistant, targets, title, message, tag, actions=None) -> bool:
     """An alle Empfänger senden; ein fehlerhafter Dienst stoppt die anderen nicht."""
     sent = False
@@ -83,17 +133,16 @@ async def send(hass: HomeAssistant, targets, title, message, tag, actions=None) 
         service_name = str(target).partition(".")[2]
         if not service_name or not hass.services.has_service("notify", service_name):
             continue
+        if is_voice(service_name):
+            payload = {"message": speech_text(title, message), "data": {"type": "tts"}}
+        else:
+            payload = {
+                "title": title,
+                "message": message,
+                "data": {"tag": tag, **({"actions": actions} if actions else {})},
+            }
         try:
-            await hass.services.async_call(
-                "notify",
-                service_name,
-                {
-                    "title": title,
-                    "message": message,
-                    "data": {"tag": tag, **({"actions": actions} if actions else {})},
-                },
-                blocking=False,
-            )
+            await hass.services.async_call("notify", service_name, payload, blocking=False)
             sent = True
         except Exception:  # noqa: BLE001 – ein Handy offline darf nichts blockieren
             continue
