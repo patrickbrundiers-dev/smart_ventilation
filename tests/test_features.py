@@ -349,15 +349,18 @@ async def test_preheat_session_records_heating_savings(
     entry = await setup_room(hass)
     room = hass.data[DOMAIN][entry.entry_id]
 
-    session = {
-        "started": dt_util.now() - timedelta(seconds=90),
+    # Eine volle Stunde bei 10 °C Differenz, damit die Ersparnis nach dem Runden auf Cent
+    # sicher über 0 liegt (bei sehr kurzen/kleinen Sitzungen würden Cent-Beträge auf 0,00
+    # abgerundet, obwohl die kWh-Ersparnis selbst schon > 0 wäre).
+    room.session = {
+        "started": dt_util.now() - timedelta(hours=1),
         "initial_diff": 0.2,
         "initial_indoor": 6.0,
         "initial_co2": None,
-        "dT": -4.0,  # draußen 4 °C wärmer als drinnen zu Sitzungsbeginn
+        "dT": -10.0,  # draußen 10 °C wärmer als drinnen zu Sitzungsbeginn
         "wind": 8.0,
         "angle": 4.0,
-        "temp_diff": 4.0,
+        "temp_diff": 10.0,
         "target_reached": False,
         "cross": False,
         "notified": False,
@@ -368,19 +371,10 @@ async def test_preheat_session_records_heating_savings(
         "preheat": True,
         "trace": [],
     }
-
-    # DEBUG: Berechnung isoliert prüfen, bevor der volle _finish_session()-Ablauf läuft
-    direct_kwh = room._session_preheat_savings_kwh(dict(session), 90.0)
-    assert direct_kwh > 0, (
-        f"direct_kwh={direct_kwh!r} learned_ach={room.learned_ach!r} "
-        f"models={room.models!r} volume={room.data.get('volume')!r}"
-    )
-
-    room.session = session
     await room._finish_session()
 
     stats = room.period_stats("day")
-    assert stats["kwh_gespart"] > 0, f"stats={stats!r}"
+    assert stats["kwh_gespart"] > 0
     assert stats["kosten_gespart"] > 0
     card = room.card_data()
     assert card["heute_kwh_gespart"] > 0
