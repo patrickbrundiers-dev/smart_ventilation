@@ -111,9 +111,12 @@ async def test_preheat_after_cold_night_overrides_warm_outside_block(
     freezer.move_to("2026-12-06 09:30:00+01:00")  # Nachtfenster vorbei -> Tiefstwert wird übernommen
     await _tick(hass, freezer, 1)
 
-    # Tagsüber: Raum kalt (unter der Vorheiz-Schwelle), draußen deutlich wärmer als drinnen
+    # Tagsüber: Raum kalt (unter der Vorheiz-Schwelle), draußen deutlich wärmer als drinnen,
+    # Luftfeuchte unauffällig (damit nur „Vorheizen“ als Grund übrig bleibt)
     hass.states.async_set("sensor.innen_t", 15.0)
     hass.states.async_set("sensor.aussen_t", 19.0)  # 4 °C wärmer -> würde sonst die Wärme-Sperre auslösen
+    hass.states.async_set("sensor.innen_ah", 6.0)
+    hass.states.async_set("sensor.aussen_ah", 5.8)
     await _tick(hass, freezer, 1)
 
     rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
