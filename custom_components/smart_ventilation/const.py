@@ -99,6 +99,16 @@ FORECAST_MAX_RAIN_PROB = 50
 # Kühlen/Vorheizen nur, wenn der Wind nicht zu stark vom Fenster weg bläst (Faktor 0..1, siehe
 # _forecast_wind_factor). Ohne Richtungsangabe bleibt der Faktor 1 und diese Schwelle greift nicht.
 MIN_FORECAST_WIND_FACTOR = 0.3
+# Regen-Vorwarnung: droht laut Vorhersage bald Regen, wird die normale Lüft-Erinnerung
+# vorgezogen (kürzerer Cooldown) und in der Übersicht höher priorisiert.
+RAIN_SOON_COOLDOWN_MINUTES = 30
+RAIN_SOON_URGENCY_BOOST = 2.0
+
+# Party-Modus: vorübergehend aggressiver lüften (z. B. viel Besuch = mehr Feuchte/CO₂ als sonst).
+# Schaltet sich nach dieser Zeit von selbst wieder ab, falls nicht vorher erneut gedrückt.
+PARTY_MODE_HOURS = 3
+PARTY_MODE_TARGET_REDUCTION = 1.5   # g/m³ – Tagesziel niedriger, löst Empfehlung früher aus
+PARTY_MODE_COOLDOWN_MINUTES = 20    # kürzerer Erinnerungsabstand statt der normalen Einstellung
 
 # Mehrere Fenster, Warnungen, Ruhezeiten, Heizung
 CONF_COOL_LIMIT = "cool_limit"
@@ -155,7 +165,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.7.0"
+VERSION = "2.8.0"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -213,6 +223,13 @@ MONTHLY_REPORT_HOUR = 9           # am 1. des Monats ab 9 Uhr
 
 # Tagesarchiv für den 7-Tage-Trend auf der Dashboard-Karte
 DAY_LOG_DAYS = 14
+
+# Anomalie-Erkennung: deutlich mehr Lüftungsminuten an einem Tag als im Schnitt der letzten
+# Tage davor -> Warnung (z. B. vergessenes offenes Fenster, defekter Sensor).
+ANOMALY_MIN_MINUTES = 60           # unterhalb lohnt sich der Vergleich nicht (zu viel Rauschen)
+ANOMALY_BASELINE_DAYS = 14         # Vergleichszeitraum davor (siehe DAY_LOG_DAYS)
+ANOMALY_MIN_SAMPLE_DAYS = 5        # erst ab so vielen Tagen Historie überhaupt vergleichen
+ANOMALY_FACTOR = 2.5               # ab dem Wievielfachen des Schnitts gilt es als Anomalie
 
 # Je Benachrichtigungsart eigene Empfänger wählbar (z. B. Handy alles, Alexa nur Erinnerung + Fertig).
 # Fehlt eine Kategorie in den Einstellungen (noch nicht konfiguriert oder alter Eintrag), bekommen

@@ -52,6 +52,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         WallHumiditySensor(coordinator),
         AirQualitySensor(coordinator),
         HeatLossTodaySensor(coordinator),
+        EnergyTotalSensor(coordinator),
         CostMonthSensor(coordinator),
         PreheatSavingsMonthSensor(coordinator),
         MoldStreakSensor(coordinator),
@@ -75,7 +76,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.7.0",
+            sw_version="2.8.0",
         )
 
     async def async_added_to_hass(self):
@@ -446,6 +447,20 @@ class HeatLossTodaySensor(BaseSensor):
     def native_unit_of_measurement(self): return "kWh"
 
 
+class EnergyTotalSensor(BaseSensor):
+    """Gesamter Wärmeverlust durch Lüften seit der Einrichtung – wächst nie zurück (im
+    Gegensatz zu „heute"/„Monat") und eignet sich deshalb als Verbrauchssensor fürs
+    Home-Assistant-Energie-Dashboard (dort unter „Individuelle Geräte" hinzufügen)."""
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    def __init__(self, c): super().__init__(c, "energy_total", "Lüftungsenergie gesamt")
+    @property
+    def native_value(self): return self.coordinator.period_stats("total")["kwh"]
+    @property
+    def native_unit_of_measurement(self): return "kWh"
+
+
 class CostMonthSensor(BaseSensor):
     """Geschätzte Heizkosten durch Lüften im laufenden Monat."""
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -486,7 +501,7 @@ class OverviewBase(SensorEntity):
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.7.0",
+            sw_version="2.8.0",
         )
 
     async def async_added_to_hass(self):

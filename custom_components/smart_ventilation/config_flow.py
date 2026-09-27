@@ -158,6 +158,29 @@ def _current_notify(d: dict) -> list[str]:
     return list(targets)
 
 
+# Beim Kopieren einer Raum-Vorlage nicht übernehmen: eindeutig diesem einen Raum zugeordnete
+# Entitäten. Alles andere (Außensensoren, Schwellwerte, Benachrichtigungen, ...) darf gerne
+# übernommen werden - oft dieselben Werte im ganzen Haus bzw. bewusst gewählte Vorlieben.
+TEMPLATE_STRIP = {CONF_NAME, CONF_WINDOW, CONF_INDOOR_TEMP, CONF_INDOOR_HUMIDITY, CONF_CO2, CONF_SHOWER}
+
+
+def _room_templates(hass: HomeAssistant) -> dict[str, str]:
+    """{entry_id: Raumname} aller bestehenden Räume, für die Vorlagen-Auswahl beim Einrichten."""
+    return {
+        e.entry_id: e.data.get(CONF_NAME, e.title)
+        for e in hass.config_entries.async_entries(DOMAIN)
+        if e.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM
+    }
+
+
+def _template_data(hass: HomeAssistant, entry_id: str) -> dict:
+    entry = hass.config_entries.async_get_entry(entry_id) if entry_id else None
+    if not entry:
+        return {}
+    data = {**entry.data, **entry.options}
+    return {k: v for k, v in data.items() if k not in TEMPLATE_STRIP}
+
+
 def _windows(d: dict) -> list[str]:
     value = d.get(CONF_WINDOW)
     if isinstance(value, str):
@@ -321,7 +344,11 @@ class SmartVentilationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        return self.async_show_menu(step_id="user", menu_options=["room", "overview"])
+        options = ["room", "overview"]
+        if _room_templates(self.hass):
+            # Nur anbieten, wenn es überhaupt einen Raum gibt, der als Vorlage dienen könnte.
+            options.append("room_from_template")
+        return self.async_show_menu(step_id="user", menu_options=options)
 
     async def async_step_room(self, user_input=None):
         if user_input is not None:
@@ -337,7 +364,25 @@ class SmartVentilationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data.get(CONF_ROOM_TYPE), DEFAULT_TARGET_ABS
                 )
             return self.async_create_entry(title=data[CONF_NAME], data=data)
-        return self.async_show_form(step_id="room", data_schema=room_schema(self.hass, {}, setup=True))
+        # getattr, weil das Feld nur gesetzt ist, wenn man über "Raum aus Vorlage" hierherkam
+        return self.async_show_form(
+            step_id="room", data_schema=room_schema(self.hass, getattr(self, "_template", {}), setup=True)
+        )
+
+    async def async_step_room_from_template(self, user_input=None):
+        """Einstellungen eines bestehenden Raums übernehmen (Außensensoren, Schwellwerte,
+        Benachrichtigungen, ...) - nur Name und raumeigene Sensoren bleiben leer."""
+        if user_input is not None:
+            self._template = _template_data(self.hass, user_input.get("vorlage") or "")
+            return await self.async_step_room()
+        templates = _room_templates(self.hass)
+        options = [selector.SelectOptionDict(value=entry_id, label=name) for entry_id, name in templates.items()]
+        schema = vol.Schema({
+            vol.Required("vorlage"): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=options, mode=selector.SelectSelectorMode.DROPDOWN)
+            ),
+        })
+        return self.async_show_form(step_id="room_from_template", data_schema=schema)
 
     async def async_step_overview(self, user_input=None):
         if user_input is not None:

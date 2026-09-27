@@ -194,6 +194,9 @@
   "services": {
     "status": {
       "service": "mdi:information-outline"
+    },
+    "export_statistics": {
+      "service": "mdi:file-export-outline"
     }
   }
 }

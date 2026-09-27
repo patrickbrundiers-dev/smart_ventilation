@@ -14,7 +14,7 @@ from homeassistant.util import dt as dt_util
 from .const import *
 from . import notify_util
 from .extras import RoomExtrasMixin
-from .history import HistoryMixin
+from .history import HistoryMixin, month_name
 
 
 def _float_state(hass, entity_id):
@@ -148,6 +148,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.preheat_plan_text = None
         self._rain_soon = False
         self._forecast_season = None
+        self._party_until = None
         self._init_extras()
         self._init_history()
 
@@ -232,6 +233,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
     def open_windows(self):
         return [w for w in self.windows if _is_on(self.hass, w)]
 
+    def _windows_status(self):
+        """Status je einzelnem Fenster (für die Karte, statt nur der zusammengefassten Anzahl) -
+        nur bei mehr als einem Fensterkontakt interessant, deshalb bei genau einem leer."""
+        if len(self.windows) < 2:
+            return []
+        return [
+            {"name": self._friendly_name(w), "offen": _is_on(self.hass, w)}
+            for w in self.windows
+        ]
+
     @property
     def climates(self):
         return [c for c in (self.data.get(CONF_CLIMATES) or []) if c]
@@ -282,6 +293,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 self._skip_date = None
         if stored.get("last_session_end"):
             self._last_session_end = dt_util.parse_datetime(stored["last_session_end"])
+        if stored.get("party_until"):
+            self._party_until = dt_util.parse_datetime(stored["party_until"])
         self._last_night_low = stored.get("last_night_low")
         self._extras_load(stored)
         self._history_load(stored)
@@ -336,6 +349,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "session": self._serialize_session(),
             "skip_date": self._skip_date.isoformat() if self._skip_date else None,
             "last_session_end": self._last_session_end.isoformat() if self._last_session_end else None,
+            "party_until": self._party_until.isoformat() if self._party_until else None,
             "last_night_low": self._last_night_low,
             **self._extras_store(),
             **self._history_store(),
@@ -384,6 +398,23 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
     async def async_skip_today(self):
         """Heute keine weiteren Erinnerungen mehr - siehe async_snooze()."""
         self._skip_date = dt_util.now().date()
+        await self._save()
+        self._update_recommendation()
+        self._notify_listeners()
+
+    @property
+    def party_active(self) -> bool:
+        """An, während der Party-Modus läuft (schaltet sich nach PARTY_MODE_HOURS von selbst ab)."""
+        return self._party_until is not None and dt_util.now() < self._party_until
+
+    async def async_toggle_party_mode(self):
+        """Party-Modus: für ein paar Stunden aggressiver lüften (niedrigeres Tagesziel, kürzere
+        Erinnerungsabstände) - z. B. wenn viele Leute zu Besuch sind und mehr Feuchte/CO₂
+        anfällt als sonst. Erneutes Drücken beendet ihn vorzeitig; sonst schaltet er sich nach
+        PARTY_MODE_HOURS automatisch wieder ab."""
+        self._party_until = (
+            None if self.party_active else dt_util.now() + timedelta(hours=PARTY_MODE_HOURS)
+        )
         await self._save()
         self._update_recommendation()
         self._notify_listeners()
@@ -1487,6 +1518,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         cooldown_s = int(
             self.data.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
         ) * 60
+        if self._rain_soon:
+            # Regen-Vorwarnung: Erinnerung vorziehen, bevor man nicht mehr gefahrlos lüften kann
+            cooldown_s = min(cooldown_s, RAIN_SOON_COOLDOWN_MINUTES * 60)
+        if self.party_active:
+            cooldown_s = min(cooldown_s, PARTY_MODE_COOLDOWN_MINUTES * 60)
 
         # Cooldown gilt global, nicht nur pro identischer Meldung
         if (
@@ -1534,6 +1570,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         „Keine Lüftung erforderlich“ im Verlauf.
         """
         target_abs = float(self.data.get(CONF_TARGET_ABS, DEFAULT_TARGET_ABS))
+        if self.party_active:
+            target_abs -= PARTY_MODE_TARGET_REDUCTION  # aggressiver: früher als „zu feucht“ gelten
         rh = self.indoor_rh
         mold = self.mold_risk
 
@@ -1678,6 +1716,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             )
         else:
             suffix = " (CO₂)" if self.recommend_reason == "CO₂" else ""
+            if self._rain_soon:
+                suffix += " – bald Regen, lieber jetzt lüften"
+            if self.party_active:
+                suffix += " (Party-Modus)"
             self.recommendation = f"{mode} – ca. {self.recommended_minutes} Min.{suffix}"
         self.hass.async_create_task(self._send_notification_if_needed())
 
@@ -1745,6 +1787,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "pausiert": self.pause_reason(),
             "verlauf": self.trace_for_card(),
             "trend_tage": self.day_trend(7),
+            # Jahresvergleich: Lüftungsbedarf/kWh der letzten 12 abgeschlossenen Monate für ein
+            # kleines Balkendiagramm auf der Karte (ergänzt den bisherigen Text-Monatsvergleich).
+            "monatsverlauf": [
+                {"monat": month_name(k), "bedarf_h": v.get("bedarf_h", 0), "kwh": v.get("kwh", 0)}
+                for k, v in sorted(self.history.items())[-12:]
+            ],
             # Für die aufklappbare Statistik auf der Karte (Klick auf den "heute"-Chip) -
             # dieselben Werte wie die stats_*/cost_month-Sensoren, hier gebündelt.
             "statistik": {
@@ -1759,6 +1807,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "entfeuchter": self.dehumidifier_active,
             "schimmel_tage": self.mold_streak()[0],
             "fenster_anzahl": len(self.windows),
+            "party_modus": self.party_active,
+            "party_bis": self._party_until.isoformat() if self.party_active else None,
+            "regen_bald": self._rain_soon,
+            "fenster_status": self._windows_status(),
             "entitaeten": {
                 "innen": self.data[CONF_INDOOR_TEMP],
                 "aussen": self.data[CONF_OUTDOOR_TEMP],
@@ -1769,6 +1821,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 "kosten": self.own_entity("sensor", "cost_month"),
                 "snooze": self.own_entity("button", "snooze"),
                 "skip": self.own_entity("button", "skip_today"),
+                "party_mode": self.own_entity("button", "party_mode"),
             },
             "schimmel_h_heute": self.mold_hours_today,
             "heizung_ab": [self._friendly_name(e) for e in (self.session or {}).get("heating") or {}],

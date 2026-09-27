@@ -6,9 +6,10 @@ from datetime import date, timedelta
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CAT_MOLD, CAT_REPORT, CONF_MONTHLY_REPORT, CONF_NAME, DAY_LOG_DAYS, DOMAIN, HISTORY_MONTHS,
-    MOLD_CRITICAL_MINUTES, MOLD_LOG_DAYS, MOLD_REWARN_DAYS, MOLD_RH_HIGH, MOLD_STREAK_WARN,
-    MONTHLY_REPORT_HOUR,
+    ANOMALY_BASELINE_DAYS, ANOMALY_FACTOR, ANOMALY_MIN_MINUTES, ANOMALY_MIN_SAMPLE_DAYS,
+    CAT_MOLD, CAT_REPORT, CAT_WARNING, CONF_MONTHLY_REPORT, CONF_NAME, DAY_LOG_DAYS, DOMAIN,
+    HISTORY_MONTHS, MOLD_CRITICAL_MINUTES, MOLD_LOG_DAYS, MOLD_REWARN_DAYS, MOLD_RH_HIGH,
+    MOLD_STREAK_WARN, MONTHLY_REPORT_HOUR,
 )
 from . import notify_util
 
@@ -48,6 +49,7 @@ class HistoryMixin:
         self._mold_pending = False
         self._last_month_report = None
         self._last_measure = None
+        self._last_anomaly_check = None  # zuletzt auf Anomalie geprüfter Tag (der Vortag)
 
     def _history_store(self):
         return {
@@ -56,6 +58,7 @@ class HistoryMixin:
             "day_log": self.day_log,
             "mold_warned": self._mold_warned,
             "last_month_report": self._last_month_report,
+            "last_anomaly_check": self._last_anomaly_check.isoformat() if self._last_anomaly_check else None,
         }
 
     def _history_load(self, stored):
@@ -64,6 +67,11 @@ class HistoryMixin:
         self.day_log = stored.get("day_log") or {}
         self._mold_warned = stored.get("mold_warned")
         self._last_month_report = stored.get("last_month_report")
+        if stored.get("last_anomaly_check"):
+            try:
+                self._last_anomaly_check = date.fromisoformat(stored["last_anomaly_check"])
+            except ValueError:
+                self._last_anomaly_check = None
 
     # ------------------------------------------------------------------
     # Messen (alle 30 s)
@@ -206,6 +214,52 @@ class HistoryMixin:
                 })
         return out
 
+    def _day_anomaly(self, day: date):
+        """Vergleicht die Lüftungsminuten eines abgeschlossenen Tages mit dem Schnitt der Tage
+        davor - deutlich mehr als sonst kann auf ein vergessenes offenes Fenster, einen
+        defekten Sensor oder tatsächlich mehr Bedarf (Besuch, Wäsche trocknen) hindeuten."""
+        entry = self.day_log.get(day.isoformat())
+        if not entry:
+            return None
+        minutes = entry.get("minuten", 0)
+        if minutes < ANOMALY_MIN_MINUTES:
+            return None
+        cutoff = (day - timedelta(days=ANOMALY_BASELINE_DAYS)).isoformat()
+        baseline = [
+            v["minuten"] for k, v in self.day_log.items()
+            if cutoff <= k < day.isoformat()
+        ]
+        if len(baseline) < ANOMALY_MIN_SAMPLE_DAYS:
+            return None
+        avg = sum(baseline) / len(baseline)
+        if avg <= 0 or minutes < avg * ANOMALY_FACTOR:
+            return None
+        return minutes, avg
+
+    async def _anomaly_check(self, now):
+        yesterday = now.date() - timedelta(days=1)
+        if self._last_anomaly_check == yesterday or yesterday.isoformat() not in self.day_log:
+            return
+        if self.in_quiet_hours(now):
+            return  # nach der Ruhezeit nachholen
+        self._last_anomaly_check = yesterday
+        await self._save()
+        result = self._day_anomaly(yesterday)
+        if not result:
+            return
+        minutes, avg = result
+        await self._send(
+            f"Ungewöhnlich viel Lüftungsbedarf: {self.data[CONF_NAME]}",
+            (
+                f"Gestern wurde {de(minutes / 60, 1)} Stunden gelüftet – deutlich mehr als im "
+                f"Schnitt der letzten Tage ({de(avg / 60, 1)} Std.). Mögliche Ursache: ein "
+                "Fenster war länger offen als gedacht, ein Sensor liefert falsche Werte, oder "
+                "es gab tatsächlich mehr Bedarf (z. B. Besuch, Wäsche trocknen)."
+            ),
+            f"smart_ventilation_{self.entry.entry_id}_anomaly",
+            category=CAT_WARNING,
+        )
+
     def month_comparison(self):
         """Letzter abgeschlossener Monat im Vergleich zum Vormonat und zum Vorjahr."""
         if not self.history:
@@ -276,3 +330,4 @@ class HistoryMixin:
         self._measure(now)
         await self._mold_early_warning(now)
         await self._monthly_report(now)
+        await self._anomaly_check(now)

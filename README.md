@@ -143,6 +143,18 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.8.0
+
+- **Regen-Vorwarnung**: Droht laut Wettervorhersage bald Regen, wird die normale Lüft-Erinnerung vorgezogen (kürzerer Erinnerungsabstand) und in der Übersicht höher priorisiert – Hinweis dazu auch direkt in der Empfehlung.
+- **Party-Modus**: Neuer Button pro Raum (auch als Karten-Chip antippbar) schaltet für 3 Stunden aggressiveres Lüften ein (niedrigeres Tagesziel, kürzere Erinnerungsabstände) – ideal bei Besuch. Schaltet sich von selbst wieder ab, erneutes Antippen beendet ihn vorzeitig.
+- **Energie-Dashboard**: Neuer Sensor „Lüftungsenergie gesamt" (kWh, wächst nie zurück) lässt sich manuell im Home-Assistant-Energie-Dashboard als Verbrauch eines Geräts hinzufügen.
+- **Statistik-Export**: Neuer Dienst `smart_ventilation.export_statistics` schreibt Tag/Woche/Monat/Gesamt aller Räume als CSV-Datei und meldet den Download-Link.
+- **Anomalie-Erkennung**: Warnung, wenn an einem Tag deutlich mehr gelüftet wurde als im Schnitt der Tage davor – möglicher Hinweis auf ein vergessenes offenes Fenster oder einen defekten Sensor.
+- **Jahresvergleich auf der Karte**: Kleines Balkendiagramm mit dem Lüftungsbedarf der letzten bis zu 12 Monate, ergänzend zum bisherigen Text-Monatsvergleich.
+- **Kompaktmodus**: Neue Karten-Editor-Option zeigt nur noch Status und die wichtigste Kennzahl – praktisch für kleine Dashboard-Bereiche oder Handy-Widgets.
+- **Fensterstatus einzeln sichtbar**: Räume mit mehreren Fensterkontakten zeigen jetzt den Status jedes einzelnen Fensters statt nur der Gesamtzahl.
+- **Raum aus Vorlage einrichten**: Beim Hinzufügen eines neuen Raums lässt sich jetzt ein bestehender Raum als Vorlage wählen – alle Einstellungen außer Name und raumeigenen Sensoren (Fenster, Innentemperatur/-feuchte, CO₂, Dusche) werden übernommen.
+
 ### Version 2.7.0
 
 - **Eigene Ruhezeit am Wochenende**: Optional lässt sich unter „Benachrichtigungen“ jetzt eine abweichende Ruhezeit für Samstag/Sonntag einstellen (z. B. um am Wochenende länger schlafen zu können), während unter der Woche die gewohnte Ruhezeit gilt. Ohne Aktivierung ändert sich nichts.

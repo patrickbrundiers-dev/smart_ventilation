@@ -20,6 +20,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         CoolingDownSensor(coordinator),
         QuietHoursSensor(coordinator),
         MoldAlarmSensor(coordinator),
+        PartyModeSensor(coordinator),
     ])
 
 
@@ -100,3 +101,19 @@ class MoldAlarmSensor(BaseBinary):
     @property
     def is_on(self):
         return self.coordinator.mold_alarm
+
+
+class PartyModeSensor(BaseBinary):
+    """An, während der Party-Modus läuft (per Button aktiviert, schaltet sich von selbst ab)."""
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, c): super().__init__(c, "party_mode", "Party-Modus")
+
+    @property
+    def is_on(self):
+        return self.coordinator.party_active
+
+    @property
+    def extra_state_attributes(self):
+        until = self.coordinator._party_until
+        return {"aktiv_bis": until.isoformat() if self.coordinator.party_active and until else None}

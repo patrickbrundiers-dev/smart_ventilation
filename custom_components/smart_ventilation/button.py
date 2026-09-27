@@ -15,6 +15,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         ResetLearningButton(coordinator),
         SnoozeButton(coordinator),
         SkipTodayButton(coordinator),
+        PartyModeButton(coordinator),
     ])
 
 
@@ -68,3 +69,21 @@ class SkipTodayButton(ButtonEntity):
 
     async def async_press(self) -> None:
         await self.coordinator.async_skip_today()
+
+
+class PartyModeButton(ButtonEntity):
+    """Für ein paar Stunden aggressiver lüften (z. B. bei Besuch); erneutes Drücken beendet ihn
+    vorzeitig, sonst schaltet er sich nach PARTY_MODE_HOURS von selbst wieder ab."""
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator):
+        self.coordinator = coordinator
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_party_mode"
+        self._attr_translation_key = "party_mode"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.entry.entry_id)},
+        )
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_toggle_party_mode()

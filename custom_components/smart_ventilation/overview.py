@@ -13,7 +13,7 @@ from .const import (
     ACTION_SKIP, ACTION_SNOOZE, CAT_REMINDER, CAT_REPORT, CO2_ELEVATED, CO2_HIGH,
     CONF_COMBINE, CONF_NOTIFICATION_COOLDOWN, CONF_NOTIFY_SERVICES, CONF_PERSONS,
     DEFAULT_NOTIFICATION_COOLDOWN, DEFAULT_QUIET_END, DEFAULT_QUIET_START, DOMAIN,
-    SNOOZE_MINUTES, STORE_KEY, STORE_VERSION,
+    RAIN_SOON_URGENCY_BOOST, SNOOZE_MINUTES, STORE_KEY, STORE_VERSION,
 )
 from . import notify_util
 from .const import CONF_WEEKLY_REPORT, REPORT_HOUR, REPORT_WEEKDAY
@@ -75,6 +75,8 @@ class OverviewCoordinator:
         co2 = room.co2
         if co2 is not None:
             score += 3.0 if co2 >= CO2_HIGH else 1.5 if co2 >= CO2_ELEVATED else 0.0
+        if getattr(room, "_rain_soon", False) and room.recommended_minutes > 0:
+            score += RAIN_SOON_URGENCY_BOOST  # bald Regen -> jetzt lüften hat Vorrang
         return round(score, 2)
 
     def room_list(self):

@@ -6,11 +6,13 @@
         "description": "What would you like to set up?",
         "menu_options": {
           "room": "Add a room",
-          "overview": "Overview of all rooms"
+          "overview": "Overview of all rooms",
+          "room_from_template": "Room from template"
         },
         "menu_option_descriptions": {
           "room": "Set up sensors, windows and behaviour for one room.",
-          "overview": "Most urgent room and one combined notification for all rooms."
+          "overview": "Most urgent room and one combined notification for all rooms.",
+          "room_from_template": "Copy the settings of an existing room (outdoor sensors, thresholds, notifications)."
         }
       },
       "room": {
@@ -212,6 +214,13 @@
               "monthly_report": "On the 1st of each month: summary of the previous month compared to the month before and – from the second year – to the previous year."
             }
           }
+        }
+      },
+      "room_from_template": {
+        "title": "Room from template",
+        "description": "Everything from the chosen room is copied except the name and room-specific sensors (window, indoor temperature/humidity, CO₂, shower sensor) - you enter those fresh in the next step.",
+        "data": {
+          "vorlage": "Template"
         }
       }
     },
@@ -567,6 +576,9 @@
       },
       "need_month": {
         "name": "Ventilation need this month"
+      },
+      "energy_total": {
+        "name": "Total ventilation energy"
       }
     },
     "binary_sensor": {
@@ -584,6 +596,9 @@
       },
       "mold_alarm": {
         "name": "Mould danger"
+      },
+      "party_mode": {
+        "name": "Party mode"
       }
     },
     "button": {
@@ -595,6 +610,9 @@
       },
       "skip_today": {
         "name": "Don't remind me today"
+      },
+      "party_mode": {
+        "name": "Party mode"
       }
     }
   },
@@ -608,6 +626,10 @@
     "status": {
       "name": "Ventilation status",
       "description": "Tells whether and where to ventilate (also for Assist and automations)."
+    },
+    "export_statistics": {
+      "name": "Export statistics",
+      "description": "Writes the statistics of all rooms (day/week/month/total) as a CSV file to www/ and reports the link."
     }
   }
 }

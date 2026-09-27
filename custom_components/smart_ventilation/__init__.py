@@ -8,6 +8,7 @@ from .const import CONF_ENTRY_TYPE, DOMAIN, ENTRY_TYPE_OVERVIEW
 from .coordinator import SmartVentilationCoordinator
 from .assist import async_setup_assist
 from .card import async_register_card, async_remove_resource
+from .export import async_setup_export
 from .overview import OverviewCoordinator
 
 PLATFORMS = ["sensor", "binary_sensor", "button"]
@@ -27,6 +28,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     await async_register_card(hass)
     await async_setup_assist(hass)
+    await async_setup_export(hass)
     return True
 
 

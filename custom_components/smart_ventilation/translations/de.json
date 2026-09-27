@@ -6,11 +6,13 @@
         "description": "Was möchtest du einrichten?",
         "menu_options": {
           "room": "Raum hinzufügen",
-          "overview": "Übersicht aller Räume"
+          "overview": "Übersicht aller Räume",
+          "room_from_template": "Raum aus Vorlage"
         },
         "menu_option_descriptions": {
           "room": "Sensoren, Fenster und Verhalten für einen Raum einrichten.",
-          "overview": "Dringendster Raum und eine gemeinsame Nachricht für alle Räume."
+          "overview": "Dringendster Raum und eine gemeinsame Nachricht für alle Räume.",
+          "room_from_template": "Einstellungen eines bestehenden Raums übernehmen (Außensensoren, Schwellwerte, Benachrichtigungen)."
         }
       },
       "room": {
@@ -212,6 +214,13 @@
               "monthly_report": "Am 1. des Monats: Bilanz des Vormonats mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr."
             }
           }
+        }
+      },
+      "room_from_template": {
+        "title": "Raum aus Vorlage",
+        "description": "Übernommen werden alle Einstellungen des gewählten Raums außer Name und raumeigenen Sensoren (Fenster, Innentemperatur/-feuchte, CO₂, Duschsensor) - die trägst du im nächsten Schritt neu ein.",
+        "data": {
+          "vorlage": "Vorlage"
         }
       }
     },
@@ -567,6 +576,9 @@
       },
       "need_month": {
         "name": "Lüftungsbedarf diesen Monat"
+      },
+      "energy_total": {
+        "name": "Lüftungsenergie gesamt"
       }
     },
     "binary_sensor": {
@@ -584,6 +596,9 @@
       },
       "mold_alarm": {
         "name": "Schimmelgefahr"
+      },
+      "party_mode": {
+        "name": "Party-Modus"
       }
     },
     "button": {
@@ -595,6 +610,9 @@
       },
       "skip_today": {
         "name": "Heute nicht mehr erinnern"
+      },
+      "party_mode": {
+        "name": "Party-Modus"
       }
     }
   },
@@ -608,6 +626,10 @@
     "status": {
       "name": "Lüftungsstatus",
       "description": "Sagt, ob und wo gelüftet werden sollte (auch für Assist und Automationen)."
+    },
+    "export_statistics": {
+      "name": "Statistiken exportieren",
+      "description": "Schreibt die Statistiken aller Räume (Tag/Woche/Monat/Gesamt) als CSV-Datei nach www/ und meldet den Link."
     }
   }
 }

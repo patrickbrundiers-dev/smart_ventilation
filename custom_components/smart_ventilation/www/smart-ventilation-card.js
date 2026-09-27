@@ -38,11 +38,14 @@ let UID = 0;
 /* Ein Chip statt zwei getrennter für Wärmeverlust und Vorheiz-Ersparnis: zeigt die Netto-Bilanz,
    die Aufschlüsselung steht im Titel-Tooltip. Mit "toggle" statt Entität wird kein More-Info-Dialog
    geöffnet, sondern ein lokales Klapp-Panel umgeschaltet (siehe [data-toggle] in _render). */
-function renderChip([ent, icon, text, tone, title, toggle, expanded]) {
+function renderChip([ent, icon, text, tone, title, toggle, expanded, press]) {
   const t = title ? ` title="${esc(title)}"` : "";
   if (toggle) {
     const caret = `<ha-icon class="chip-caret" icon="${expanded ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>`;
     return `<button class="chip ${tone ? `tone-${tone}` : ""}" data-toggle="${esc(toggle)}" aria-expanded="${!!expanded}"${t}><ha-icon icon="${icon}"></ha-icon>${esc(text)}${caret}</button>`;
+  }
+  if (ent && press) {
+    return `<button class="chip ${tone ? `tone-${tone}` : ""}" data-entity="${esc(ent)}" data-press="1"${t}><ha-icon icon="${icon}"></ha-icon>${esc(text)}</button>`;
   }
   return ent
     ? `<button class="chip ${tone ? `tone-${tone}` : ""}" data-entity="${esc(ent)}"${t}><ha-icon icon="${icon}"></ha-icon>${esc(text)}</button>`
@@ -96,6 +99,33 @@ function trendChart(days) {
     })
     .join("");
   return `<div class="trend"><span class="trend-label">Letzte 7 Tage</span><div class="trend-bars">${bars}</div></div>`;
+}
+
+/* ---------- Jahresvergleich (Balkendiagramm über die letzten Monate) ---------- */
+function yearChart(months) {
+  if (!months || months.length < 2) return "";
+  const max = Math.max(1, ...months.map((m) => m.bedarf_h || 0));
+  const bars = months
+    .map((m, i) => {
+      const pct = m.bedarf_h > 0 ? Math.max(6, Math.round((m.bedarf_h / max) * 100)) : 0;
+      const isLast = i === months.length - 1;
+      const title = `${m.monat}: ${fmt(m.bedarf_h, 1)} h Bedarf${has(m.kwh) ? ` · ${fmt(m.kwh, 1)} kWh` : ""}`;
+      return `<span class="trend-bar year-bar${isLast ? " is-today" : ""}" style="--h:${pct}%" title="${esc(title)}"></span>`;
+    })
+    .join("");
+  return `<div class="trend"><span class="trend-label">Letzte ${months.length} Monate</span><div class="trend-bars">${bars}</div></div>`;
+}
+
+/* ---------- Fensterstatus (bei mehr als einem Fensterkontakt) ---------- */
+function windowStatus(windows) {
+  if (!windows || windows.length < 2) return "";
+  const items = windows
+    .map(
+      (w) =>
+        `<span class="win-item ${w.offen ? "tone-warn" : "tone-good"}"><ha-icon icon="${w.offen ? "mdi:window-open-variant" : "mdi:window-closed-variant"}"></ha-icon>${esc(w.name)}</span>`
+    )
+    .join("");
+  return `<div class="win-list">${items}</div>`;
 }
 
 /* ---------- Umschaltbare Sortierung der Übersicht ---------- */
@@ -192,6 +222,8 @@ class SmartVentilationCard extends HTMLElement {
             { name: "show_details", default: true, selector: { boolean: {} } },
             { name: "show_chart", default: true, selector: { boolean: {} } },
             { name: "show_trend", default: true, selector: { boolean: {} } },
+            { name: "show_year", default: true, selector: { boolean: {} } },
+            { name: "compact", default: false, selector: { boolean: {} } },
           ],
         },
       ],
@@ -201,6 +233,8 @@ class SmartVentilationCard extends HTMLElement {
           show_details: "Messwerte anzeigen",
           show_chart: "Verlauf anzeigen",
           show_trend: "7-Tage-Trend anzeigen",
+          show_year: "Jahresvergleich anzeigen",
+          compact: "Kompaktmodus (nur das Wichtigste)",
         }[s.name]),
       computeHelper: (s) =>
         s.name === "device" ? "Ein Raum zeigt Status und Messwerte, die Übersicht alle Räume." : undefined,
@@ -228,7 +262,10 @@ class SmartVentilationCard extends HTMLElement {
 
   setConfig(config) {
     // Keine Ausnahme werfen: ohne Auswahl einen Hinweis zeigen (sonst bleibt die Vorschau leer)
-    this._config = { show_details: true, show_chart: true, show_trend: true, ...(config || {}) };
+    this._config = {
+      show_details: true, show_chart: true, show_trend: true, show_year: true, compact: false,
+      ...(config || {}),
+    };
     this._uid = `sv${++UID}`;
     this._last = undefined;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
@@ -266,6 +303,7 @@ class SmartVentilationCard extends HTMLElement {
   }
 
   getCardSize() {
+    if (this._config?.compact) return 2;
     return this._config?.show_chart ? 6 : 4;
   }
 
@@ -378,43 +416,57 @@ class SmartVentilationCard extends HTMLElement {
     if (k.schimmel_tage >= 3) alerts.push(["bad", "mdi:alert-octagon-outline", "Schimmelgefahr", `Die Wand war ${k.schimmel_tage} Tage in Folge kritisch feucht.`]);
     else if (k.schimmel_tage === 2) alerts.push(["warn", "mdi:shield-alert-outline", "Wand zwei Tage feucht", "Morgen droht eine Schimmelwarnung – heute gründlich lüften."]);
     if (k.nach_dusche && !k.laeuft) alerts.push(["warn", "mdi:shower-head", "Nach dem Duschen", "Jetzt lüften, bevor sich Feuchte in den Wänden festsetzt."]);
+    if (k.regen_bald && k.minuten > 0 && !k.laeuft) alerts.push(["info", "mdi:weather-rainy", "Bald Regen", "Lieber jetzt lüften, bevor es regnet."]);
     if (k.urlaub) alerts.push(["info", "mdi:palm-tree", "Urlaubsmodus", "Keine Erinnerungen – nur Warnungen bei Schimmelgefahr."]);
     const alertHtml = alerts
       .slice(0, 2)
       .map(([tone, icon, title, text]) => `<div class="alert tone-${tone}"><ha-icon icon="${icon}"></ha-icon><div><b>${esc(title)}</b><span>${esc(text)}</span></div></div>`)
       .join("");
 
-    const tiles = this._config.show_details ? this._tiles(k, e) : "";
-    const chart = this._config.show_chart ? this._chart(k.verlauf) : "";
-    const trend = this._config.show_trend !== false ? trendChart(k.trend_tage) : "";
+    const compact = !!this._config.compact;
+    const tiles = this._config.show_details && !compact ? this._tiles(k, e) : "";
+    const chart = this._config.show_chart && !compact ? this._chart(k.verlauf) : "";
+    const trend = this._config.show_trend !== false && !compact ? trendChart(k.trend_tage) : "";
+    const year = this._config.show_year !== false && !compact ? yearChart(k.monatsverlauf) : "";
+    const winList = !compact ? windowStatus(k.fenster_status) : "";
 
     const heuteText = `${k.heute_anzahl}× heute · ${fmt(k.heute_min, 0)} Min.`;
     const heuteTone = k.gelueftet && "good";
+    const partyText = k.party_bis
+      ? `Bis ${new Date(k.party_bis).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })} Uhr`
+      : "Party-Modus";
     const chips = [
-      k.bester_zeitpunkt && [e.bester, "mdi:clock-check-outline", k.bester_zeitpunkt],
+      k.party_modus && [e.party_mode || null, "mdi:party-popper", partyText, "info", "Antippen, um den Party-Modus vorzeitig zu beenden", null, null, true],
+      k.bester_zeitpunkt && !compact && [e.bester, "mdi:clock-check-outline", k.bester_zeitpunkt],
       k.statistik
         ? [null, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", heuteText, heuteTone,
             "Woche, Monat und Gesamt anzeigen", "stats", this._roomStatsExpanded]
         : [e.heute, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", heuteText, heuteTone],
-      costChip(e.kosten, k.heute_kwh, k.heute_eur, k.heute_kwh_gespart, k.heute_eur_gespart),
-      k.kuehlen_plan && !(k.minuten > 0 && k.grund === "Kühlen") && [null, "mdi:weather-night", `Kühlen ${k.kuehlen_plan}`],
-      k.vorheizen_plan && !(k.minuten > 0 && k.grund === "Vorheizen") && [null, "mdi:thermometer-chevron-up", `Vorheizen ${k.vorheizen_plan}`],
-      k.entfeuchter && [null, "mdi:air-humidifier", "Entfeuchter läuft"],
-      k.ruhezeit && !String(k.pausiert || "").startsWith("Ruhezeit") && [null, "mdi:sleep", "Ruhezeit"],
+      !compact && costChip(e.kosten, k.heute_kwh, k.heute_eur, k.heute_kwh_gespart, k.heute_eur_gespart),
+      !compact && k.kuehlen_plan && !(k.minuten > 0 && k.grund === "Kühlen") && [null, "mdi:weather-night", `Kühlen ${k.kuehlen_plan}`],
+      !compact && k.vorheizen_plan && !(k.minuten > 0 && k.grund === "Vorheizen") && [null, "mdi:thermometer-chevron-up", `Vorheizen ${k.vorheizen_plan}`],
+      !compact && k.entfeuchter && [null, "mdi:air-humidifier", "Entfeuchter läuft"],
+      !compact && k.ruhezeit && !String(k.pausiert || "").startsWith("Ruhezeit") && [null, "mdi:sleep", "Ruhezeit"],
     ]
       .filter(Boolean)
       .map(renderChip)
       .join("");
-    const stats = k.statistik && this._roomStatsExpanded ? statsPanel(k.statistik) : "";
+    const stats = k.statistik && this._roomStatsExpanded && !compact ? statsPanel(k.statistik) : "";
 
-    const actions = this._config.show_actions !== false && k.minuten > 0 && !k.laeuft && !k.pausiert && e.snooze && e.skip
-      ? `<div class="actions">
-           <button class="action-btn" data-entity="${esc(e.snooze)}" data-press="1">
-             <ha-icon icon="mdi:alarm-snooze"></ha-icon>In 30 Min. erinnern</button>
-           <button class="action-btn" data-entity="${esc(e.skip)}" data-press="1">
-             <ha-icon icon="mdi:calendar-remove-outline"></ha-icon>Heute nicht mehr</button>
-         </div>`
-      : "";
+    const snoozeButtons = this._config.show_actions !== false && k.minuten > 0 && !k.laeuft && !k.pausiert && e.snooze && e.skip
+      ? [
+          `<button class="action-btn" data-entity="${esc(e.snooze)}" data-press="1">
+             <ha-icon icon="mdi:alarm-snooze"></ha-icon>In 30 Min. erinnern</button>`,
+          `<button class="action-btn" data-entity="${esc(e.skip)}" data-press="1">
+             <ha-icon icon="mdi:calendar-remove-outline"></ha-icon>Heute nicht mehr</button>`,
+        ]
+      : [];
+    const partyButton = this._config.show_actions !== false && !k.party_modus && e.party_mode
+      ? [`<button class="action-btn" data-entity="${esc(e.party_mode)}" data-press="1">
+             <ha-icon icon="mdi:party-popper"></ha-icon>Party-Modus starten</button>`]
+      : [];
+    const actionBtns = compact ? [] : [...snoozeButtons, ...partyButton];
+    const actions = actionBtns.length ? `<div class="actions">${actionBtns.join("")}</div>` : "";
 
     return `
       <div class="head" data-entity="" role="button" tabindex="0" aria-label="${esc(k.name)}: ${esc(h.title)}">
@@ -427,9 +479,9 @@ class SmartVentilationCard extends HTMLElement {
       </div>
       <div class="hero">
         <div class="headline">${esc(h.title)}</div>
-        ${h.sub ? `<div class="sub">${esc(h.sub)}</div>` : ""}
+        ${h.sub && !compact ? `<div class="sub">${esc(h.sub)}</div>` : ""}
       </div>
-      ${progress}${actions}${alertHtml}${tiles}${chart}${trend}
+      ${compact ? "" : `${progress}${actions}${alertHtml}${tiles}${chart}${trend}${year}${winList}`}
       ${chips ? `<div class="chips">${chips}</div>` : ""}${stats}`;
   }
 
@@ -577,10 +629,11 @@ class SmartVentilationCard extends HTMLElement {
            <ha-icon class="chip-caret" icon="${this._overviewExpanded ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
          </button>`
       : "";
+    const compact = !!this._config.compact;
     const chips = chipHtml ? `<div class="chips">${chipHtml}</div>` : "";
-    const breakdown = chip && this._overviewExpanded ? `<div class="breakdown">${breakdownList(rooms)}</div>` : "";
-    const trend = this._config.show_trend !== false ? trendChart(trendTage) : "";
-    const sortRow = rooms.length > 1
+    const breakdown = !compact && chip && this._overviewExpanded ? `<div class="breakdown">${breakdownList(rooms)}</div>` : "";
+    const trend = this._config.show_trend !== false && !compact ? trendChart(trendTage) : "";
+    const sortRow = !compact && rooms.length > 1
       ? `<div class="sort-row" role="group" aria-label="Sortierung">
            ${SORT_MODES.map(
              (m) => `<button class="sort-btn ${this._overviewSort === m.key ? "active" : ""}" data-sort="${m.key}"
@@ -755,6 +808,13 @@ const STYLE = `
   .trend-bar { flex: 1; height: var(--h, 0%); min-height: 2px; border-radius: 2px 2px 0 0;
     background: color-mix(in srgb, var(--sv-info) 35%, transparent); }
   .trend-bar.is-today { background: var(--sv-info); }
+  .trend-bar.year-bar { background: color-mix(in srgb, var(--sv-neutral) 40%, transparent); }
+  .trend-bar.year-bar.is-today { background: var(--sv-neutral); }
+
+  /* Fensterstatus (mehrere Fensterkontakte) */
+  .win-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .win-item { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--tone); }
+  .win-item ha-icon { --mdc-icon-size: 15px; }
 
   /* Aufschlüsselung des Netto-Chips */
   .breakdown { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: var(--sv-inner);
