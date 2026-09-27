@@ -116,6 +116,7 @@ Home Assistant **2024.11** oder neuer.
 
 ### Version 2.3.10
 
+- Kleiner Timing-Fix: Attribute (u. a. der neue Heizungsstatus) werden jetzt immer am Ende jeder Prüfrunde aktualisiert, nicht nur am Anfang – vorher konnte die Karte bis zu 30 Sekunden hinterherhinken.
 - **Heizung sichtbar auf der Karte:** Solange gelüftet wird, zeigt die Karte jetzt, welche Heizung abgesenkt wird und wann sie wiederhergestellt wird. Regelt Better Thermostat oder der Climate Group Helper das Fenster selbst, steht das dort ebenfalls.
 
 ### Version 2.3.9

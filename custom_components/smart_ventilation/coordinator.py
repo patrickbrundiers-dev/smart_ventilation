@@ -529,6 +529,15 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return False, current_diff
 
     async def _feedback_tick(self, _now=None):
+        try:
+            await self._feedback_tick_inner()
+        finally:
+            # Immer zuletzt, egal an welcher Stelle oben zurückgesprungen wird –
+            # sonst zeigt die Karte einen veralteten Stand (z. B. Heizung noch nicht als
+            # abgesenkt), bis die nächste Runde in 30 s läuft.
+            self._notify_listeners()
+
+    async def _feedback_tick_inner(self, _now=None):
         self._check_sensor_health()
         if self._roll_periods():
             await self._save()
@@ -537,7 +546,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         await self._extras_tick()
         await self._history_tick(dt_util.now())
         self._update_recommendation()
-        self._notify_listeners()
         if not self.session:
             return
         if not self.open_windows():
