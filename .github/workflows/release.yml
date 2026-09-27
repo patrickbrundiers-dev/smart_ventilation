@@ -1,0 +1,50 @@
+name: Release
+
+# Legt automatisch ein GitHub-Release an, sobald sich die Version in manifest.json ändert.
+# HACS erkennt das Release dann als Update.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "custom_components/smart_ventilation/manifest.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version lesen
+        id: v
+        run: |
+          VERSION=$(python3 -c "import json;print(json.load(open('custom_components/smart_ventilation/manifest.json'))['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Änderungen aus der README holen
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          python3 - "${{ steps.v.outputs.version }}" <<'PY'
+          import re, sys
+          version = sys.argv[1]
+          text = open("README.md", encoding="utf-8").read()
+          m = re.search(rf"^### Version {re.escape(version)}\s*\n(.*?)(?=^### |^## |\Z)", text, re.S | re.M)
+          notes = (m.group(1).strip() if m else f"Version {version}")
+          open("notes.md", "w", encoding="utf-8").write(notes + "\n")
+          PY
+
+      - name: Release anlegen
+        if: steps.v.outputs.exists == 'false'
+        run: gh release create "${{ steps.v.outputs.version }}" --title "${{ steps.v.outputs.version }}" --notes-file notes.md --target "${{ github.sha }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
