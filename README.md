@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.19
+
+- **Fix: Automatik-Modus konnte an einem Tag mehrfach zwischen Sommer und Winter hin- und herspringen.** In den Übergangsmonaten (März–Mai, September–November) entschied bisher die aktuelle Außentemperatur sofort – bei Tagen mit großer Spanne (kalte Nacht, warmer Nachmittag) konnte das den Modus (und damit z. B. Vorheizen/Kühlen) mehrmals täglich umschalten, obwohl sich an der Jahreszeit nichts geändert hatte. Die Außentemperatur muss jetzt mindestens 6 Stunden ununterbrochen deutlich über bzw. unter der Heizgrenze liegen, bevor der Modus tatsächlich wechselt.
+
 ### Version 2.3.18
 
 - **Vorheizen berücksichtigt jetzt die Wettervorhersage** (nur wenn eine Wetter-Entität eingerichtet ist):

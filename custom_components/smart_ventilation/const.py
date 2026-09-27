@@ -66,6 +66,11 @@ SEASON_WINTER = "winter"
 DEFAULT_SEASON_MODE = SEASON_AUTO
 DEFAULT_SEASON_THRESHOLD = 15.0  # °C – Heizgrenztemperatur
 SEASON_HYSTERESIS = 1.0  # °C – verhindert ständiges Hin- und Herspringen
+# In den Übergangsmonaten muss die Außentemperatur so lange ununterbrochen jenseits der
+# Schwelle (± Hysterese) liegen, bevor der Automatik-Modus wirklich umschaltet – sonst würde
+# eine kalte Nacht gefolgt von einem warmen Nachmittag (oder umgekehrt) den Modus am selben
+# Tag mehrfach hin- und herspringen lassen.
+SEASON_CONFIRM_HOURS = 6
 # Meteorologische Jahreszeit: in diesen Monaten gilt Winter/Sommer fest, unabhängig von der
 # Außentemperatur (ein einzelner milder Wintertag oder kühler Sommertag soll den Modus nicht
 # umschalten). Nur in den Übergangsmonaten entscheidet weiter die Temperatur wie bisher.
@@ -137,7 +142,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.3.18"
+VERSION = "2.3.19"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus

@@ -130,6 +130,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._listeners = []
         self.stats = {}
         self._auto_season = None
+        self._season_pending = None
+        self._season_pending_since = None
         self.best_time = None
         self.best_info = {}
         self.best_reason = "Keine Wetter-Entität gewählt"
@@ -1086,7 +1088,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         Dezember–Februar und Juni–August gelten fest als Winter bzw. Sommer, ein einzelner
         milder Wintertag oder kühler Sommertag soll den Modus nicht umschalten. Nur in den
-        Übergangsmonaten (März–Mai, September–November) entscheidet die Außentemperatur.
+        Übergangsmonaten (März–Mai, September–November) entscheidet die Außentemperatur – und
+        zwar erst, wenn sie deutlich über/unter der Schwelle liegt (Hysterese) UND das schon
+        einige Stunden ununterbrochen so ist (SEASON_CONFIRM_HOURS). Sonst würde an Tagen mit
+        großer Tag/Nacht-Schwankung (kalte Nacht, warmer Nachmittag) der Modus mehrmals täglich
+        hin- und herspringen, obwohl sich an der eigentlichen Jahreszeit nichts geändert hat.
         """
         mode = self.data.get(CONF_SEASON_MODE, DEFAULT_SEASON_MODE)
         if mode in (SEASON_SUMMER, SEASON_WINTER):
@@ -1095,22 +1101,44 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         month = dt_util.now().month
         if month in SEASON_FIXED_WINTER_MONTHS:
             self._auto_season = SEASON_WINTER
+            self._season_pending = None
             return SEASON_WINTER
         if month in SEASON_FIXED_SUMMER_MONTHS:
             self._auto_season = SEASON_SUMMER
+            self._season_pending = None
             return SEASON_SUMMER
 
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
         if outdoor is None:
             return self._auto_season or SEASON_WINTER
-        # Hysterese: erst deutlich über/unter der Schwelle umschalten
+
+        # Hysterese: im Bereich Schwelle ± 1 °C ändert sich der Kandidat nicht.
         if outdoor < threshold - SEASON_HYSTERESIS:
-            self._auto_season = SEASON_WINTER
+            candidate = SEASON_WINTER
         elif outdoor > threshold + SEASON_HYSTERESIS:
-            self._auto_season = SEASON_SUMMER
-        elif self._auto_season is None:
-            self._auto_season = SEASON_WINTER if outdoor < threshold else SEASON_SUMMER
+            candidate = SEASON_SUMMER
+        else:
+            candidate = None
+
+        if self._auto_season is None:
+            # Erststart: sofort einordnen, nicht erst stundenlang abwarten.
+            self._auto_season = candidate or (SEASON_WINTER if outdoor < threshold else SEASON_SUMMER)
+            self._season_pending = None
+            return self._auto_season
+
+        now = dt_util.now()
+        if candidate is None or candidate == self._auto_season:
+            # Zurück in die Mitte oder wieder wie bisher -> ein evtl. laufender Wechsel zählt nicht mehr.
+            self._season_pending = None
+            self._season_pending_since = None
+        elif candidate != self._season_pending:
+            self._season_pending = candidate
+            self._season_pending_since = now
+        elif now - self._season_pending_since >= timedelta(hours=SEASON_CONFIRM_HOURS):
+            self._auto_season = candidate
+            self._season_pending = None
+            self._season_pending_since = None
         return self._auto_season
 
     def _track_night_low(self, now):

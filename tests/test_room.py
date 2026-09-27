@@ -40,7 +40,10 @@ async def test_auto_season_uses_calendar_month(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
     """Automatik-Modus: Dezember-Februar/Juni-August gelten fest, unabhängig von der
-    Außentemperatur. Nur in den Übergangsmonaten entscheidet weiter die Temperatur wie bisher."""
+    Außentemperatur. Nur in den Übergangsmonaten entscheidet die Temperatur - und zwar erst,
+    wenn sie mehrere Stunden ununterbrochen deutlich über/unter der Schwelle liegt (sonst
+    würde z. B. eine kalte Nacht gefolgt von einem warmen Nachmittag den Modus am selben Tag
+    mehrfach hin- und herspringen lassen)."""
     freezer.move_to("2026-07-15 12:00:00+02:00")  # Juli -> fester Sommer
     entry = await setup_room(hass, season_mode="auto")
     season = eid(hass, "sensor", entry, "season")
@@ -53,14 +56,45 @@ async def test_auto_season_uses_calendar_month(
     await hass.async_block_till_done()
     assert hass.states.get(season).state == "winter"
 
-    freezer.move_to("2026-04-15 12:00:00+02:00")  # April -> Übergangsmonat, Temperatur entscheidet
+    freezer.move_to("2026-04-15 06:00:00+02:00")  # April -> Übergangsmonat, Temperatur entscheidet
     hass.states.async_set("sensor.aussen_t", 20.0)  # deutlich über der Schwelle (15 °C)
     await hass.async_block_till_done()
+    assert hass.states.get(season).state == "winter"  # noch nicht lange genug warm -> bleibt zunächst
+
+    await _tick(hass, freezer, 7 * 60)  # 7 h ununterbrochen warm -> Wechsel wird bestätigt
     assert hass.states.get(season).state == "summer"
 
     hass.states.async_set("sensor.aussen_t", 5.0)  # deutlich darunter
     await hass.async_block_till_done()
+    assert hass.states.get(season).state == "summer"  # noch nicht lange genug kalt
+
+    await _tick(hass, freezer, 7 * 60)  # 7 h ununterbrochen kalt -> Wechsel wird bestätigt
     assert hass.states.get(season).state == "winter"
+
+
+async def test_season_does_not_flap_within_a_single_day(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Regression: ein Tag mit kalter Nacht und warmem Nachmittag (typisch im Herbst/Frühling)
+    durfte den Automatik-Modus nicht kurzzeitig auf Sommer springen lassen, nur um Stunden
+    später wieder auf Winter zurückzufallen - dafür reicht ein paar Stunden Wärme nicht."""
+    freezer.move_to("2026-04-10 06:00:00+02:00")  # April -> Übergangsmonat
+    entry = await setup_room(hass, season_mode="auto")
+    season = eid(hass, "sensor", entry, "season")
+
+    hass.states.async_set("sensor.aussen_t", 9.0)  # kalter Morgen
+    await hass.async_block_till_done()
+    assert hass.states.get(season).state == "winter"
+
+    hass.states.async_set("sensor.aussen_t", 20.0)  # warmer Nachmittag, nur ein paar Stunden
+    await hass.async_block_till_done()
+    assert hass.states.get(season).state == "winter"  # kurze Wärmephase reicht nicht
+    await _tick(hass, freezer, 3 * 60)
+    assert hass.states.get(season).state == "winter"
+
+    hass.states.async_set("sensor.aussen_t", 10.0)  # kühlt abends wieder ab, bevor bestätigt wurde
+    await _tick(hass, freezer, 12 * 60)
+    assert hass.states.get(season).state == "winter"  # nie wirklich auf Sommer gesprungen
 
 
 async def test_no_venting_when_warmer_outside_even_in_winter(
