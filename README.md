@@ -114,6 +114,12 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.6
+
+- **Better Thermostat:** Hat ein Better Thermostat einen eigenen Fenstersensor, schaltet es beim Lüften selbst ab – Smart Ventilation greift dann nicht mehr zusätzlich ein (kein doppeltes Schalten). Ohne Fenstersensor übernimmt Smart Ventilation wie bisher.
+- **Klima-Gruppen:** Eine ausgewählte Gruppe wird in ihre Thermostate aufgelöst; ist ein Thermostat zusätzlich einzeln gewählt, wird es trotzdem nur einmal geschaltet.
+- Neues Attribut `heizung_selbst_geregelt` am Sensor „Lüftung läuft“.
+
 ### Version 2.3.5
 
 - **Keine Dauer-Aufforderung mehr:** „Lüften wegen Feuchte“ nur noch, wenn es sich lohnt (draußen mindestens 1 g/m³ trockener) **und** der Raum zu feucht ist (über dem Tagesziel, ab 65 % rel. Feuchte oder bei erhöhtem Schimmelrisiko). Vorher reichten 0,5 g/m³ Unterschied – das Tagesziel wurde dabei nicht beachtet.

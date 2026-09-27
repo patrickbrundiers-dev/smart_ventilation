@@ -670,7 +670,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             return
 
         saved = {}
-        for entity_id in self.climates:
+        external = {}
+        for entity_id in self._heating_targets():
+            if manager := self._window_managed_by(entity_id):
+                external[entity_id] = manager   # regelt selbst beim Fensteröffnen -> nicht eingreifen
+                continue
             state = self.hass.states.get(entity_id)
             if state is None or state.state in ("off", "unavailable", "unknown"):
                 continue
@@ -689,7 +693,32 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                     saved[entity_id] = {"temperature": target}
 
         self.session["heating"] = saved
+        self.session["heating_external"] = external
         await self._save()
+
+    def _heating_targets(self):
+        """Gewählte Thermostate; Klima-Gruppen werden in ihre Mitglieder aufgelöst (keine Doppelschaltung)."""
+        result = []
+        for entity_id in self.climates:
+            state = self.hass.states.get(entity_id)
+            members = state.attributes.get("entity_id") if state is not None else None
+            if isinstance(members, (list, tuple)) and members:
+                result.extend(m for m in members if str(m).startswith("climate."))
+            else:
+                result.append(entity_id)
+        return list(dict.fromkeys(result))
+
+    def _window_managed_by(self, entity_id):
+        """Better Thermostat mit eigenem Fenstersensor schaltet beim Lüften selbst ab."""
+        entry = er.async_get(self.hass).async_get(entity_id)
+        if entry is None or entry.platform != "better_thermostat" or not entry.config_entry_id:
+            return None
+        config = self.hass.config_entries.async_get_entry(entry.config_entry_id)
+        if config is None:
+            return None
+        if config.data.get("window_sensors") or config.options.get("window_sensors"):
+            return "Better Thermostat"
+        return None
 
     async def _restore_heating(self, saved):
         for entity_id, before in (saved or {}).items():
