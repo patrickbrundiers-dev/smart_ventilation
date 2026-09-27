@@ -129,7 +129,11 @@ def _category_fields(d: dict, current: list[str], categories=None) -> dict:
     keys = CATEGORY_CONF_KEYS if categories is None else {c: CATEGORY_CONF_KEYS[c] for c in categories}
     fields = {}
     for category, key in keys.items():
-        fields[vol.Optional(key, default=d.get(key) or current)] = selector.SelectSelector(
+        # Bewusst geleerte Auswahl (Schlüssel vorhanden, aber []) respektieren statt sie beim
+        # erneuten Öffnen der Einstellungen wieder mit "alle Ziele" vorzubelegen - siehe
+        # targets_for_category() in notify_util.py für dieselbe Unterscheidung beim Versand.
+        default = d[key] if key in d else current
+        fields[vol.Optional(key, default=default)] = selector.SelectSelector(
             selector.SelectSelectorConfig(options=options, multiple=True, mode=selector.SelectSelectorMode.LIST)
         )
     return fields
@@ -161,7 +165,13 @@ def _current_notify(d: dict) -> list[str]:
 # Beim Kopieren einer Raum-Vorlage nicht übernehmen: eindeutig diesem einen Raum zugeordnete
 # Entitäten. Alles andere (Außensensoren, Schwellwerte, Benachrichtigungen, ...) darf gerne
 # übernommen werden - oft dieselben Werte im ganzen Haus bzw. bewusst gewählte Vorlieben.
-TEMPLATE_STRIP = {CONF_NAME, CONF_WINDOW, CONF_INDOOR_TEMP, CONF_INDOOR_HUMIDITY, CONF_CO2, CONF_SHOWER}
+TEMPLATE_STRIP = {
+    CONF_NAME, CONF_WINDOW, CONF_INDOOR_TEMP, CONF_INDOOR_HUMIDITY, CONF_CO2, CONF_SHOWER,
+    # Eigene Geräte des Quell-Raums - sonst würde der neue Raum unbemerkt das Thermostat oder
+    # den Entfeuchter eines ANDEREN Raums mitsteuern, statt nur unverfängliche Werte wie
+    # Schwellen oder Außensensoren zu übernehmen.
+    CONF_CLIMATES, CONF_DEHUMIDIFIER,
+}
 
 
 def _room_templates(hass: HomeAssistant) -> dict[str, str]:

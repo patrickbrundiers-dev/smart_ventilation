@@ -47,17 +47,19 @@ def in_quiet_hours(now, data, default_start, default_end) -> bool:
 def targets_for_category(data, category, targets):
     """Nur die Ziele, die diese Benachrichtigungsart abonniert haben.
 
-    Ist die Kategorie noch nicht konfiguriert (alter Eintrag oder frisch hinzugefügtes Ziel),
-    bekommen weiterhin alle übergebenen `targets` diese Kategorie - das Verhalten ändert sich
-    ohne bewusste Einschränkung durch den Nutzer nicht.
+    Ist die Kategorie noch nicht konfiguriert (alter Eintrag oder frisch hinzugefügtes Ziel -
+    der Schlüssel fehlt dann komplett in `data`), bekommen weiterhin alle übergebenen `targets`
+    diese Kategorie - das Verhalten ändert sich ohne bewusste Einschränkung durch den Nutzer
+    nicht. Hat der Nutzer die Auswahl dagegen bewusst geleert (Schlüssel vorhanden, aber []),
+    heißt das "niemand" und muss auch so respektiert werden - nicht mit "nicht konfiguriert"
+    verwechseln, sonst kommt trotz bewusst leerer Auswahl wieder an alle Ziele eine Nachricht.
     """
     if not category:
         return list(targets)
     key = CATEGORY_CONF_KEYS.get(category)
-    stored = data.get(key) if key else None
-    if not stored:
+    if not key or key not in data:
         return list(targets)
-    allowed = set(stored)
+    allowed = set(data.get(key) or [])
     return [t for t in targets if t in allowed]
 
 

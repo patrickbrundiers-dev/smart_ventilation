@@ -26,6 +26,25 @@ def test_speech_text_overview_list() -> None:
     )
 
 
+def test_targets_for_category_unset_defaults_to_all() -> None:
+    """Kategorie noch nie konfiguriert (Schlüssel fehlt ganz) -> weiterhin alle Ziele."""
+    targets = ["notify.a", "notify.b"]
+    assert notify_util.targets_for_category({}, "reminder", targets) == targets
+
+
+def test_targets_for_category_restricts_to_selected() -> None:
+    data = {"notify_targets_reminder": ["notify.a"]}
+    assert notify_util.targets_for_category(data, "reminder", ["notify.a", "notify.b"]) == ["notify.a"]
+
+
+def test_targets_for_category_explicit_empty_means_nobody() -> None:
+    """Regression: bewusst auf 'niemand' geleert (Schlüssel vorhanden, aber []) darf NICHT als
+    'nicht konfiguriert' durchgehen - sonst bekommen trotz expliziter Abwahl wieder alle Ziele
+    diese Nachrichtenart."""
+    data = {"notify_targets_reminder": []}
+    assert notify_util.targets_for_category(data, "reminder", ["notify.a", "notify.b"]) == []
+
+
 async def test_send_voice_and_phone(hass: HomeAssistant) -> None:
     calls: dict[str, list[dict]] = {}
 

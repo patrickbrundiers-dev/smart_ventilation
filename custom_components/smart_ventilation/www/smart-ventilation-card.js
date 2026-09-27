@@ -438,7 +438,7 @@ class SmartVentilationCard extends HTMLElement {
     const chips = [
       k.party_modus && [e.party_mode || null, "mdi:party-popper", partyText, "info", "Antippen, um den Party-Modus vorzeitig zu beenden", null, null, true],
       k.bester_zeitpunkt && !compact && [e.bester, "mdi:clock-check-outline", k.bester_zeitpunkt],
-      k.statistik
+      k.statistik && !compact
         ? [null, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", heuteText, heuteTone,
             "Woche, Monat und Gesamt anzeigen", "stats", this._roomStatsExpanded]
         : [e.heute, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", heuteText, heuteTone],
@@ -622,14 +622,16 @@ class SmartVentilationCard extends HTMLElement {
     const running = rooms.filter((r) => r.laeuft).length;
     const tone = needing ? "warn" : running ? "info" : "good";
     const pill = needing ? `${needing} lüften` : running ? `${running} läuft` : "Alles gut";
+    const compact = !!this._config.compact;
     const chip = costChip(null, summe?.heute_kwh, summe?.heute_eur, summe?.heute_kwh_gespart, summe?.heute_eur_gespart);
     const chipHtml = chip
-      ? `<button class="chip ${chip[3] ? `tone-${chip[3]}` : ""}" data-toggle="breakdown" title="${esc(chip[4] || "")}" aria-expanded="${this._overviewExpanded}">
+      ? compact
+        ? `<span class="chip ${chip[3] ? `tone-${chip[3]}` : ""}" title="${esc(chip[4] || "")}"><ha-icon icon="${chip[1]}"></ha-icon>${esc(chip[2])}</span>`
+        : `<button class="chip ${chip[3] ? `tone-${chip[3]}` : ""}" data-toggle="breakdown" title="${esc(chip[4] || "")}" aria-expanded="${this._overviewExpanded}">
            <ha-icon icon="${chip[1]}"></ha-icon>${esc(chip[2])}
            <ha-icon class="chip-caret" icon="${this._overviewExpanded ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
          </button>`
       : "";
-    const compact = !!this._config.compact;
     const chips = chipHtml ? `<div class="chips">${chipHtml}</div>` : "";
     const breakdown = !compact && chip && this._overviewExpanded ? `<div class="breakdown">${breakdownList(rooms)}</div>` : "";
     const trend = this._config.show_trend !== false && !compact ? trendChart(trendTage) : "";
