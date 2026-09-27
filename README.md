@@ -76,7 +76,7 @@ Einstellungen später ändern: Gerät öffnen → **Konfigurieren** → Bereich 
 
 ## Dashboard-Karte
 
-Die Karte wird mit der Integration installiert (ggf. Browser-Cache leeren / App neu laden).
+Die Karte wird mit der Integration installiert und automatisch unter *Einstellungen → Dashboards → Ressourcen* eingetragen (ggf. einmal App/Browser neu laden).
 
 ```yaml
 type: custom:smart-ventilation-card
@@ -113,6 +113,10 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.3.2
+
+- Karte wird zusätzlich als **Dashboard-Ressource** eingetragen (wie HACS es für Karten macht) und damit bei jedem Dashboard-Aufruf zuverlässig geladen. Beim Entfernen der Integration wird der Eintrag wieder gelöscht.
 
 ### Version 2.3.1
 

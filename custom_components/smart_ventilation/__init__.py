@@ -7,7 +7,7 @@ from homeassistant.helpers import config_validation as cv
 from .const import CONF_ENTRY_TYPE, DOMAIN, ENTRY_TYPE_OVERVIEW
 from .coordinator import SmartVentilationCoordinator
 from .assist import async_setup_assist
-from .card import async_register_card
+from .card import async_register_card, async_remove_resource
 from .overview import OverviewCoordinator
 
 PLATFORMS = ["sensor", "binary_sensor", "button"]
@@ -53,3 +53,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if coordinator:
         coordinator.async_unload()
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Letzten Eintrag entfernt: Dashboard-Ressource der Karte wieder austragen."""
+    remaining = [e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id != entry.entry_id]
+    if not remaining:
+        await async_remove_resource(hass)
