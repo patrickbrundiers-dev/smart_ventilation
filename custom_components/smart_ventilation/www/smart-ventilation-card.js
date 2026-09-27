@@ -54,6 +54,58 @@ function costChip(entity, kwh, eur, kwhSaved, eurSaved) {
   return [entity, "mdi:piggy-bank-outline", `Netto ${fmt(-netKwh, 2)} kWh gespart · ${fmt(-netEur, 2)} €`, "good", detail];
 }
 
+/* ---------- 7-Tage-Sparkline (Lüftungshäufigkeit, Tooltip mit Kosten) ---------- */
+function trendChart(days) {
+  if (!days || days.length < 2) return "";
+  const max = Math.max(1, ...days.map((d) => d.anzahl || 0));
+  const bars = days
+    .map((d, i) => {
+      const pct = d.anzahl > 0 ? Math.max(10, Math.round((d.anzahl / max) * 100)) : 0;
+      const isToday = i === days.length - 1;
+      const wd = new Date(`${d.datum}T00:00:00`).toLocaleDateString(LOCALE, { weekday: "short" });
+      const title = `${wd}: ${d.anzahl}× heute${has(d.kwh) ? ` · ${fmt(d.kwh, 2)} kWh` : ""}`;
+      return `<span class="trend-bar${isToday ? " is-today" : ""}" style="--h:${pct}%" title="${esc(title)}"></span>`;
+    })
+    .join("");
+  return `<div class="trend"><span class="trend-label">Letzte 7 Tage</span><div class="trend-bars">${bars}</div></div>`;
+}
+
+/* ---------- Umschaltbare Sortierung der Übersicht ---------- */
+const SORT_MODES = [
+  { key: "dringlichkeit", icon: "mdi:sort-variant", label: "Nach Dringlichkeit" },
+  { key: "kosten", icon: "mdi:currency-eur", label: "Nach Kosten heute" },
+  { key: "schimmel", icon: "mdi:shield-alert-outline", label: "Nach Schimmelrisiko" },
+];
+const RISK_RANK = { hoch: 2, "erhöht": 1, niedrig: 0 };
+
+function sortRooms(rooms, mode) {
+  if (mode === "kosten") {
+    return [...rooms].sort((a, b) => (b.heute_eur_netto || 0) - (a.heute_eur_netto || 0));
+  }
+  if (mode === "schimmel") {
+    return [...rooms].sort(
+      (a, b) => (RISK_RANK[b.schimmelrisiko] ?? -1) - (RISK_RANK[a.schimmelrisiko] ?? -1) || b.dringlichkeit - a.dringlichkeit
+    );
+  }
+  return rooms; // vom Backend bereits nach Dringlichkeit sortiert
+}
+
+/* ---------- Aufschlüsselung des Übersicht-Netto-Chips nach Raum ---------- */
+function breakdownList(rooms) {
+  const relevant = rooms.filter((r) => Math.abs(r.heute_eur_netto || 0) >= 0.01 || Math.abs(r.heute_kwh_netto || 0) >= 0.01);
+  if (!relevant.length) {
+    return `<div class="breakdown-empty">Noch keine nennenswerten Kosten oder Ersparnisse heute.</div>`;
+  }
+  return [...relevant]
+    .sort((a, b) => Math.abs(b.heute_eur_netto || 0) - Math.abs(a.heute_eur_netto || 0))
+    .map((r) => {
+      const net = r.heute_eur_netto || 0;
+      const good = net <= -0.004;
+      return `<div class="breakdown-row"><span>${esc(r.raum)}</span><span class="${good ? "tone-good" : ""}">${good ? "−" : ""}${fmt(Math.abs(net), 2)} €</span></div>`;
+    })
+    .join("");
+}
+
 /* ---------- Status eines Raums ---------- */
 function roomState(k) {
   if (k.laeuft && k.kuehlt_aus) return { tone: "bad", icon: "mdi:snowflake-alert", pill: "Kühlt aus" };
@@ -111,14 +163,26 @@ class SmartVentilationCard extends HTMLElement {
           schema: [
             { name: "show_details", default: true, selector: { boolean: {} } },
             { name: "show_chart", default: true, selector: { boolean: {} } },
+            { name: "show_trend", default: true, selector: { boolean: {} } },
           ],
         },
       ],
       computeLabel: (s) =>
-        ({ device: "Raum oder Übersicht", show_details: "Messwerte anzeigen", show_chart: "Verlauf anzeigen" }[s.name]),
+        ({
+          device: "Raum oder Übersicht",
+          show_details: "Messwerte anzeigen",
+          show_chart: "Verlauf anzeigen",
+          show_trend: "7-Tage-Trend anzeigen",
+        }[s.name]),
       computeHelper: (s) =>
         s.name === "device" ? "Ein Raum zeigt Status und Messwerte, die Übersicht alle Räume." : undefined,
     };
+  }
+
+  constructor() {
+    super();
+    this._overviewSort = "dringlichkeit";
+    this._overviewExpanded = false;
   }
 
   static getStubConfig(hass) {
@@ -135,7 +199,7 @@ class SmartVentilationCard extends HTMLElement {
 
   setConfig(config) {
     // Keine Ausnahme werfen: ohne Auswahl einen Hinweis zeigen (sonst bleibt die Vorschau leer)
-    this._config = { show_details: true, show_chart: true, ...(config || {}) };
+    this._config = { show_details: true, show_chart: true, show_trend: true, ...(config || {}) };
     this._uid = `sv${++UID}`;
     this._last = undefined;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
@@ -200,6 +264,7 @@ class SmartVentilationCard extends HTMLElement {
   _render(state) {
     let body;
     this._chartData = null;
+    this._lastState = state;
     if (!state) {
       const chosen = this._config.device || this._config.entity;
       body = `<div class="empty"><ha-icon icon="mdi:home-search-outline"></ha-icon>
@@ -209,7 +274,7 @@ class SmartVentilationCard extends HTMLElement {
     } else if (state.attributes.karte) {
       body = this._room(state.attributes.karte);
     } else {
-      body = this._overview(state.attributes.raeume || [], state.attributes.summe || {});
+      body = this._overview(state.attributes.raeume || [], state.attributes.summe || {}, state.attributes.trend_tage || []);
     }
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card>${body}</ha-card>`;
     this.shadowRoot.querySelectorAll("[data-entity]:not([data-press])").forEach((el) => {
@@ -227,6 +292,26 @@ class SmartVentilationCard extends HTMLElement {
       };
       el.addEventListener("click", press);
       el.addEventListener("keydown", (ev) => (ev.key === "Enter" || ev.key === " ") && press(ev));
+    });
+    // Rein clientseitige Umschalter (Sortierung, Aufschlüsselung aufklappen) - kein Service-Call,
+    // nur ein Re-Render mit demselben, zuletzt empfangenen Zustand.
+    this.shadowRoot.querySelectorAll("[data-sort]").forEach((el) => {
+      const pick = (ev) => {
+        ev.stopPropagation();
+        this._overviewSort = el.dataset.sort;
+        this._render(this._lastState);
+      };
+      el.addEventListener("click", pick);
+      el.addEventListener("keydown", (ev) => (ev.key === "Enter" || ev.key === " ") && pick(ev));
+    });
+    this.shadowRoot.querySelectorAll("[data-toggle]").forEach((el) => {
+      const toggle = (ev) => {
+        ev.stopPropagation();
+        if (el.dataset.toggle === "breakdown") this._overviewExpanded = !this._overviewExpanded;
+        this._render(this._lastState);
+      };
+      el.addEventListener("click", toggle);
+      el.addEventListener("keydown", (ev) => (ev.key === "Enter" || ev.key === " ") && toggle(ev));
     });
     this._bindChart();
   }
@@ -271,6 +356,7 @@ class SmartVentilationCard extends HTMLElement {
 
     const tiles = this._config.show_details ? this._tiles(k, e) : "";
     const chart = this._config.show_chart ? this._chart(k.verlauf) : "";
+    const trend = this._config.show_trend !== false ? trendChart(k.trend_tage) : "";
 
     const chips = [
       k.bester_zeitpunkt && [e.bester, "mdi:clock-check-outline", k.bester_zeitpunkt],
@@ -307,7 +393,7 @@ class SmartVentilationCard extends HTMLElement {
         <div class="headline">${esc(h.title)}</div>
         ${h.sub ? `<div class="sub">${esc(h.sub)}</div>` : ""}
       </div>
-      ${progress}${actions}${alertHtml}${tiles}${chart}
+      ${progress}${actions}${alertHtml}${tiles}${chart}${trend}
       ${chips ? `<div class="chips">${chips}</div>` : ""}`;
   }
 
@@ -443,20 +529,41 @@ class SmartVentilationCard extends HTMLElement {
   }
 
   /* ---------- Übersicht ---------- */
-  _overview(rooms, summe) {
+  _overview(rooms, summe, trendTage) {
     const needing = rooms.filter((r) => r.lueften && !r.laeuft && !r.pausiert).length;
     const running = rooms.filter((r) => r.laeuft).length;
     const tone = needing ? "warn" : running ? "info" : "good";
     const pill = needing ? `${needing} lüften` : running ? `${running} läuft` : "Alles gut";
     const chip = costChip(null, summe?.heute_kwh, summe?.heute_eur, summe?.heute_kwh_gespart, summe?.heute_eur_gespart);
-    const chips = chip ? `<div class="chips">${renderChip(chip)}</div>` : "";
-    const rows = rooms
+    const chipHtml = chip
+      ? `<button class="chip ${chip[3] ? `tone-${chip[3]}` : ""}" data-toggle="breakdown" title="${esc(chip[4] || "")}" aria-expanded="${this._overviewExpanded}">
+           <ha-icon icon="${chip[1]}"></ha-icon>${esc(chip[2])}
+           <ha-icon class="chip-caret" icon="${this._overviewExpanded ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
+         </button>`
+      : "";
+    const chips = chipHtml ? `<div class="chips">${chipHtml}</div>` : "";
+    const breakdown = chip && this._overviewExpanded ? `<div class="breakdown">${breakdownList(rooms)}</div>` : "";
+    const trend = this._config.show_trend !== false ? trendChart(trendTage) : "";
+    const sortRow = rooms.length > 1
+      ? `<div class="sort-row" role="group" aria-label="Sortierung">
+           ${SORT_MODES.map(
+             (m) => `<button class="sort-btn ${this._overviewSort === m.key ? "active" : ""}" data-sort="${m.key}"
+                        title="${esc(m.label)}" aria-pressed="${this._overviewSort === m.key}" aria-label="${esc(m.label)}">
+                        <ha-icon icon="${m.icon}"></ha-icon></button>`
+           ).join("")}
+         </div>`
+      : "";
+    const rows = sortRooms(rooms, this._overviewSort)
       .map((r) => {
         const t = r.laeuft ? ["info", "mdi:window-open-variant", "Lüftung läuft", "läuft"]
           : r.lueften && r.pausiert ? ["neutral", "mdi:pause-circle-outline", r.pausiert, "Pausiert"]
           : r.lueften ? ["warn", "mdi:window-open-variant", r.empfehlung, `${r.minuten} Min.`]
           : ["good", "mdi:check", "Kein Lüften nötig", ""];
-        const risk = r.schimmelrisiko === "hoch" ? `<ha-icon class="risk" icon="mdi:alert-octagon-outline" title="Schimmelrisiko hoch"></ha-icon>` : "";
+        const riskTone = RISK[r.schimmelrisiko];
+        const riskIcon = r.schimmelrisiko === "hoch" ? "mdi:alert-octagon-outline" : "mdi:shield-alert-outline";
+        const risk = riskTone && riskTone[0] !== "good"
+          ? `<ha-icon class="risk tone-${riskTone[0]}" icon="${riskIcon}" title="Schimmelrisiko ${esc(riskTone[1])}"></ha-icon>`
+          : "";
         return `<button class="row" data-entity="${esc(r.entity_id || "")}" aria-label="${esc(r.raum)}: ${esc(t[2])}">
             <span class="badge small tone-${t[0]}"><ha-icon icon="${t[1]}"></ha-icon></span>
             <span class="r-text"><b>${esc(r.raum)}${risk}</b><span>${esc(t[2])}</span></span>
@@ -471,7 +578,7 @@ class SmartVentilationCard extends HTMLElement {
           <div class="meta">${rooms.length} ${rooms.length === 1 ? "Raum" : "Räume"}</div></div>
         <span class="pill tone-${tone}"><i></i>${esc(pill)}</span>
       </div>
-      ${chips}
+      ${chips}${breakdown}${trend}${sortRow}
       <div class="rows">${rows || '<div class="empty"><span>Noch keine Räume eingerichtet.</span></div>'}</div>`;
   }
 }
@@ -603,6 +710,30 @@ const STYLE = `
   button.chip:hover { background: var(--sv-surface-hover); }
   .chip ha-icon { --mdc-icon-size: 15px; }
   .chip.tone-good ha-icon { color: var(--sv-good); }
+  .chip-caret { --mdc-icon-size: 14px !important; opacity: .6; margin-left: -1px; }
+
+  /* 7-Tage-Trend (Sparkline) */
+  .trend { display: flex; align-items: center; gap: 8px; }
+  .trend-label { font-size: 11px; color: var(--sv-text-2); white-space: nowrap; }
+  .trend-bars { flex: 1; display: flex; align-items: flex-end; gap: 4px; height: 24px; }
+  .trend-bar { flex: 1; height: var(--h, 0%); min-height: 2px; border-radius: 2px 2px 0 0;
+    background: color-mix(in srgb, var(--sv-info) 35%, transparent); }
+  .trend-bar.is-today { background: var(--sv-info); }
+
+  /* Aufschlüsselung des Netto-Chips */
+  .breakdown { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: var(--sv-inner);
+    background: var(--sv-surface); font-size: 12px; }
+  .breakdown-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; color: var(--sv-text-2); }
+  .breakdown-row span:last-child { font-variant-numeric: tabular-nums; color: var(--sv-text); }
+  .breakdown-row span.tone-good { color: var(--sv-good); }
+  .breakdown-empty { color: var(--sv-text-2); }
+
+  /* Sortierung der Übersicht */
+  .sort-row { display: flex; justify-content: flex-end; gap: 2px; }
+  .sort-btn { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; color: var(--sv-text-2); }
+  .sort-btn ha-icon { --mdc-icon-size: 16px; }
+  .sort-btn:hover { background: var(--sv-surface-hover); }
+  .sort-btn.active { color: var(--primary-color, var(--sv-info)); background: color-mix(in srgb, var(--sv-info) 16%, transparent); }
 
   /* Übersicht */
   .rows { display: flex; flex-direction: column; }
@@ -612,7 +743,7 @@ const STYLE = `
   .r-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .r-text b { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
   .r-text span { font-size: 12px; color: var(--sv-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .risk { --mdc-icon-size: 15px; color: var(--sv-bad); }
+  .risk { --mdc-icon-size: 15px; color: var(--tone, var(--sv-bad)); }
 
   .empty { display: flex; gap: 12px; align-items: center; color: var(--sv-text-2); font-size: 13px; }
   .empty div { display: flex; flex-direction: column; } .empty b { color: var(--sv-text); }

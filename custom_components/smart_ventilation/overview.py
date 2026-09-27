@@ -81,6 +81,7 @@ class OverviewCoordinator:
     def room_list(self):
         rooms = []
         for room in self.rooms():
+            s = room.period_stats("day")
             rooms.append({
                 "raum": room.data.get("name"),
                 "lueften": room.recommended_minutes > 0,
@@ -93,6 +94,10 @@ class OverviewCoordinator:
                 "laeuft": room.session is not None,
                 "dringlichkeit": self.urgency(room),
                 "entity_id": room.own_entity("sensor", "recommendation"),
+                # Für die umschaltbare Sortierung und die Aufschlüsselung des Netto-Chips auf der
+                # Übersichtskarte - dieselbe Rechnung wie in totals(), nur pro Raum statt aufsummiert.
+                "heute_kwh_netto": round(s["kwh"] - s["kwh_gespart"], 2),
+                "heute_eur_netto": round(s["cost"] - s["kosten_gespart"], 2),
             })
         rooms.sort(key=lambda r: (not r["lueften"], bool(r["pausiert"]), -r["dringlichkeit"]))
         return rooms
@@ -117,6 +122,22 @@ class OverviewCoordinator:
             "heute_kwh_netto": round(kwh - kwh_saved, 2),
             "heute_eur_netto": round(cost - cost_saved, 2),
         }
+
+    def day_trend(self, days=7):
+        """7-Tage-Trend über alle Räume aufsummiert, für die Sparkline auf der Übersichtskarte."""
+        out = None
+        for room in self.rooms():
+            trend = room.day_trend(days)
+            if out is None:
+                out = [dict(t) for t in trend]
+                continue
+            for total, t in zip(out, trend):
+                total["anzahl"] += t["anzahl"]
+                total["kwh"] = round(total["kwh"] + t["kwh"], 2)
+                total["kosten"] = round(total["kosten"] + t["kosten"], 2)
+                total["kwh_netto"] = round(total["kwh_netto"] + t["kwh_netto"], 2)
+                total["kosten_netto"] = round(total["kosten_netto"] + t["kosten_netto"], 2)
+        return out or []
 
     @property
     def most_urgent(self):

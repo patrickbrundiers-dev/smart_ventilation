@@ -143,6 +143,14 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.5.0
+
+- **7-Tage-Trend auf der Karte**: Sowohl Raum- als auch Übersichtskarte zeigen jetzt eine kleine Sparkline mit der Lüftungshäufigkeit der letzten 7 Tage (Tooltip mit Kosten pro Tag). Neuer Umschalter „7-Tage-Trend anzeigen“ im Karten-Editor.
+- **Übersicht: Netto-Chip mit Aufschlüsselung**: Ein Klick auf den Netto-Kosten-Chip der Übersichtskarte öffnet eine Liste, welcher Raum wie viel zu den heutigen Kosten oder Ersparnissen beiträgt.
+- **Schimmelrisiko in der Raumliste sichtbar**: Die Übersichtskarte zeigt jetzt auch bei „erhöhtem“ Schimmelrisiko (nicht mehr nur bei „hoch“) ein Warn-Icon direkt neben dem Raumnamen.
+- **Umschaltbare Sortierung der Übersicht**: Die Raumliste lässt sich jetzt nach Dringlichkeit (Standard), Kosten heute oder Schimmelrisiko sortieren.
+- **Einstellungen neu geordnet**: Der Bereich „Feinabstimmung“ wurde aufgelöst – Windrichtung und Sonnenstand stehen jetzt bei „Außen & Wetter“, die Winterschwelle bei „Lüftungsverhalten“, der Erinnerungsabstand bei „Benachrichtigungen“ und der Dämmstandard direkt bei „Raum & Fenster“. Damit findet sich jede Einstellung dort, wo man ihretwegen ohnehin schon hinschaut – an den gespeicherten Werten ändert sich nichts.
+
 ### Version 2.4.0
 
 - **Schnellaktionen direkt auf der Karte**: Solange eine Lüftung ansteht, zeigt die Karte jetzt „In 30 Min. erinnern“ und „Heute nicht mehr“ als Buttons an – bislang ging das nur über die Aktionen in der Push-Nachricht. Dahinter stehen zwei neue Button-Entitäten (`button.snooze`, `button.skip_today`) pro Raum, die auch unabhängig von der Karte nutzbar sind.

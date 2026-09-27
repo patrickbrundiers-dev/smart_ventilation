@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CONF_MONTHLY_REPORT, CONF_NAME, DOMAIN, HISTORY_MONTHS, MOLD_CRITICAL_MINUTES,
+    CONF_MONTHLY_REPORT, CONF_NAME, DAY_LOG_DAYS, DOMAIN, HISTORY_MONTHS, MOLD_CRITICAL_MINUTES,
     MOLD_LOG_DAYS, MOLD_REWARN_DAYS, MOLD_RH_HIGH, MOLD_STREAK_WARN, MONTHLY_REPORT_HOUR,
 )
 from . import notify_util
@@ -42,6 +42,7 @@ class HistoryMixin:
     def _init_history(self):
         self.mold_log = {}            # {"2026-12-05": Minuten mit Wandfeuchte ≥ 80 %}
         self.history = {}             # {"2026-11": {...Monatswerte...}}
+        self.day_log = {}             # {"2026-09-20": {...Tageswerte für die Karten-Sparkline...}}
         self._mold_warned = None      # {"start": Beginn der Serie, "on": Datum der Warnung}
         self._mold_pending = False
         self._last_month_report = None
@@ -51,6 +52,7 @@ class HistoryMixin:
         return {
             "mold_log": self.mold_log,
             "history": self.history,
+            "day_log": self.day_log,
             "mold_warned": self._mold_warned,
             "last_month_report": self._last_month_report,
         }
@@ -58,6 +60,7 @@ class HistoryMixin:
     def _history_load(self, stored):
         self.mold_log = stored.get("mold_log") or {}
         self.history = stored.get("history") or {}
+        self.day_log = stored.get("day_log") or {}
         self._mold_warned = stored.get("mold_warned")
         self._last_month_report = stored.get("last_month_report")
 
@@ -154,6 +157,52 @@ class HistoryMixin:
         }
         for old in sorted(self.history)[:-HISTORY_MONTHS]:
             del self.history[old]
+
+    def _archive_day(self, old_period):
+        """Beim Tageswechsel: abgelaufenen Tag fürs Sparkline-Diagramm der Karte archivieren."""
+        key = old_period.get("key")
+        if not key:
+            return
+        kwh = old_period.get("kwh", 0.0)
+        kwh_saved = old_period.get("kwh_gespart", 0.0)
+        self.day_log[key] = {
+            "anzahl": old_period.get("ok", 0),
+            "minuten": round(old_period.get("seconds", 0.0) / 60),
+            "kwh": round(kwh, 2),
+            "kosten": round(kwh * self.energy_price, 2),
+            "kwh_netto": round(kwh - kwh_saved, 2),
+            "kosten_netto": round((kwh - kwh_saved) * self.energy_price, 2),
+        }
+        cutoff = (dt_util.now().date() - timedelta(days=DAY_LOG_DAYS)).isoformat()
+        for day in [d for d in self.day_log if d < cutoff]:
+            del self.day_log[day]
+
+    def day_trend(self, days=7):
+        """Die letzten `days` Tage (älteste zuerst) für die Sparkline auf der Karte -
+        vergangene Tage aus dem Archiv, der heutige live aus den laufenden Tagesstatistiken."""
+        today = dt_util.now().date()
+        out = []
+        for i in range(days - 1, -1, -1):
+            day = today - timedelta(days=i)
+            key = day.isoformat()
+            if i == 0:
+                s = self.period_stats("day")
+                out.append({
+                    "datum": key, "anzahl": s["ok"], "kwh": s["kwh"], "kosten": s["cost"],
+                    "kwh_netto": round(s["kwh"] - s["kwh_gespart"], 2),
+                    "kosten_netto": round(s["cost"] - s["kosten_gespart"], 2),
+                })
+            else:
+                entry = self.day_log.get(key, {})
+                out.append({
+                    "datum": key,
+                    "anzahl": entry.get("anzahl", 0),
+                    "kwh": entry.get("kwh", 0.0),
+                    "kosten": entry.get("kosten", 0.0),
+                    "kwh_netto": entry.get("kwh_netto", 0.0),
+                    "kosten_netto": entry.get("kosten_netto", 0.0),
+                })
+        return out
 
     def month_comparison(self):
         """Letzter abgeschlossener Monat im Vergleich zum Vormonat und zum Vorjahr."""

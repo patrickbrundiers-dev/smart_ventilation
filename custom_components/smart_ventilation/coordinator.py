@@ -175,6 +175,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             if self.stats.get(period, {}).get("key") != key:
                 if period == "month" and self.stats.get("month"):
                     self._archive_month(self.stats["month"])
+                if period == "day" and self.stats.get("day"):
+                    self._archive_day(self.stats["day"])
                 self.stats[period] = self._empty_period(key)
                 changed = True
         self.stats.setdefault("max_seconds", 0.0)
@@ -1739,6 +1741,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "ruhezeit": self.in_quiet_hours(),
             "pausiert": self.pause_reason(),
             "verlauf": self.trace_for_card(),
+            "trend_tage": self.day_trend(7),
             "kuehlen_plan": self.cool_plan,
             "vorheizen_plan": self.preheat_plan_text,
             "nach_dusche": self.after_shower,

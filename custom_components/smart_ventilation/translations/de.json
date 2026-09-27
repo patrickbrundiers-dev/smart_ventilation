@@ -19,20 +19,22 @@
         "sections": {
           "room": {
             "name": "Raum & Fenster",
-            "description": "Wie groß ist der Raum und welche Fenster gehören dazu?",
+            "description": "Wie groß ist der Raum, welche Fenster gehören dazu und wie gut ist gedämmt?",
             "data": {
               "name": "Name des Raums",
               "window": "Fensterkontakte",
               "volume": "Raumvolumen",
               "window_direction": "Fensterausrichtung",
-              "room_type": "Raumtyp"
+              "room_type": "Raumtyp",
+              "building_standard": "Dämmstandard der Außenwände"
             },
             "data_description": {
               "name": "Erscheint in Nachrichten und als Gerätename, z. B. „Schlafzimmer“.",
               "window": "Ein oder mehrere Kontakte. Sind zwei oder mehr gleichzeitig offen, wird Querlüften erkannt und getrennt gelernt.",
               "volume": "Grundfläche × Deckenhöhe, z. B. 16 m² × 2,5 m = 40 m³. Wird für Wärmeverlust und Kosten verwendet.",
               "window_direction": "Himmelsrichtung, in die das Fenster zeigt: 0° Nord, 90° Ost, 180° Süd, 270° West.",
-              "room_type": "Nur ein Vorschlag: passt beim Einrichten das Tagesziel Luftfeuchte automatisch an, sofern es nicht manuell geändert wird."
+              "room_type": "Nur ein Vorschlag: passt beim Einrichten das Tagesziel Luftfeuchte automatisch an, sofern es nicht manuell geändert wird.",
+              "building_standard": "Bestimmt die geschätzte Temperatur an der kältesten Wandstelle und damit das Schimmelrisiko."
             }
           },
           "indoor": {
@@ -55,21 +57,29 @@
           },
           "outdoor": {
             "name": "Außen & Wetter",
-            "description": "Messwerte von draußen – z. B. von deiner Wetterstation.",
+            "description": "Messwerte von draußen – z. B. von deiner Wetterstation – und wie Wind und Sonne ausgewertet werden.",
             "data": {
               "outdoor_temperature": "Außentemperatur",
               "outdoor_absolute_humidity": "Absolute Außenfeuchte",
               "rain": "Regensensor",
               "wind_speed": "Windgeschwindigkeit",
               "wind_direction": "Windrichtung",
-              "weather_entity": "Wettervorhersage"
+              "wind_is_from": "Windrichtung gibt die Herkunft an",
+              "weather_entity": "Wettervorhersage",
+              "use_sun": "Sonnenstand berücksichtigen",
+              "sun_entity": "Sonne",
+              "min_sun_elevation": "Mindest-Sonnenhöhe"
             },
             "data_description": {
               "outdoor_absolute_humidity": "Absolute Feuchte draußen in g/m³.",
               "rain": "Binärsensor oder Regenrate in mm/h. Bei Regen wird nicht zum Lüften geraten.",
               "wind_speed": "km/h oder m/s – wird automatisch umgerechnet.",
               "wind_direction": "In Grad (0–360).",
-              "weather_entity": "Optional. Mit stündlicher Vorhersage werden der beste Lüftungszeitpunkt und im Sommer ein Nachtkühlplan berechnet."
+              "wind_is_from": "Üblich bei Wetterstationen: 270° = Wind aus Westen. Nur ausschalten, wenn dein Sensor die Zugrichtung meldet.",
+              "weather_entity": "Optional. Mit stündlicher Vorhersage werden der beste Lüftungszeitpunkt und im Sommer ein Nachtkühlplan berechnet.",
+              "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
+              "sun_entity": "Meist „sun.sun“.",
+              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend."
             }
           },
           "behavior": {
@@ -77,22 +87,22 @@
             "description": "Wann gelüftet, gekühlt oder gewarnt wird.",
             "data": {
               "season_mode": "Sommer-/Wintermodus",
+              "season_threshold": "Winter unterhalb von",
               "target_absolute_humidity": "Tagesziel Luftfeuchte",
               "max_temperature_difference": "Sommer: Hitzesperre ab",
               "comfort_temperature": "Sommer: kühlen ab",
               "preheat_temperature": "Vorheizen ab (nach kalter Nacht)",
               "cool_limit": "Auskühl-Warnung unter",
-              "building_standard": "Dämmstandard der Außenwände",
               "humidity_hysteresis": "Feuchte-Puffer gegen Flackern"
             },
             "data_description": {
               "season_mode": "Winter: kurzes Stoßlüften, nie Kippfenster. Sommer: nicht lüften, wenn es draußen wärmer ist; Kühlen per Lüften möglich. Bei \"Automatisch\" entscheiden Kalendermonat, mehrtägiger Wettervorhersage-Trend (falls Wetter-Entität gewählt) und sonst die Außentemperatur – ein Wechsel per Außentemperatur wird erst nach mehreren Stunden anhaltendem Trend übernommen, damit der Modus nicht ständig hin- und herspringt.",
+              "season_threshold": "Nur im Automatikmodus: Außentemperatur, unter der auf Winter umgeschaltet wird (Heizgrenze, üblich 15 °C).",
               "target_absolute_humidity": "Sinkt die absolute Feuchte innen beim Lüften unter diesen Wert, gilt der Tag als ausreichend gelüftet. Der Raumtyp oben schlägt beim Einrichten einen passenden Wert vor.",
               "max_temperature_difference": "Nicht lüften, wenn es draußen um mehr als diesen Wert wärmer ist als drinnen.",
               "comfort_temperature": "Ist es drinnen wärmer und draußen mindestens 2 °C kühler, wird Lüften zum Abkühlen empfohlen.",
               "preheat_temperature": "Liegt die Raumtemperatur darunter und ist es draußen mindestens 2 °C wärmer als drinnen, wird nach einer Nacht mit Werten unter der Heizgrenze Lüften zum Vorheizen empfohlen, um das Heizen hinauszuzögern. Zählt die tatsächliche Nacht-Tiefsttemperatur, nicht das (bewusst träge reagierende) Sommer-/Winter-Label oben – nur bei manuell eingestelltem \"Sommer\" bleibt Vorheizen aus.",
               "cool_limit": "Warnt, wenn der Raum bei offenem Fenster kälter wird. 0 = aus.",
-              "building_standard": "Bestimmt die geschätzte Temperatur an der kältesten Wandstelle und damit das Schimmelrisiko.",
               "humidity_hysteresis": "Wie deutlich sich die Lage erst verbessern muss, bevor eine aktive „Lüften wegen Feuchte“-Empfehlung wieder ausgeht. Höher = ruhiger, aber reagiert etwas träger; niedriger = reagiert schneller, kann bei sehr unruhigen Sensoren wieder häufiger wechseln."
             }
           },
@@ -104,6 +114,7 @@
               "persons": "Personen",
               "quiet_start": "Ruhezeit von",
               "quiet_end": "Ruhezeit bis",
+              "notification_cooldown": "Abstand zwischen Erinnerungen",
               "weekly_report": "Wochenbericht",
               "monthly_report": "Monatsbericht",
               "vacation_entity": "Urlaub",
@@ -113,6 +124,7 @@
               "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
               "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
               "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
+              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
               "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
               "monthly_report": "Am 1. des Monats: Bilanz des Vormonats mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr.",
               "vacation_entity": "Optional: Kalender, Schalter oder Binärsensor. Im Urlaub keine Erinnerungen, nur Schimmelwarnungen.",
@@ -131,26 +143,6 @@
               "climate_entities": "Optional. Nach 1 Minute offenem Fenster aus bzw. auf Minimum, danach zurück. Leer lassen, wenn die Thermostate selbst eine Fenster-offen-Erkennung haben.",
               "dehumidifier_entity": "Optional: Steckdose oder Entfeuchter. Läuft, wenn es feucht ist und gerade nicht gelüftet werden kann.",
               "energy_price": "Für die Kostenschätzung, z. B. Gas ≈ 0,12 €/kWh, Wärmepumpe ≈ 0,10 €/kWh."
-            }
-          },
-          "advanced": {
-            "name": "Feinabstimmung",
-            "description": "Selten nötig – die Standardwerte passen für die meisten.",
-            "data": {
-              "season_threshold": "Winter unterhalb von",
-              "notification_cooldown": "Abstand zwischen Erinnerungen",
-              "wind_is_from": "Windrichtung gibt die Herkunft an",
-              "use_sun": "Sonnenstand berücksichtigen",
-              "sun_entity": "Sonne",
-              "min_sun_elevation": "Mindest-Sonnenhöhe"
-            },
-            "data_description": {
-              "season_threshold": "Nur im Automatikmodus: Außentemperatur, unter der auf Winter umgeschaltet wird (Heizgrenze, üblich 15 °C).",
-              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
-              "wind_is_from": "Üblich bei Wetterstationen: 270° = Wind aus Westen. Nur ausschalten, wenn dein Sensor die Zugrichtung meldet.",
-              "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
-              "sun_entity": "Meist „sun.sun“.",
-              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend."
             }
           }
         }
@@ -205,18 +197,20 @@
         "sections": {
           "room": {
             "name": "Raum & Fenster",
-            "description": "Wie groß ist der Raum und welche Fenster gehören dazu?",
+            "description": "Wie groß ist der Raum, welche Fenster gehören dazu und wie gut ist gedämmt?",
             "data": {
               "window": "Fensterkontakte",
               "volume": "Raumvolumen",
               "window_direction": "Fensterausrichtung",
-              "room_type": "Raumtyp"
+              "room_type": "Raumtyp",
+              "building_standard": "Dämmstandard der Außenwände"
             },
             "data_description": {
               "window": "Ein oder mehrere Kontakte. Sind zwei oder mehr gleichzeitig offen, wird Querlüften erkannt und getrennt gelernt.",
               "volume": "Grundfläche × Deckenhöhe, z. B. 16 m² × 2,5 m = 40 m³. Wird für Wärmeverlust und Kosten verwendet.",
               "window_direction": "Himmelsrichtung, in die das Fenster zeigt: 0° Nord, 90° Ost, 180° Süd, 270° West.",
-              "room_type": "Nur ein Vorschlag: passt beim Einrichten das Tagesziel Luftfeuchte automatisch an, sofern es nicht manuell geändert wird."
+              "room_type": "Nur ein Vorschlag: passt beim Einrichten das Tagesziel Luftfeuchte automatisch an, sofern es nicht manuell geändert wird.",
+              "building_standard": "Bestimmt die geschätzte Temperatur an der kältesten Wandstelle und damit das Schimmelrisiko."
             }
           },
           "indoor": {
@@ -239,21 +233,29 @@
           },
           "outdoor": {
             "name": "Außen & Wetter",
-            "description": "Messwerte von draußen – z. B. von deiner Wetterstation.",
+            "description": "Messwerte von draußen – z. B. von deiner Wetterstation – und wie Wind und Sonne ausgewertet werden.",
             "data": {
               "outdoor_temperature": "Außentemperatur",
               "outdoor_absolute_humidity": "Absolute Außenfeuchte",
               "rain": "Regensensor",
               "wind_speed": "Windgeschwindigkeit",
               "wind_direction": "Windrichtung",
-              "weather_entity": "Wettervorhersage"
+              "wind_is_from": "Windrichtung gibt die Herkunft an",
+              "weather_entity": "Wettervorhersage",
+              "use_sun": "Sonnenstand berücksichtigen",
+              "sun_entity": "Sonne",
+              "min_sun_elevation": "Mindest-Sonnenhöhe"
             },
             "data_description": {
               "outdoor_absolute_humidity": "Absolute Feuchte draußen in g/m³.",
               "rain": "Binärsensor oder Regenrate in mm/h. Bei Regen wird nicht zum Lüften geraten.",
               "wind_speed": "km/h oder m/s – wird automatisch umgerechnet.",
               "wind_direction": "In Grad (0–360).",
-              "weather_entity": "Optional. Mit stündlicher Vorhersage werden der beste Lüftungszeitpunkt und im Sommer ein Nachtkühlplan berechnet."
+              "wind_is_from": "Üblich bei Wetterstationen: 270° = Wind aus Westen. Nur ausschalten, wenn dein Sensor die Zugrichtung meldet.",
+              "weather_entity": "Optional. Mit stündlicher Vorhersage werden der beste Lüftungszeitpunkt und im Sommer ein Nachtkühlplan berechnet.",
+              "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
+              "sun_entity": "Meist „sun.sun“.",
+              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend."
             }
           },
           "behavior": {
@@ -261,22 +263,22 @@
             "description": "Wann gelüftet, gekühlt oder gewarnt wird.",
             "data": {
               "season_mode": "Sommer-/Wintermodus",
+              "season_threshold": "Winter unterhalb von",
               "target_absolute_humidity": "Tagesziel Luftfeuchte",
               "max_temperature_difference": "Sommer: Hitzesperre ab",
               "comfort_temperature": "Sommer: kühlen ab",
               "preheat_temperature": "Vorheizen ab (nach kalter Nacht)",
               "cool_limit": "Auskühl-Warnung unter",
-              "building_standard": "Dämmstandard der Außenwände",
               "humidity_hysteresis": "Feuchte-Puffer gegen Flackern"
             },
             "data_description": {
               "season_mode": "Winter: kurzes Stoßlüften, nie Kippfenster. Sommer: nicht lüften, wenn es draußen wärmer ist; Kühlen per Lüften möglich. Bei \"Automatisch\" entscheiden Kalendermonat, mehrtägiger Wettervorhersage-Trend (falls Wetter-Entität gewählt) und sonst die Außentemperatur – ein Wechsel per Außentemperatur wird erst nach mehreren Stunden anhaltendem Trend übernommen, damit der Modus nicht ständig hin- und herspringt.",
+              "season_threshold": "Nur im Automatikmodus: Außentemperatur, unter der auf Winter umgeschaltet wird (Heizgrenze, üblich 15 °C).",
               "target_absolute_humidity": "Sinkt die absolute Feuchte innen beim Lüften unter diesen Wert, gilt der Tag als ausreichend gelüftet. Der Raumtyp oben schlägt beim Einrichten einen passenden Wert vor.",
               "max_temperature_difference": "Nicht lüften, wenn es draußen um mehr als diesen Wert wärmer ist als drinnen.",
               "comfort_temperature": "Ist es drinnen wärmer und draußen mindestens 2 °C kühler, wird Lüften zum Abkühlen empfohlen.",
               "preheat_temperature": "Liegt die Raumtemperatur darunter und ist es draußen mindestens 2 °C wärmer als drinnen, wird nach einer Nacht mit Werten unter der Heizgrenze Lüften zum Vorheizen empfohlen, um das Heizen hinauszuzögern. Zählt die tatsächliche Nacht-Tiefsttemperatur, nicht das (bewusst träge reagierende) Sommer-/Winter-Label oben – nur bei manuell eingestelltem \"Sommer\" bleibt Vorheizen aus.",
               "cool_limit": "Warnt, wenn der Raum bei offenem Fenster kälter wird. 0 = aus.",
-              "building_standard": "Bestimmt die geschätzte Temperatur an der kältesten Wandstelle und damit das Schimmelrisiko.",
               "humidity_hysteresis": "Wie deutlich sich die Lage erst verbessern muss, bevor eine aktive „Lüften wegen Feuchte“-Empfehlung wieder ausgeht. Höher = ruhiger, aber reagiert etwas träger; niedriger = reagiert schneller, kann bei sehr unruhigen Sensoren wieder häufiger wechseln."
             }
           },
@@ -288,6 +290,7 @@
               "persons": "Personen",
               "quiet_start": "Ruhezeit von",
               "quiet_end": "Ruhezeit bis",
+              "notification_cooldown": "Abstand zwischen Erinnerungen",
               "weekly_report": "Wochenbericht",
               "monthly_report": "Monatsbericht",
               "vacation_entity": "Urlaub",
@@ -297,6 +300,7 @@
               "notify_services": "Handys mit der Home-Assistant-App. Nichts ausgewählt = keine Push-Nachrichten.",
               "persons": "Optional. Erinnerungen nur an Anwesende, Hinweis beim Heimkommen und Warnung, wenn alle weg sind und ein Fenster offen ist.",
               "quiet_start": "Keine Lüft-Erinnerungen. Warnungen (Auskühlen, Fenster offen, nach dem Duschen) kommen trotzdem.",
+              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
               "weekly_report": "Sonntags um 19 Uhr eine Zusammenfassung der Woche.",
               "monthly_report": "Am 1. des Monats: Bilanz des Vormonats mit Vergleich zum Vormonat und – ab dem zweiten Jahr – zum Vorjahr.",
               "vacation_entity": "Optional: Kalender, Schalter oder Binärsensor. Im Urlaub keine Erinnerungen, nur Schimmelwarnungen.",
@@ -315,26 +319,6 @@
               "climate_entities": "Optional. Nach 1 Minute offenem Fenster aus bzw. auf Minimum, danach zurück. Leer lassen, wenn die Thermostate selbst eine Fenster-offen-Erkennung haben.",
               "dehumidifier_entity": "Optional: Steckdose oder Entfeuchter. Läuft, wenn es feucht ist und gerade nicht gelüftet werden kann.",
               "energy_price": "Für die Kostenschätzung, z. B. Gas ≈ 0,12 €/kWh, Wärmepumpe ≈ 0,10 €/kWh."
-            }
-          },
-          "advanced": {
-            "name": "Feinabstimmung",
-            "description": "Selten nötig – die Standardwerte passen für die meisten.",
-            "data": {
-              "season_threshold": "Winter unterhalb von",
-              "notification_cooldown": "Abstand zwischen Erinnerungen",
-              "wind_is_from": "Windrichtung gibt die Herkunft an",
-              "use_sun": "Sonnenstand berücksichtigen",
-              "sun_entity": "Sonne",
-              "min_sun_elevation": "Mindest-Sonnenhöhe"
-            },
-            "data_description": {
-              "season_threshold": "Nur im Automatikmodus: Außentemperatur, unter der auf Winter umgeschaltet wird (Heizgrenze, üblich 15 °C).",
-              "notification_cooldown": "Frühestens nach dieser Zeit kommt die nächste Lüft-Erinnerung.",
-              "wind_is_from": "Üblich bei Wetterstationen: 270° = Wind aus Westen. Nur ausschalten, wenn dein Sensor die Zugrichtung meldet.",
-              "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
-              "sun_entity": "Meist „sun.sun“.",
-              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend."
             }
           },
           "messages": {

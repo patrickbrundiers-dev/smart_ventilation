@@ -8,8 +8,7 @@
           "outdoor": "mdi:weather-partly-cloudy",
           "behavior": "mdi:tune-variant",
           "notify": "mdi:bell-outline",
-          "devices": "mdi:radiator",
-          "advanced": "mdi:cog-outline"
+          "devices": "mdi:radiator"
         }
       },
       "overview": {
@@ -30,7 +29,6 @@
           "behavior": "mdi:tune-variant",
           "notify": "mdi:bell-outline",
           "devices": "mdi:radiator",
-          "advanced": "mdi:cog-outline",
           "messages": "mdi:bell-outline",
           "reports": "mdi:chart-box-outline"
         }

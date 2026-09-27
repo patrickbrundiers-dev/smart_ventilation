@@ -21,7 +21,6 @@ ROOM_INPUT = {
     "behavior": {},
     "notify": {},
     "devices": {},
-    "advanced": {},
 }
 
 

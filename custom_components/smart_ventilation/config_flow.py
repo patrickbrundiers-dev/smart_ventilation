@@ -32,7 +32,10 @@ from .const import (
 )
 
 # Reihenfolge der Bereiche im Formular
-SECTIONS = ["room", "indoor", "outdoor", "behavior", "notify", "devices", "advanced"]
+# "Feinabstimmung" wurde aufgelöst: Windrichtung/Sonne stecken jetzt bei "outdoor" (deren Sensoren),
+# Winterschwelle bei "behavior" (neben dem Sommer-/Wintermodus) und der Erinnerungsabstand bei "notify" –
+# so findet man ein Feld dort, wo man wegen des zugehörigen Themas ohnehin schon hinschaut.
+SECTIONS = ["room", "indoor", "outdoor", "behavior", "notify", "devices"]
 OVERVIEW_SECTIONS = ["messages", "reports"]
 # Bei der Ersteinrichtung offen (enthalten Pflichtfelder), der Rest zugeklappt
 OPEN_ON_SETUP = {"room", "indoor", "outdoor"}
@@ -141,6 +144,9 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             vol.Required(CONF_ROOM_TYPE, default=g(CONF_ROOM_TYPE, DEFAULT_ROOM_TYPE)): _select(
                 list(ROOM_TYPE_TARGET_ABS), "room_type"
             ),
+            vol.Required(CONF_BUILDING, default=g(CONF_BUILDING, DEFAULT_BUILDING)): _select(
+                list(U_VALUES), "building_standard"
+            ),
         })
         return fields
 
@@ -160,7 +166,13 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             _req(CONF_RAIN, g(CONF_RAIN)): _entity(["binary_sensor", "sensor"]),
             _req(CONF_WIND_SPEED, g(CONF_WIND_SPEED)): sensor,
             _req(CONF_WIND_DIRECTION, g(CONF_WIND_DIRECTION)): sensor,
+            vol.Required(CONF_WIND_IS_FROM, default=g(CONF_WIND_IS_FROM, True)): bool,
             _opt(CONF_WEATHER, g(CONF_WEATHER)): _entity("weather"),
+            vol.Required(CONF_USE_SUN, default=g(CONF_USE_SUN, True)): bool,
+            vol.Required(CONF_SUN_ENTITY, default=g(CONF_SUN_ENTITY, DEFAULT_SUN_ENTITY)): _entity("sun"),
+            vol.Required(
+                CONF_MIN_SUN_ELEVATION, default=g(CONF_MIN_SUN_ELEVATION, DEFAULT_MIN_SUN_ELEVATION)
+            ): _number(0, 90, 1, "°"),
         }
 
     if name == "behavior":
@@ -168,6 +180,9 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             vol.Required(CONF_SEASON_MODE, default=g(CONF_SEASON_MODE, DEFAULT_SEASON_MODE)): _select(
                 [SEASON_AUTO, SEASON_SUMMER, SEASON_WINTER], "season_mode"
             ),
+            vol.Required(
+                CONF_SEASON_THRESHOLD, default=g(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD)
+            ): _number(5, 25, 0.5, "°C"),
             vol.Required(CONF_TARGET_ABS, default=g(CONF_TARGET_ABS, DEFAULT_TARGET_ABS)): _number(5, 20, 0.1, "g/m³"),
             vol.Required(
                 CONF_HUMID_HYSTERESIS, default=g(CONF_HUMID_HYSTERESIS, DEFAULT_HUMID_HYSTERESIS)
@@ -178,9 +193,6 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
                 CONF_PREHEAT_TEMP, default=g(CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP)
             ): _number(10, 25, 0.5, "°C"),
             vol.Required(CONF_COOL_LIMIT, default=g(CONF_COOL_LIMIT, DEFAULT_COOL_LIMIT)): _number(0, 25, 0.5, "°C"),
-            vol.Required(CONF_BUILDING, default=g(CONF_BUILDING, DEFAULT_BUILDING)): _select(
-                list(U_VALUES), "building_standard"
-            ),
         }
 
     if name == "notify":
@@ -190,6 +202,9 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             _opt(CONF_PERSONS, g(CONF_PERSONS, [])): _entity("person", multiple=True),
             vol.Required(CONF_QUIET_START, default=g(CONF_QUIET_START, DEFAULT_QUIET_START)): selector.TimeSelector(),
             vol.Required(CONF_QUIET_END, default=g(CONF_QUIET_END, DEFAULT_QUIET_END)): selector.TimeSelector(),
+            vol.Required(
+                CONF_NOTIFICATION_COOLDOWN, default=g(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
+            ): _number(5, 1440, 5, "min"),
             vol.Required(CONF_WEEKLY_REPORT, default=g(CONF_WEEKLY_REPORT, True)): bool,
             vol.Required(CONF_MONTHLY_REPORT, default=g(CONF_MONTHLY_REPORT, True)): bool,
             _opt(CONF_VACATION, g(CONF_VACATION)): _entity(["calendar", "input_boolean", "binary_sensor"]),
@@ -201,22 +216,6 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             _opt(CONF_CLIMATES, g(CONF_CLIMATES, [])): _entity("climate", multiple=True),
             _opt(CONF_DEHUMIDIFIER, g(CONF_DEHUMIDIFIER)): _entity(["switch", "humidifier"]),
             vol.Required(CONF_ENERGY_PRICE, default=g(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE)): _number(0, 2, 0.01, "€/kWh"),
-        }
-
-    if name == "advanced":
-        return {
-            vol.Required(
-                CONF_SEASON_THRESHOLD, default=g(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD)
-            ): _number(5, 25, 0.5, "°C"),
-            vol.Required(
-                CONF_NOTIFICATION_COOLDOWN, default=g(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
-            ): _number(5, 1440, 5, "min"),
-            vol.Required(CONF_WIND_IS_FROM, default=g(CONF_WIND_IS_FROM, True)): bool,
-            vol.Required(CONF_USE_SUN, default=g(CONF_USE_SUN, True)): bool,
-            vol.Required(CONF_SUN_ENTITY, default=g(CONF_SUN_ENTITY, DEFAULT_SUN_ENTITY)): _entity("sun"),
-            vol.Required(
-                CONF_MIN_SUN_ELEVATION, default=g(CONF_MIN_SUN_ELEVATION, DEFAULT_MIN_SUN_ELEVATION)
-            ): _number(0, 90, 1, "°"),
         }
 
     raise ValueError(name)

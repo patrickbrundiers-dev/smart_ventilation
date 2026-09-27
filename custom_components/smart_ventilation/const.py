@@ -151,7 +151,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -206,4 +206,7 @@ MOLD_LOG_DAYS = 62
 # Monats-/Jahresvergleich
 CONF_MONTHLY_REPORT = "monthly_report"
 MONTHLY_REPORT_HOUR = 9           # am 1. des Monats ab 9 Uhr
+
+# Tagesarchiv für den 7-Tage-Trend auf der Dashboard-Karte
+DAY_LOG_DAYS = 14
 HISTORY_MONTHS = 36
