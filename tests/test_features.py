@@ -126,15 +126,21 @@ async def test_preheat_after_cold_night_overrides_warm_outside_block(
     assert "Vorheizen" in rec.state
 
 
-async def test_preheat_works_independent_of_season_mode(
+async def test_preheat_ignores_slow_auto_label_but_respects_manual_summer(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
-    """Vorheizen hängt bewusst nicht an der Sommer/Winter-Einstufung: die reagiert seit 2.3.19
-    erst nach Stunden Trend (gegen Flackern), aber gerade in der Übergangszeit gibt es schon
-    einzelne kalte Nächte, obwohl der Modus noch „Sommer“ zeigt (z. B. Herbst-Tag mit 9 °C
-    morgens, 26 °C mittags, wieder kühler abends) - Vorheizen soll trotzdem funktionieren."""
+    """Vorheizen soll nur in der Heizsaison passieren, nicht unnötig Wärme in den echten Sommer
+    holen. Dafür zählt aber nicht die automatisch ERKANNTE Saison - die reagiert seit 2.3.19
+    bewusst erst nach Stunden Trend (gegen Flackern) und kann in der Übergangszeit deshalb noch
+    tagelang „Sommer“ zeigen, obwohl es nachts schon unter die Heizgrenze fällt (z. B. Herbst-Tag
+    mit 9 °C morgens/nachts, 26 °C mittags). Genau dann soll Vorheizen trotzdem funktionieren.
+    Stellt der Nutzer den Raum dagegen bewusst manuell auf "Sommer", wird respektiert, dass hier
+    keine Heizsaison gewünscht ist."""
     freezer.move_to("2026-09-27 23:00:00+02:00")  # innerhalb des Nachtfensters (22-9 Uhr)
-    entry = await setup_room(hass, season_mode="summer")  # Modus zeigt (noch) "Sommer"
+    entry = await setup_room(hass, season_mode="auto")
+    room = hass.data[DOMAIN][entry.entry_id]
+    room._auto_season = "summer"  # z. B. von einer vorangegangenen warmen Woche übernommen
+
     hass.states.async_set("sensor.aussen_t", 9.0)  # kühle Nacht, unter der Heizgrenze (15 °C)
     await hass.async_block_till_done()
     await _tick(hass, freezer, 1)  # Nacht-Tiefsttemperatur wird mitgeschrieben
@@ -149,9 +155,18 @@ async def test_preheat_works_independent_of_season_mode(
     await _tick(hass, freezer, 1)
 
     rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    # Automatik-Label ist (bewusst träge) noch nicht auf "winter" umgesprungen ...
     assert hass.states.get(eid(hass, "sensor", entry, "season")).state == "summer"
+    # ... trotzdem wird vorgeheizt, weil es nachts tatsächlich unter die Heizgrenze fiel.
     assert rec.attributes["grund"] == "Vorheizen"
     assert rec.attributes["karte"]["minuten"] > 0
+
+    # Stellt der Nutzer den Raum jetzt bewusst manuell auf "Sommer" ...
+    room.data["season_mode"] = "summer"
+    await _tick(hass, freezer, 1)
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    # ... wird das respektiert, auch wenn die Nacht-Bedingung weiter erfüllt wäre.
+    assert "Vorheizen" not in rec.attributes["grund"]
 
 
 async def test_preheat_uses_forecast_for_rain_and_upcoming_window(

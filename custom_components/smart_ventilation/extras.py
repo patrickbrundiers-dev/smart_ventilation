@@ -21,6 +21,7 @@ from .const import (
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
     CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER,
     CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD,
+    CONF_SEASON_MODE, DEFAULT_SEASON_MODE,
     FORECAST_MAX_RAIN_MM, FORECAST_MAX_RAIN_PROB,
 )
 from . import notify_util
@@ -252,15 +253,21 @@ class RoomExtrasMixin:
     def preheat_minutes(self):
         """Minuten zum Vorheizen, 0 = nicht sinnvoll.
 
-        Bewusst NICHT an die Sommer/Winter-Einstufung gekoppelt: die reagiert seit 2.3.19 erst
-        nach mehreren Stunden Trend, damit sie nicht ständig hin- und herspringt - genau in der
-        Übergangszeit (Herbst/Frühling) gibt es aber schon einzelne kalte Nächte, obwohl der
-        Modus noch "Sommer" zeigt. Die eigentliche Voraussetzung ist die Nacht-Tiefsttemperatur:
-        nur nach einer Nacht mit Tiefstwerten unter der Heizgrenze (sonst macht das Vorziehen
-        der Heizung keinen Sinn) und nur, wenn draußen jetzt spürbar wärmer ist als drinnen und
-        der Raum noch unter der Vorheiz-Schwelle liegt. Droht laut Vorhersage in Kürze Regen,
-        lohnt sich das Öffnen nicht – auch wenn es gerade noch trocken ist.
+        Soll ausdrücklich nur in der Heizsaison passieren, nicht im echten Sommer unnötig Wärme
+        reinholen. Dafür zählt aber nicht die automatisch ERKANNTE Saison (self.season) - die
+        reagiert seit 2.3.19 bewusst erst nach mehreren Stunden Trend, damit sie nicht flackert,
+        und kann in der Übergangszeit deshalb tagelang "Sommer" anzeigen, obwohl es nachts schon
+        klar unter die Heizgrenze fällt. Genau an solchen milden Herbst-/Frühlingstagen soll
+        Vorheizen ja funktionieren. Blockiert wird daher nur, wenn EXPLIZIT "Sommer" eingestellt
+        ist (nicht "Automatisch") - dann hat der Nutzer bewusst gesagt, dass hier keine Heizung
+        /kein Vorheizen gebraucht wird. Die eigentliche fachliche Voraussetzung bleibt die
+        Nacht-Tiefsttemperatur: nur nach einer Nacht mit Tiefstwerten unter der Heizgrenze (sonst
+        macht das Vorziehen der Heizung keinen Sinn) und nur, wenn draußen jetzt spürbar wärmer
+        ist als drinnen und der Raum noch unter der Vorheiz-Schwelle liegt. Droht laut Vorhersage
+        in Kürze Regen, lohnt sich das Öffnen nicht – auch wenn es gerade noch trocken ist.
         """
+        if self.data.get(CONF_SEASON_MODE, DEFAULT_SEASON_MODE) == SEASON_SUMMER:
+            return 0
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
         if self._last_night_low is None or self._last_night_low >= threshold:
             return 0
@@ -277,8 +284,9 @@ class RoomExtrasMixin:
     def preheat_plan(self, forecast):
         """Aus der Stundenvorhersage: ab wann es heute/morgen warm genug zum Vorheizen wird,
         bis wann noch – nur wenn die Nacht-Voraussetzung (kalte Nacht) bereits erfüllt ist.
-        Bewusst unabhängig von der (träger reagierenden) Sommer/Winter-Einstufung, siehe
-        preheat_minutes()."""
+        Blockiert nur bei explizit eingestelltem Sommer-Modus, siehe preheat_minutes()."""
+        if self.data.get(CONF_SEASON_MODE, DEFAULT_SEASON_MODE) == SEASON_SUMMER:
+            return None
         ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
         if (

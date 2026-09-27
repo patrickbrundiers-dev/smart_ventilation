@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.21
+
+- **Präzisierung zu 2.3.20:** Vorheizen soll gezielt nur in der Heizsaison passieren, nicht unnötig Wärme in den echten Sommer holen. Deshalb wird jetzt wieder ein Sommer-Modus berücksichtigt – aber nur, wenn er **manuell** eingestellt ist. Steht ein Raum auf „Automatisch“, zählt weiterhin nur die tatsächliche Nacht-Tiefsttemperatur, weil die automatische Sommer/Winter-Erkennung (seit 2.3.19 bewusst träge) in der Übergangszeit tagelang „Sommer“ zeigen kann, obwohl es nachts schon unter die Heizgrenze fällt – genau dann soll Vorheizen ja Heizkosten sparen.
+
 ### Version 2.3.20
 
 - **Fix: Vorheizen funktionierte nicht mehr, solange der Modus noch „Sommer“ zeigte.** Seit 2.3.19 reagiert die Sommer/Winter-Automatik erst nach mehreren Stunden anhaltendem Trend, damit sie nicht mehr flackert. Gerade in der Übergangszeit (Herbst/Frühling) gibt es aber schon einzelne kalte Nächte, obwohl der Modus wegen warmer Tage noch auf „Sommer“ steht – Vorheizen wäre dadurch blockiert gewesen, obwohl die eigentliche Voraussetzung (kalte Nacht) erfüllt war. Vorheizen prüft jetzt nur noch die Nacht-Tiefsttemperatur direkt und ist unabhängig von der Sommer/Winter-Einstufung.
