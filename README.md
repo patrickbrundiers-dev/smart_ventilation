@@ -119,6 +119,7 @@ Home Assistant **2024.11** oder neuer.
 - **Better Thermostat:** Hat ein Better Thermostat einen eigenen Fenstersensor, schaltet es beim Lüften selbst ab – Smart Ventilation greift dann nicht mehr zusätzlich ein (kein doppeltes Schalten). Ohne Fenstersensor übernimmt Smart Ventilation wie bisher.
 - **Klima-Gruppen:** Eine ausgewählte Gruppe wird in ihre Thermostate aufgelöst; ist ein Thermostat zusätzlich einzeln gewählt, wird es trotzdem nur einmal geschaltet.
 - Neues Attribut `heizung_selbst_geregelt` am Sensor „Lüftung läuft“.
+- Releases werden automatisch angelegt, sobald alle Tests grün sind.
 
 ### Version 2.3.5
 

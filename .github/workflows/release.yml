@@ -1,22 +1,25 @@
 name: Release
 
-# Legt automatisch ein GitHub-Release an, sobald sich die Version in manifest.json ändert.
+# Legt automatisch ein GitHub-Release an, sobald die Tests auf main grün sind
+# und es für die Version aus manifest.json noch kein Release gibt.
 # HACS erkennt das Release dann als Update.
 on:
-  push:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
     branches: [main]
-    paths:
-      - "custom_components/smart_ventilation/manifest.json"
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Version lesen
         id: v
@@ -45,6 +48,6 @@ jobs:
 
       - name: Release anlegen
         if: steps.v.outputs.exists == 'false'
-        run: gh release create "${{ steps.v.outputs.version }}" --title "${{ steps.v.outputs.version }}" --notes-file notes.md --target "${{ github.sha }}"
+        run: gh release create "${{ steps.v.outputs.version }}" --title "${{ steps.v.outputs.version }}" --notes-file notes.md --target "${{ github.event.workflow_run.head_sha }}"
         env:
           GH_TOKEN: ${{ github.token }}

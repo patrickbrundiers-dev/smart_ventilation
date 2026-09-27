@@ -176,6 +176,7 @@ async def test_better_thermostat_and_climate_group(hass: HomeAssistant, freezer:
     await hass.async_block_till_done()
     await _tick(hass, freezer, 2)
     assert [(c.data["entity_id"], c.data["hvac_mode"]) for c in hvac] == [("climate.bad_heizkoerper", "off")]
+    await _tick(hass, freezer, 1)
     running = hass.states.get(eid(hass, "sensor", entry, "ventilation_running"))
     assert running.attributes["heizung_selbst_geregelt"] == {"climate.bad_bt": "Better Thermostat"}
 
