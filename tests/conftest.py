@@ -26,7 +26,7 @@ ROOM_DATA = {
     "weather_entity": "",
     "volume": 45.0,
     "window_direction": 106.0,
-    "target_absolute_humidity": 11.5,
+    "target_absolute_humidity": 10.0,
     "season_mode": "winter",
     "season_threshold": 15.0,
     "max_temperature_difference": 3.0,

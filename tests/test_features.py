@@ -148,3 +148,16 @@ async def test_assist_intent_and_service(hass: HomeAssistant, berlin) -> None:
 
     sentences = Path(hass.config.path("custom_sentences", "de", "smart_ventilation.yaml"))
     assert sentences.exists()
+
+
+async def test_no_humidity_nag_when_room_is_dry_enough(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    """Innen 10,1 / außen 9,2 g/m³ bei 20 °C: Lüften bringt kaum etwas -> keine Aufforderung."""
+    freezer.move_to("2026-09-27 10:00:00+02:00")
+    entry = await setup_room(hass, season_mode="summer")
+    for eid_, val in (("sensor.innen_t", 20.4), ("sensor.aussen_t", 20), ("sensor.innen_ah", 10.1), ("sensor.aussen_ah", 9.2)):
+        hass.states.async_set(eid_, val)
+    await _tick(hass, freezer, 1)
+    assert hass.states.get(eid(hass, "sensor", entry, "recommendation")).state == "Keine Lüftung erforderlich"
+    hass.states.async_set("sensor.innen_ah", 12.5)        # jetzt wirklich zu feucht
+    await _tick(hass, freezer, 1)
+    assert hass.states.get(eid(hass, "sensor", entry, "recommendation")).state != "Keine Lüftung erforderlich"

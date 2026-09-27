@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.5
+
+- **Keine Dauer-Aufforderung mehr:** „Lüften wegen Feuchte“ nur noch, wenn es sich lohnt (draußen mindestens 1 g/m³ trockener) **und** der Raum zu feucht ist (über dem Tagesziel, ab 65 % rel. Feuchte oder bei erhöhtem Schimmelrisiko). Vorher reichten 0,5 g/m³ Unterschied – das Tagesziel wurde dabei nicht beachtet.
+
 ### Version 2.3.4
 
 - **Alexa sagt den Raum an:** Alexa Media Player liest nur den Nachrichtentext vor, nicht den Titel. Alexa-Empfänger (`notify.alexa_media_…`) bekommen jetzt einen eigenen, vorlesbaren Text: Raum zuerst, Einheiten ausgeschrieben („Grad“, „Prozent“, „Gramm pro Kubikmeter“), Kommazahlen auf Deutsch. Handys bekommen weiterhin Titel und Aktions-Buttons.

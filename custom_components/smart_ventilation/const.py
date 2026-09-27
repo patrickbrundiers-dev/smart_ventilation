@@ -21,6 +21,8 @@ CONF_NOTIFICATION_COOLDOWN = "notification_cooldown"
 
 DEFAULT_START_DIFF = 0.7
 DEFAULT_TARGET_DIFF = 0.5
+START_DIFF = 1.0      # g/m³ – erst ab diesem Unterschied lohnt sich Lüften gegen Feuchte
+HUMID_RH = 65.0       # % rel. Feuchte innen – ab hier immer „zu feucht“
 DEFAULT_MIN_SESSION = 120
 DEFAULT_MAX_SESSION = 7200
 DEFAULT_MAX_TEMP_DIFF = 3.0  # Sommer: nicht lüften, wenn draußen so viel wärmer
@@ -109,7 +111,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.3.4"
+VERSION = "2.3.5"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus

@@ -1159,6 +1159,22 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self.last_notification_key = key
             self.last_notification_at = now
 
+    def _humidity_need(self, indoor, diff):
+        """Wegen Feuchte lüften nur, wenn es sich lohnt UND die Raumluft zu feucht ist.
+
+        - draußen deutlich trockener (Start ab 1 g/m³, beendet wird bei 0,5 -> kein Hin und Her)
+        - und innen über dem Tagesziel, relative Feuchte hoch oder Schimmelrisiko an der Wand
+        """
+        if diff <= START_DIFF:
+            return False
+        target_abs = float(self.data.get(CONF_TARGET_ABS, DEFAULT_TARGET_ABS))
+        rh = self.indoor_rh
+        return (
+            indoor > target_abs
+            or (rh is not None and rh >= HUMID_RH)
+            or self.mold_risk in ("erhöht", "hoch")
+        )
+
     def _update_recommendation(self):
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
@@ -1172,7 +1188,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         diff = indoor - outdoor
         co2 = self.co2
-        need_humidity = diff > DEFAULT_TARGET_DIFF
+        need_humidity = self._humidity_need(indoor, diff)
         need_co2 = co2 is not None and co2 >= CO2_ELEVATED
         cool_minutes = self.cooling_minutes()
         need_cool = cool_minutes > 0
