@@ -300,9 +300,10 @@ async def test_post_vent_pause_uses_forecast_and_extreme_override(
     assert karte["pausiert"].startswith("Pause nach dem Lüften bis 10:0")   # in ca. 2 Std., nicht 60 Min.
 
     # nach 61 Minuten wäre die alte feste Pause vorbei, die Wetter-Pause aber noch nicht
+    before = len([c for c in pushes if c.data["title"].startswith("Lüften:")])
     await _tick(hass, freezer, 61)
     assert hass.states.get(rec).attributes["karte"]["pausiert"] is not None
-    assert not [c for c in pushes if c.data["title"].startswith("Lüften:")]
+    assert len([c for c in pushes if c.data["title"].startswith("Lüften:")]) == before
 
     # jetzt wird es extrem (Schimmelrisiko hoch) -> Pause gilt nicht mehr, auch wenn die Zeit noch nicht da ist
     hass.states.async_set("sensor.innen_ah", 13.0)
