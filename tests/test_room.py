@@ -256,3 +256,50 @@ async def test_card_shows_heating_lowered(hass: HomeAssistant, freezer: FrozenDa
     karte = hass.states.get(eid(hass, "sensor", entry, "recommendation")).attributes["karte"]
     assert karte["heizung_ab"] == ["Wohnzimmer Heizung"]
     assert karte["heizung_extern"] == []
+
+
+async def test_post_vent_pause_uses_forecast_and_extreme_override(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Pause nach dem Lüften: nutzt den nächsten günstigen Zeitpunkt statt fix 60 Minuten,
+    aber nicht mehr als 4 Std. voraus, und bei Schimmelalarm gilt sie gar nicht."""
+    freezer.move_to("2026-12-05 08:00:00+01:00")
+    now = dt_util.now().replace(minute=0, second=0, microsecond=0)
+    forecast = [
+        {"datetime": (now + timedelta(hours=h)).isoformat(), "temperature": 5, "humidity": rh,
+         "precipitation": 0, "precipitation_probability": 0, "wind_speed": 10}
+        for h, rh in [(2, 40), (7, 20)]           # günstigster Punkt: in 2 Std.
+    ]
+    async_mock_service(
+        hass, "weather", "get_forecasts",
+        response={"weather.home": {"forecast": forecast}},
+        supports_response=SupportsResponse.ONLY,
+    )
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    entry = await setup_room(hass, weather_entity="weather.home")
+    rec = eid(hass, "sensor", entry, "recommendation")
+    await _tick(hass, freezer, 0.5)                # Vorhersage laden
+
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 3)
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+
+    karte = hass.states.get(rec).attributes["karte"]
+    assert "nächster günstiger Zeitpunkt" in karte["pausiert"]
+    assert karte["pausiert"].startswith("Pause nach dem Lüften bis 10:0")   # in ca. 2 Std., nicht 60 Min.
+
+    # nach 61 Minuten wäre die alte feste Pause vorbei, die Wetter-Pause aber noch nicht
+    await _tick(hass, freezer, 61)
+    assert hass.states.get(rec).attributes["karte"]["pausiert"] is not None
+    assert not [c for c in pushes if c.data["title"].startswith("Lüften:")]
+
+    # jetzt wird es extrem (Schimmelrisiko hoch) -> Pause gilt nicht mehr, auch wenn die Zeit noch nicht da ist
+    hass.states.async_set("sensor.innen_ah", 13.0)
+    hass.states.async_set("sensor.aussen_ah", 4.0)
+    await _tick(hass, freezer, 1)
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["schimmel"] == "hoch"
+    assert karte["pausiert"] is None

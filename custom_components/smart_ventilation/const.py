@@ -78,7 +78,8 @@ ON_STATES = ("on", "open", "true", "1")
 OFF_STATES = ("off", "closed", "false", "0")
 TARGET_PROGRESS = 0.7              # Ziel auch erreicht, wenn 70 % des Feuchteunterschieds abgebaut
 TARGET_MIN_SECONDS = 60            # frühestens nach 1 Min. "Ziel erreicht"
-POST_VENT_PAUSE_MINUTES = 60       # nach dem Lüften 1 h keine neue Erinnerung
+POST_VENT_PAUSE_MINUTES = 60       # nach dem Lüften 1 h keine neue Erinnerung (Basiswert/Fallback)
+POST_VENT_FORECAST_MAX_HOURS = 4   # so weit darf der Wetter-basierte Zeitpunkt in die Zukunft reichen
 
 # Schimmelrisiko an der Wand (DIN 4108-2: 80 % rel. Feuchte an der Oberfläche)
 CONF_BUILDING = "building_standard"
@@ -111,7 +112,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.3.10"
+VERSION = "2.3.11"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus

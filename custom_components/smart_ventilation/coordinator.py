@@ -1152,10 +1152,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             return None
         if self.on_vacation:
             return "Urlaub"
-        if self._last_session_end is not None:
-            until = dt_util.as_local(self._last_session_end) + timedelta(minutes=POST_VENT_PAUSE_MINUTES)
-            if now < until:
-                return f"Pause nach dem Lüften bis {until.strftime('%H:%M')} Uhr"
+        if not self._extreme_now():
+            until = self._post_vent_pause_until()
+            if until is not None and now < until:
+                from_forecast = until != dt_util.as_local(self._last_session_end) + timedelta(minutes=POST_VENT_PAUSE_MINUTES)
+                suffix = " (nächster günstiger Zeitpunkt)" if from_forecast else ""
+                return f"Pause nach dem Lüften bis {until.strftime('%H:%M')} Uhr{suffix}"
         skip, snooze = self._skip_date, self._snooze_until
         for other in self.hass.data.get(DOMAIN, {}).values():
             if getattr(other, "is_overview", False) and other.combine:
@@ -1194,6 +1196,31 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 return True
         return False
 
+    def _extreme_now(self):
+        """Lage so ernst, dass auch eine laufende Pause nicht mehr gilt (Schimmel oder CO₂ hoch)."""
+        return self.mold_risk == "hoch" or (self.co2 is not None and self.co2 >= CO2_HIGH)
+
+    def _post_vent_pause_until(self):
+        """Bis wann nach dem Lüften nicht erneut erinnert wird.
+
+        Normalerweise POST_VENT_PAUSE_MINUTES nach Sessionende. Ist eine Wetter-Entität
+        eingerichtet und die Vorhersage nennt einen späteren guten Lüftungszeitpunkt
+        (max. POST_VENT_FORECAST_MAX_HOURS Stunden voraus), gilt stattdessen dieser –
+        dann wird nicht schon nach 60 Minuten wieder erinnert, obwohl es draußen
+        gerade ungünstig ist (z. B. Regen, Hitze). Bei Schimmel- oder CO₂-Alarm greift
+        die Pause ohnehin nicht, siehe _extreme_now().
+        """
+        if self._last_session_end is None:
+            return None
+        end = dt_util.as_local(self._last_session_end)
+        fallback = end + timedelta(minutes=POST_VENT_PAUSE_MINUTES)
+        if not self.data.get(CONF_WEATHER) or self.best_time is None:
+            return fallback
+        best = dt_util.as_local(self.best_time)
+        if end < best <= end + timedelta(hours=POST_VENT_FORECAST_MAX_HOURS):
+            return best
+        return fallback
+
     def reminder_allowed(self, now=None):
         """Darf dieser Raum gerade an Lüften erinnern? (auch von der Übersicht genutzt)"""
         now = now or dt_util.now()
@@ -1203,11 +1230,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             return False
         if self.block_reason and "Sonne" not in self.block_reason and "CO₂" not in self.block_reason:
             return False
-        if (
-            self._last_session_end is not None
-            and (now - self._last_session_end).total_seconds() < POST_VENT_PAUSE_MINUTES * 60
-        ):
-            return False
+        if not self._extreme_now():
+            pause_until = self._post_vent_pause_until()
+            if pause_until is not None and now < pause_until:
+                return False
         return True
 
     def _notification_key(self):

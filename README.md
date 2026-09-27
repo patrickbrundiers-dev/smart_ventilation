@@ -114,6 +114,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.11
+
+- **Pause nach dem Lüften nutzt die Wettervorhersage:** Statt starr 60 Minuten zu warten, gilt bei eingerichteter Wetter-Entität der nächste günstige Zeitpunkt aus der Vorhersage – aber höchstens 4 Stunden voraus, sonst bleibt es bei 60 Minuten. So kommt keine Erinnerung, während draußen gerade Regen oder Hitze herrscht, aber auch keine unnötig lange Pause.
+- **Ausnahme bei Extremwerten:** Ist das Schimmelrisiko hoch oder der CO₂-Wert hoch, gilt die Pause gar nicht – dann wird trotzdem sofort wieder zum Lüften geraten.
+
 ### Version 2.3.10
 
 - Kleiner Timing-Fix: Attribute (u. a. der neue Heizungsstatus) werden jetzt immer am Ende jeder Prüfrunde aktualisiert, nicht nur am Anfang – vorher konnte die Karte bis zu 30 Sekunden hinterherhinken.
