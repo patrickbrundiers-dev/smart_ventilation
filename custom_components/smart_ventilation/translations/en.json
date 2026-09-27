@@ -509,6 +509,9 @@
       "cost_month": {
         "name": "Ventilation costs this month"
       },
+      "preheat_savings_month": {
+        "name": "Preheat savings this month"
+      },
       "most_urgent": {
         "name": "Most urgent room"
       },

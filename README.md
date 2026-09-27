@@ -143,6 +143,13 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.26
+
+- **Feuchte-Schutz beim Vorheizen**: Ist die Luft draußen deutlich feuchter als drinnen, wird nicht mehr vorgeheizt, auch wenn Temperatur und Nacht-Tiefstwert dafür sprächen – sonst würde man sich mit der Wärme zugleich ein Feuchteproblem einhandeln (spiegelbildlich zum bestehenden Feuchte-Schutz beim Sommer-Kühlen).
+- **Windrichtung fließt jetzt auch in die Vorhersage ein**: Liefert die Wetter-Integration eine Windrichtung pro Stunde, werden der beste Lüftungszeitpunkt sowie die Kühlen-/Vorheizen-Vorschau bevorzugt für Stunden mit günstigem Wind (zum Fenster hin statt vom Fenster weg) berechnet. Ohne Richtungsangabe in der Vorhersage ändert sich nichts.
+- **Kühlen und Vorheizen nutzen jetzt das gebuckete Luftwechsel-Modell** (nach Wind, Windwinkel und Temperaturdifferenz gelernt) statt nur des groben globalen Durchschnitts – wie es die normale Lüftungsdauer-Schätzung schon immer tut. Das macht die geschätzte Dauer für die aktuellen Bedingungen genauer, sobald dafür genug gelernt wurde.
+- **Vorheizen zeigt jetzt eine Ersparnis in der Statistik**: Lüftungen, die als Vorheizen erkannt wurden, tauchen nicht mehr nur als Wärmeverlust, sondern zusätzlich als eingesparte Heizenergie (kWh/€) auf – heute/Woche/Monat/gesamt, im Wochenbericht und in einem neuen Sensor „Vorheiz-Ersparnis Monat“.
+
 ### Version 2.3.25
 
 - **Automatik-Modus nutzt jetzt zusätzlich die mehrtägige Wettervorhersage** (nur wenn eine Wetter-Entität gewählt ist): Zeigt die Vorhersage für die nächsten Tage durchgehend eindeutig Hoch UND Tief auf einer Seite der Heizgrenze, wird der Sommer-/Wintermodus sofort übernommen – ohne erst mehrere Stunden auf die lokale Außentemperatur zu warten (SEASON_CONFIRM_HOURS aus 2.3.19). Ein mehrtägiger Vorhersage-Trend ist ein verlässlicheres, längerfristigeres Signal als ein paar Stunden lokale Messwerte. Ohne Wetter-Entität oder bei uneindeutiger Vorhersage bleibt es beim bisherigen Verhalten.

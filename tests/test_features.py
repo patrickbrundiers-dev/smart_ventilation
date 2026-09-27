@@ -224,6 +224,157 @@ async def test_preheat_uses_forecast_for_rain_and_upcoming_window(
     assert plan is not None and "Heute" in plan
 
 
+async def test_preheat_blocked_when_outside_much_more_humid(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Ist die Luft draußen deutlich feuchter als drinnen, würde Vorheizen sich zugleich ein
+    Feuchteproblem einhandeln - dann lohnt sich das Öffnen trotz der Wärme nicht (spiegelbildlich
+    zu COOL_MAX_EXTRA_HUMIDITY beim Kühlen)."""
+    freezer.move_to("2026-12-05 23:00:00+01:00")  # innerhalb des Nachtfensters (22-9 Uhr)
+    entry = await setup_room(hass)
+    hass.states.async_set("sensor.aussen_t", -2.0)  # kalte Nacht
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)  # Nacht-Tiefsttemperatur wird mitgeschrieben
+
+    freezer.move_to("2026-12-06 09:30:00+01:00")  # Nachtfenster vorbei -> Tiefstwert übernommen
+    await _tick(hass, freezer, 1)
+
+    # Sonst würde jetzt vorgeheizt: kalt genug drinnen, draußen deutlich wärmer ...
+    hass.states.async_set("sensor.innen_t", 15.0)
+    hass.states.async_set("sensor.aussen_t", 19.0)
+    # ... aber draußen auch deutlich feuchter als drinnen
+    hass.states.async_set("sensor.innen_ah", 5.0)
+    hass.states.async_set("sensor.aussen_ah", 7.0)
+    await _tick(hass, freezer, 1)
+
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    assert "Vorheizen" not in rec.attributes["grund"]
+    room = hass.data[DOMAIN][entry.entry_id]
+    assert room.preheat_minutes() == 0
+
+
+async def test_preheat_wind_plan_prefers_favorable_wind_direction(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Liefert die Vorhersage eine Windrichtung, wird eine an sich warme/trockene Stunde
+    übersprungen, wenn der Wind ungünstig vom Fenster weg bläst - die nächste Stunde mit
+    günstigem Wind wird stattdessen als Vorheiz-Beginn angezeigt."""
+    freezer.move_to("2026-12-05 23:00:00+01:00")
+    forecast_holder: dict = {"data": []}
+
+    async def _handle_get_forecasts(call):
+        return {"weather.home": {"forecast": forecast_holder["data"]}}
+
+    hass.services.async_register(
+        "weather", "get_forecasts", _handle_get_forecasts,
+        supports_response=SupportsResponse.ONLY,
+    )
+    # window_direction=106.0, wind_is_from=True (ROOM_DATA)
+    entry = await setup_room(hass, weather_entity="weather.home")
+
+    hass.states.async_set("sensor.aussen_t", -2.0)  # kalte Nacht
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+
+    freezer.move_to("2026-12-06 09:30:00+01:00")
+    await _tick(hass, freezer, 1)
+
+    hass.states.async_set("sensor.innen_t", 15.0)
+    hass.states.async_set("sensor.aussen_t", 15.5)  # noch nicht warm genug für Vorheizen jetzt
+    hass.states.async_set("sensor.innen_ah", 6.0)
+    hass.states.async_set("sensor.aussen_ah", 5.8)
+    await hass.async_block_till_done()
+
+    now = dt_util.now().replace(minute=0, second=0, microsecond=0)
+    forecast_holder["data"] = [
+        # Stunde 1: warm & trocken genug, aber Wind bläst klar vom Fenster weg (Winkel ~176°)
+        {"datetime": (now + timedelta(hours=1)).isoformat(), "temperature": 19,
+         "precipitation": 0, "precipitation_probability": 5, "wind_speed": 10, "wind_bearing": 290},
+        # Stunde 2: ebenso warm & trocken, Wind steht günstig zum Fenster (Winkel ~4°)
+        {"datetime": (now + timedelta(hours=2)).isoformat(), "temperature": 19,
+         "precipitation": 0, "precipitation_probability": 5, "wind_speed": 10, "wind_bearing": 110},
+        {"datetime": (now + timedelta(hours=3)).isoformat(), "temperature": 10,
+         "precipitation": 0, "precipitation_probability": 5, "wind_speed": 10, "wind_bearing": 110},
+    ]
+    await _tick(hass, freezer, 31)
+
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    plan = rec.attributes["karte"]["vorheizen_plan"]
+    assert plan is not None
+    expected_start = (now + timedelta(hours=2)).strftime("%H:%M")
+    skipped_start = (now + timedelta(hours=1)).strftime("%H:%M")
+    assert expected_start in plan
+    assert skipped_start not in plan
+
+
+async def test_cooling_and_preheat_use_bucketed_ach_model(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Kühlen und Vorheizen nutzen (wie die normale Lüftungsdauer) das nach Wind/Winkel/
+    Temperaturdifferenz gebuckete Modell, statt nur den groben globalen Durchschnitt - ist für
+    die aktuellen Bedingungen schon genug gelernt worden, wird das bevorzugt."""
+    freezer.move_to("2026-07-10 21:00:00+02:00")
+    entry = await setup_room(hass, season_mode="summer")
+    room = hass.data[DOMAIN][entry.entry_id]
+
+    for eid_, val in (
+        ("sensor.innen_t", 26), ("sensor.aussen_t", 18),
+        ("sensor.innen_ah", 10), ("sensor.aussen_ah", 9.8),
+    ):
+        hass.states.async_set(eid_, val)
+    await hass.async_block_till_done()
+
+    wind, angle, temp_diff = room._context()
+    key = room._bucket(wind, angle, temp_diff)
+
+    room.learned_ach = 0.5  # sehr langsamer globaler Durchschnitt
+    minutes_flat = room.cooling_minutes()
+    assert minutes_flat > 30  # bei so langsamem ACH dauert es lange
+
+    room.models[key] = {"ach": 20.0, "samples": 5}  # für genau diese Bedingungen viel schneller gelernt
+    minutes_bucketed = room.cooling_minutes()
+    assert minutes_bucketed < minutes_flat
+    assert minutes_bucketed == 10  # bei so schnellem ACH greift die Mindestdauer
+
+
+async def test_preheat_session_records_heating_savings(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Eine als Vorheizen erkannte Lüftung soll in der Statistik nicht nur (wie normales
+    Lüften) als Wärmeverlust, sondern als eingesparte Heizenergie auftauchen - die wärmere
+    Außenluft ersetzt hier ja Heizenergie, statt Wärme zu kosten."""
+    freezer.move_to("2026-12-05 23:00:00+01:00")  # innerhalb des Nachtfensters (22-9 Uhr)
+    entry = await setup_room(hass)
+    hass.states.async_set("sensor.aussen_t", -2.0)  # kalte Nacht
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)  # Nacht-Tiefsttemperatur wird mitgeschrieben
+
+    freezer.move_to("2026-12-06 09:30:00+01:00")  # Nachtfenster vorbei -> Tiefstwert übernommen
+    await _tick(hass, freezer, 1)
+
+    hass.states.async_set("sensor.innen_t", 15.0)
+    hass.states.async_set("sensor.aussen_t", 19.0)  # deutlich wärmer als drinnen
+    hass.states.async_set("sensor.innen_ah", 6.0)
+    hass.states.async_set("sensor.aussen_ah", 5.8)
+    await _tick(hass, freezer, 1)
+
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    assert rec.attributes["grund"] == "Vorheizen"
+
+    # Fenster öffnen -> Sitzung startet mit "preheat": True, wieder schließen nach 1 Minute
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    room = hass.data[DOMAIN][entry.entry_id]
+    assert room.session and room.session.get("preheat") is True
+    await _tick(hass, freezer, 1)
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    await hass.async_block_till_done()
+
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    assert rec.attributes["karte"]["heute_kwh_gespart"] > 0
+    assert rec.attributes["karte"]["heute_eur_gespart"] > 0
+
+
 async def test_dehumidifier_runs_when_rain_blocks(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     freezer.move_to("2026-12-05 10:00:00+01:00")
     on = async_mock_service(hass, "switch", "turn_on")

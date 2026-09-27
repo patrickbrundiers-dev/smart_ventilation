@@ -193,6 +193,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "kwh": round(p.get("kwh", 0.0), 2),
             "need_hours": round(p.get("need_minutes", 0.0) / 60, 1),
             "cost": round(p.get("kwh", 0.0) * self.energy_price, 2),
+            "kwh_gespart": round(p.get("kwh_gespart", 0.0), 2),
+            "kosten_gespart": round(p.get("kwh_gespart", 0.0) * self.energy_price, 2),
         }
 
     @property
@@ -426,6 +428,23 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         )
 
         return wind, angle, temp_diff
+
+    def _forecast_wind_factor(self, item):
+        """0..1 – wie günstig die Windrichtung einer Vorhersage-Stunde fürs Fenster steht.
+
+        Manche Wetter-Integrationen liefern pro Stunde eine Windrichtung (wind_bearing). Steht der
+        Wind ungünstig (bläst vom Fenster weg), bringt auch viel Windgeschwindigkeit keinen
+        zusätzlichen Luftwechsel - andersherum hilft günstiger Wind besonders. Ohne Richtungsangabe
+        in der Vorhersage (nicht jede Integration liefert das) bleibt es wie bisher beim reinen
+        Geschwindigkeits-Bonus (Faktor 1)."""
+        bearing = _num(item.get("wind_bearing"))
+        if bearing is None:
+            return 1.0
+        source_dir = (
+            bearing if self.data.get(CONF_WIND_IS_FROM, True) else (bearing + 180) % 360
+        )
+        angle = _angle_diff(float(self.data[CONF_WINDOW_DIRECTION]), source_dir)
+        return max(0.0, 1 - angle / 180)
 
     def _bucket(self, wind, angle, temp_diff, cross=False):
         if wind is None:
@@ -958,7 +977,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 continue
 
             wind = _num(item.get("wind_speed")) or 0.0
-            score = gain + min(wind, 30) / 60
+            score = gain + min(wind, 30) / 60 * self._forecast_wind_factor(item)
             if season == SEASON_WINTER:
                 score += 0.15 * temp  # wärmere Stunde = weniger Wärmeverlust
             elif indoor_t is not None:
@@ -1017,13 +1036,32 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         exchanged = 1 - math.exp(-n * elapsed / 3600)
         return AIR_HEAT_CAPACITY_WH * volume * d_t * exchanged / 1000
 
-    def _record_stats(self, elapsed, success, kwh=0.0):
+    def _session_preheat_savings_kwh(self, session, elapsed):
+        """Eingesparte Heizenergie durchs Vorheizen: die wärmere Außenluft erwärmt den Raum,
+        ohne dass dafür geheizt werden muss – spiegelbildlich zu _session_energy_kwh (dort:
+        Wärmeverlust durch Lüften). Nur für als "preheat" markierte Sitzungen, und nur, wenn es
+        zum Sitzungsstart draußen tatsächlich wärmer war als drinnen (dT < 0)."""
+        if not session.get("preheat"):
+            return 0.0
+        d_t = session.get("dT")
+        if d_t is None or d_t >= 0:
+            return 0.0
+        n, _ = self._model_ach(
+            session.get("wind"), session.get("angle"), session.get("temp_diff"),
+            session.get("cross", False),
+        )
+        volume = float(self.data.get(CONF_VOLUME, 40))
+        exchanged = 1 - math.exp(-n * elapsed / 3600)
+        return AIR_HEAT_CAPACITY_WH * volume * abs(d_t) * exchanged / 1000
+
+    def _record_stats(self, elapsed, success, kwh=0.0, saved_kwh=0.0):
         self._roll_periods()
         for period in ("day", "week", "month", "total"):
             p = self.stats[period]
             p["count"] += 1
             p["seconds"] += elapsed
             p["kwh"] = p.get("kwh", 0.0) + kwh
+            p["kwh_gespart"] = p.get("kwh_gespart", 0.0) + saved_kwh
             if success:
                 p["ok"] += 1
             else:
@@ -1060,7 +1098,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 elapsed >= DEFAULT_MIN_SESSION
                 and (session["target_reached"] or reached)
             )
-            self._record_stats(elapsed, success, self._session_energy_kwh(session, elapsed))
+            self._record_stats(
+                elapsed,
+                success,
+                self._session_energy_kwh(session, elapsed),
+                self._session_preheat_savings_kwh(session, elapsed),
+            )
             self._last_session_end = ended or dt_util.now()
         await self._save()
         self._notify_listeners()
@@ -1673,6 +1716,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "heute_min": today["minutes"],
             "heute_kwh": today["kwh"],
             "heute_eur": today["cost"],
+            "heute_kwh_gespart": today["kwh_gespart"],
+            "heute_eur_gespart": today["kosten_gespart"],
             "gelueftet": self.ventilated_today,
             "kuehlt_aus": self.cooling_down,
             "ruhezeit": self.in_quiet_hours(),

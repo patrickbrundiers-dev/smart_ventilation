@@ -95,6 +95,10 @@ FORECAST_DAY_END = 22    # ... und nicht ab 22 Uhr
 FORECAST_MIN_GAIN = 1.0  # g/m³ – darunter lohnt sich Lüften kaum
 FORECAST_MAX_RAIN_MM = 0.2
 FORECAST_MAX_RAIN_PROB = 50
+# Liefert die Vorhersage eine Windrichtung (wind_bearing), zählt eine Stunde als "günstig" für
+# Kühlen/Vorheizen nur, wenn der Wind nicht zu stark vom Fenster weg bläst (Faktor 0..1, siehe
+# _forecast_wind_factor). Ohne Richtungsangabe bleibt der Faktor 1 und diese Schwelle greift nicht.
+MIN_FORECAST_WIND_FACTOR = 0.3
 
 # Mehrere Fenster, Warnungen, Ruhezeiten, Heizung
 CONF_COOL_LIMIT = "cool_limit"
@@ -147,7 +151,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.3.25"
+VERSION = "2.3.26"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -176,6 +180,7 @@ PREHEAT_MIN_WARMER = 2.0          # draußen mind. so viel wärmer als drinnen
 NIGHT_LOW_START_HOUR = 22         # Nacht-Tiefsttemperatur wird zwischen 22 und 9 Uhr verfolgt
 NIGHT_LOW_END_HOUR = 9
 PREHEAT_RAIN_LOOKAHEAD_HOURS = 2  # Vorheizen nicht empfehlen, wenn es laut Vorhersage bald regnet
+PREHEAT_MAX_EXTRA_HUMIDITY = 1.0  # g/m³ – nicht vorheizen, wenn draußen viel feuchter als drinnen
 
 # Luftentfeuchter
 CONF_DEHUMIDIFIER = "dehumidifier_entity"

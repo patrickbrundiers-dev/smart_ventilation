@@ -133,6 +133,9 @@
       "cost_month": {
         "default": "mdi:currency-eur"
       },
+      "preheat_savings_month": {
+        "default": "mdi:piggy-bank-outline"
+      },
       "most_urgent": {
         "default": "mdi:home-alert-outline"
       },

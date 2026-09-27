@@ -509,6 +509,9 @@
       "cost_month": {
         "name": "Lüftungskosten diesen Monat"
       },
+      "preheat_savings_month": {
+        "name": "Vorheiz-Ersparnis diesen Monat"
+      },
       "most_urgent": {
         "name": "Dringendster Raum"
       },

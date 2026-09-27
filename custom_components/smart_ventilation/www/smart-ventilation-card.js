@@ -242,6 +242,7 @@ class SmartVentilationCard extends HTMLElement {
       k.bester_zeitpunkt && [e.bester, "mdi:clock-check-outline", k.bester_zeitpunkt],
       [e.heute, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", `${k.heute_anzahl}× heute · ${fmt(k.heute_min, 0)} Min.`, k.gelueftet && "good"],
       k.heute_kwh > 0 && [e.kosten, "mdi:fire", `${fmt(k.heute_kwh, 2)} kWh · ${fmt(k.heute_eur, 2)} €`],
+      k.heute_kwh_gespart > 0 && [null, "mdi:piggy-bank-outline", `Vorheizen spart ${fmt(k.heute_kwh_gespart, 2)} kWh · ${fmt(k.heute_eur_gespart, 2)} €`],
       k.kuehlen_plan && !(k.minuten > 0 && k.grund === "Kühlen") && [null, "mdi:weather-night", `Kühlen ${k.kuehlen_plan}`],
       k.vorheizen_plan && !(k.minuten > 0 && k.grund === "Vorheizen") && [null, "mdi:thermometer-chevron-up", `Vorheizen ${k.vorheizen_plan}`],
       k.entfeuchter && [null, "mdi:air-humidifier", "Entfeuchter läuft"],

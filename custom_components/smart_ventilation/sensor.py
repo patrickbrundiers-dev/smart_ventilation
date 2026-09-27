@@ -53,6 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         AirQualitySensor(coordinator),
         HeatLossTodaySensor(coordinator),
         CostMonthSensor(coordinator),
+        PreheatSavingsMonthSensor(coordinator),
         MoldStreakSensor(coordinator),
         NeedMonthSensor(coordinator),
     ])
@@ -74,7 +75,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.3.25",
+            sw_version="2.3.26",
         )
 
     async def async_added_to_hass(self):
@@ -334,6 +335,8 @@ class PeriodSensor(BaseSensor):
             "dauer_durchschnitt_min": st["avg_minutes"],
             "waermeverlust_kwh": st["kwh"],
             "kosten_eur": st["cost"],
+            "vorheiz_ersparnis_kwh": st["kwh_gespart"],
+            "vorheiz_ersparnis_eur": st["kosten_gespart"],
         }
 
 
@@ -455,6 +458,18 @@ class CostMonthSensor(BaseSensor):
     def native_unit_of_measurement(self): return "EUR"
 
 
+class PreheatSavingsMonthSensor(BaseSensor):
+    """Geschätzte Heizkosten-Ersparnis durchs Vorheizen im laufenden Monat."""
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.TOTAL
+
+    def __init__(self, c): super().__init__(c, "preheat_savings_month", "Vorheiz-Ersparnis Monat")
+    @property
+    def native_value(self): return self.coordinator.period_stats("month")["kosten_gespart"]
+    @property
+    def native_unit_of_measurement(self): return "EUR"
+
+
 # ----------------------------------------------------------------------
 # Übersicht über alle Räume
 # ----------------------------------------------------------------------
@@ -471,7 +486,7 @@ class OverviewBase(SensorEntity):
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.3.25",
+            sw_version="2.3.26",
         )
 
     async def async_added_to_hass(self):

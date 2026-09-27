@@ -19,10 +19,10 @@ from .const import (
     DEHUM_OFF_RH, DEHUM_ON_RH, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
     SEASON_SUMMER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
-    CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER,
+    CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER, PREHEAT_MAX_EXTRA_HUMIDITY,
     CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD,
     CONF_SEASON_MODE, DEFAULT_SEASON_MODE,
-    FORECAST_MAX_RAIN_MM, FORECAST_MAX_RAIN_PROB,
+    FORECAST_MAX_RAIN_MM, FORECAST_MAX_RAIN_PROB, MIN_FORECAST_WIND_FACTOR,
 )
 from . import notify_util
 
@@ -239,7 +239,8 @@ class RoomExtrasMixin:
             return 0
         if ai is not None and ao is not None and ao > ai + COOL_MAX_EXTRA_HUMIDITY:
             return 0
-        n = max(0.5, self.learned_ach)
+        wind, angle, temp_diff = self._context()
+        n, _ = self._model_ach(wind, angle, temp_diff)
         target = max(self.comfort_temp, to + 0.5)
         return max(10, min(60, -60 / n * math.log((target - to) / (ti - to)) if ti > target else 10))
 
@@ -264,7 +265,10 @@ class RoomExtrasMixin:
         Nacht-Tiefsttemperatur: nur nach einer Nacht mit Tiefstwerten unter der Heizgrenze (sonst
         macht das Vorziehen der Heizung keinen Sinn) und nur, wenn draußen jetzt spürbar wärmer
         ist als drinnen und der Raum noch unter der Vorheiz-Schwelle liegt. Droht laut Vorhersage
-        in Kürze Regen, lohnt sich das Öffnen nicht – auch wenn es gerade noch trocken ist.
+        in Kürze Regen, lohnt sich das Öffnen nicht – auch wenn es gerade noch trocken ist. Ist die
+        Luft draußen deutlich feuchter als drinnen, würde man sich mit dem Vorheizen zugleich ein
+        Feuchteproblem einhandeln – dann lohnt es sich trotz der Wärme nicht (siehe
+        COOL_MAX_EXTRA_HUMIDITY, spiegelbildlich für Vorheizen).
         """
         if self.data.get(CONF_SEASON_MODE, DEFAULT_SEASON_MODE) == SEASON_SUMMER:
             return 0
@@ -277,7 +281,12 @@ class RoomExtrasMixin:
         to = _num_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         if None in (ti, to) or ti >= self.preheat_temp or to < ti + PREHEAT_MIN_WARMER:
             return 0
-        n = max(0.5, self.learned_ach)
+        ai = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        ao = _num_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
+        if ai is not None and ao is not None and ao > ai + PREHEAT_MAX_EXTRA_HUMIDITY:
+            return 0
+        wind, angle, temp_diff = self._context()
+        n, _ = self._model_ach(wind, angle, temp_diff)
         target = min(self.preheat_temp, to - 0.5)
         return max(10, min(60, -60 / n * math.log((to - target) / (to - ti)) if ti < target else 10))
 
@@ -312,6 +321,7 @@ class RoomExtrasMixin:
                 float(temp) >= ti + PREHEAT_MIN_WARMER
                 and rain <= FORECAST_MAX_RAIN_MM
                 and rain_prob < FORECAST_MAX_RAIN_PROB
+                and self._forecast_wind_factor(item) >= MIN_FORECAST_WIND_FACTOR
             )
             if start is None and warm:
                 start = when
@@ -339,7 +349,10 @@ class RoomExtrasMixin:
             when = dt_util.as_local(when)
             if when < now - timedelta(minutes=30) or when > now + timedelta(hours=24):
                 continue
-            cool = float(temp) <= ti - COOL_MIN_DIFF
+            cool = (
+                float(temp) <= ti - COOL_MIN_DIFF
+                and self._forecast_wind_factor(item) >= MIN_FORECAST_WIND_FACTOR
+            )
             if start is None and cool:
                 start = when
             elif start is not None and not cool:
@@ -443,6 +456,8 @@ class RoomExtrasMixin:
             "minuten": week["minutes"],
             "kwh": week["kwh"],
             "kosten": week["cost"],
+            "kwh_gespart": week["kwh_gespart"],
+            "kosten_gespart": week["kosten_gespart"],
             "schimmeltage": mold_days,
         }
 
@@ -465,11 +480,15 @@ class RoomExtrasMixin:
             f"Schimmelrisiko an {s['schimmeltage']} {'Tag' if s['schimmeltage'] == 1 else 'Tagen'} erhöht."
             if s["schimmeltage"] else "Schimmelrisiko die ganze Woche niedrig."
         )
+        savings = (
+            f" Durch Vorheizen ca. {de_num(s['kwh_gespart'], 1)} kWh ≈ {de_num(s['kosten_gespart'], 2)} € gespart."
+            if s["kwh_gespart"] > 0 else ""
+        )
         await self._send(
             f"Wochenbericht: {s['raum']}",
             (
                 f"{s['anzahl']}× gelüftet ({s['erfolgreich']} erfolgreich), {s['minuten']:.0f} Min., "
-                f"{de_num(s['kwh'], 1)} kWh ≈ {de_num(s['kosten'], 2)} €. {mold}"
+                f"{de_num(s['kwh'], 1)} kWh ≈ {de_num(s['kosten'], 2)} €. {mold}{savings}"
             ),
             f"smart_ventilation_{self.entry.entry_id}_report",
         )
