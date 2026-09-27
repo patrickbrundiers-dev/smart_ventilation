@@ -96,6 +96,32 @@ async def test_summer_cooling_and_warm_outside(hass: HomeAssistant, freezer: Fro
     assert any(t.startswith("Fenster schließen") for t in _titles(pushes))
 
 
+async def test_preheat_after_cold_night_overrides_warm_outside_block(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Nach einer kalten Nacht (Tiefstwert unter der Heizgrenze) darf tagsüber trotz wärmerer
+    Außenluft gelüftet werden, um den Raum ohne Heizung aufzuwärmen - die Wärme-Sperre aus
+    2.3.14 gilt hier ausnahmsweise nicht, weil die Wärme hier ja das Ziel ist."""
+    freezer.move_to("2026-12-05 23:00:00+01:00")  # innerhalb des Nachtfensters (22-9 Uhr)
+    entry = await setup_room(hass)  # season_mode="winter" per ROOM_DATA-Fixture
+    hass.states.async_set("sensor.aussen_t", -2.0)  # kalte Nacht, deutlich unter der Heizgrenze
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)  # Nacht-Tiefsttemperatur wird mitgeschrieben
+
+    freezer.move_to("2026-12-06 09:30:00+01:00")  # Nachtfenster vorbei -> Tiefstwert wird übernommen
+    await _tick(hass, freezer, 1)
+
+    # Tagsüber: Raum kalt (unter der Vorheiz-Schwelle), draußen deutlich wärmer als drinnen
+    hass.states.async_set("sensor.innen_t", 15.0)
+    hass.states.async_set("sensor.aussen_t", 19.0)  # 4 °C wärmer -> würde sonst die Wärme-Sperre auslösen
+    await _tick(hass, freezer, 1)
+
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    assert rec.attributes["grund"] == "Vorheizen"
+    assert rec.attributes["karte"]["minuten"] > 0
+    assert "Vorheizen" in rec.state
+
+
 async def test_dehumidifier_runs_when_rain_blocks(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     freezer.move_to("2026-12-05 10:00:00+01:00")
     on = async_mock_service(hass, "switch", "turn_on")

@@ -114,6 +114,12 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.17
+
+- **Neu: Vorheizen per Lüften (Winter).** Ist ein Raum unter der neuen Schwelle „Winter: vorheizen ab“ (Vorgabe 19 °C) und es war die letzte Nacht (22–9 Uhr) schon einmal kälter als die eingestellte Heizgrenze (Vorgabe 15 °C), darf tagsüber trotz wärmerer Außenluft gelüftet werden, um warme Luft statt Heizungswärme in den Raum zu holen und so das Heizen hinauszuzögern bzw. den Raum warm zu halten. Voraussetzung ist außerdem, dass es draußen mindestens 2 °C wärmer ist als drinnen – sonst bringt das Lüften keinen Vorteil.
+  - **Kein Widerspruch zur Wärme-Sperre aus 2.3.14:** Die „draußen zu warm“-Sperre bleibt für alle anderen Gründe (Feuchte, CO₂) unverändert bestehen. Nur wenn tatsächlich zum Vorheizen gelüftet werden soll, gilt sie ausnahmsweise nicht – dort ist die wärmere Außenluft ja gerade der Grund fürs Lüften, nicht ein Störfaktor. Ebenso erscheint dabei nicht der Hinweis „Fenster schließen“, der sonst bei wärmer werdender Außenluft kommt.
+  - Die Vorheiz-Schwelle ist ein eigener, unabhängiger Wert (nicht die Sommer-Wohlfühltemperatur) und lässt sich unter „Lüftungsverhalten“ einstellen.
+
 ### Version 2.3.16
 
 - **Feuchte-Hysterese jetzt pro Raum einstellbar:** Der Puffer gegen das Flackern der Feuchte-Empfehlung an der Schwelle (seit 2.3.12 fest im Code) lässt sich jetzt unter „Lüftungsverhalten“ als „Feuchte-Puffer gegen Flackern“ anpassen. Vorgabewert bleibt 0,1 g/m³, höher = ruhiger/träger, niedriger = reagiert schneller.

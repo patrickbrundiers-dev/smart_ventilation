@@ -139,6 +139,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._skip_date = None
         self._last_session_end = None
         self._humidity_active = False
+        self._night_low = None       # läuft gerade mit (innerhalb des Nachtfensters)
+        self._last_night_low = None  # zuletzt abgeschlossene Nacht - fürs Vorheizen
         self._unavailable_since = {}
         self.cool_plan = None
         self._init_extras()
@@ -271,6 +273,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 self._skip_date = None
         if stored.get("last_session_end"):
             self._last_session_end = dt_util.parse_datetime(stored["last_session_end"])
+        self._last_night_low = stored.get("last_night_low")
         self._extras_load(stored)
         self._history_load(stored)
 
@@ -324,6 +327,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "session": self._serialize_session(),
             "skip_date": self._skip_date.isoformat() if self._skip_date else None,
             "last_session_end": self._last_session_end.isoformat() if self._last_session_end else None,
+            "last_night_low": self._last_night_low,
             **self._extras_store(),
             **self._history_store(),
         })
@@ -483,6 +487,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "overtime_warned": False,
             "heating": None,
             "cooling": self.cooling_minutes() > 0 and (diff is None or diff <= DEFAULT_TARGET_DIFF),
+            "preheat": self.preheat_minutes() > 0 and (diff is None or diff <= DEFAULT_TARGET_DIFF),
             "trace": [[0, indoor, _float_state(self.hass, self.data[CONF_INDOOR_TEMP])]],
         }
         self._warm_warned = False
@@ -518,6 +523,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
             if temp is not None and temp <= self.comfort_temp:
                 return True, current_diff
+        # 4b) Zum Vorheizen gelüftet und Vorheiz-Schwelle erreicht
+        if session.get("preheat"):
+            temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+            if temp is not None and temp >= self.preheat_temp:
+                return True, current_diff
         # 5) Lüftung wegen CO₂ gestartet und Luft wieder gut
         co2 = self.co2
         start_co2 = session.get("initial_co2")
@@ -540,6 +550,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     async def _feedback_tick_inner(self, _now=None):
         self._check_sensor_health()
+        if self._track_night_low(dt_util.now()):
+            await self._save()
         if self._roll_periods():
             await self._save()
         if self._forecast_due():
@@ -1078,6 +1090,22 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self._auto_season = SEASON_WINTER if outdoor < threshold else SEASON_SUMMER
         return self._auto_season
 
+    def _track_night_low(self, now):
+        """Nacht-Tiefsttemperatur (22–9 Uhr) merken - Grundlage fürs Vorheizen: hat es in der
+        letzten Nacht schon nach Heizsaison ausgesehen? Gibt True zurück, wenn eine Nacht gerade
+        abgeschlossen wurde (dann muss gespeichert werden)."""
+        outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
+        in_night = now.hour >= NIGHT_LOW_START_HOUR or now.hour < NIGHT_LOW_END_HOUR
+        if in_night:
+            if outdoor is not None:
+                self._night_low = outdoor if self._night_low is None else min(self._night_low, outdoor)
+            return False
+        if self._night_low is not None:
+            self._last_night_low = self._night_low
+            self._night_low = None
+            return True
+        return False
+
     def _temperature_block(self):
         """Sperren, wenn es draußen deutlich wärmer ist als drinnen – unabhängig von der
         Jahreszeit. Das gilt nicht nur im Sommer (Kühleffekt verpufft), sondern auch an
@@ -1379,10 +1407,17 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         need_co2 = co2 is not None and co2 >= CO2_ELEVATED
         cool_minutes = self.cooling_minutes()
         need_cool = cool_minutes > 0
-        reasons = [r for r, on in (("Feuchte", need_humidity), ("CO₂", need_co2), ("Kühlen", need_cool)) if on]
+        preheat_minutes = self.preheat_minutes()
+        need_preheat = preheat_minutes > 0
+        reasons = [
+            r for r, on in (
+                ("Feuchte", need_humidity), ("CO₂", need_co2),
+                ("Kühlen", need_cool), ("Vorheizen", need_preheat),
+            ) if on
+        ]
         self.recommend_reason = " + ".join(reasons)
 
-        if not need_humidity and not need_co2 and not need_cool:
+        if not need_humidity and not need_co2 and not need_cool and not need_preheat:
             self.recommendation = "Keine Lüftung erforderlich"
             self.recommended_minutes = 0
             self.recommended_mode = "Keine Lüftung"
@@ -1398,7 +1433,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         temp_block, temp_reason = self._temperature_block()
         # Sehr schlechte Luft: trotz Hitze kurz lüften
         co2_override = temp_block and co2 is not None and co2 >= CO2_HIGH
-        if temp_block and not co2_override:
+        # Vorheizen setzt gerade voraus, dass es draußen wärmer ist - das ist hier der Grund
+        # fürs Lüften, keine Sperre.
+        preheat_override = temp_block and need_preheat
+        if temp_block and not co2_override and not preheat_override:
             self.recommendation = "Nicht lüften – draußen zu warm"
             self.recommended_minutes = 0
             self.recommended_mode = "Geschlossen"
@@ -1430,6 +1468,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             minutes = max(minutes, -60 / effective_ach * math.log(co2_ratio))
         if need_cool:
             minutes = max(minutes, cool_minutes)
+        if need_preheat:
+            minutes = max(minutes, preheat_minutes)
         minutes = max(2, min(60, minutes))
         if co2_override:
             minutes = min(minutes, 5)
@@ -1457,6 +1497,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self.recommended_mode = "Kühlen – Fenster auf"
             self.recommendation = (
                 f"Kühlen – Fenster auf bis ca. {self.comfort_temp:.0f} °C "
+                f"(ca. {self.recommended_minutes} Min.)"
+            )
+        elif self.recommend_reason == "Vorheizen":
+            self.recommended_mode = "Vorheizen – Fenster auf"
+            self.recommendation = (
+                f"Vorheizen – warme Luft reinlassen bis ca. {self.preheat_temp:.0f} °C "
                 f"(ca. {self.recommended_minutes} Min.)"
             )
         else:

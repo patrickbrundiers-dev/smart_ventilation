@@ -80,6 +80,7 @@
               "target_absolute_humidity": "Tagesziel Luftfeuchte",
               "max_temperature_difference": "Sommer: Hitzesperre ab",
               "comfort_temperature": "Sommer: kühlen ab",
+              "preheat_temperature": "Winter: vorheizen ab",
               "cool_limit": "Auskühl-Warnung unter",
               "building_standard": "Dämmstandard der Außenwände",
               "humidity_hysteresis": "Feuchte-Puffer gegen Flackern"
@@ -89,6 +90,7 @@
               "target_absolute_humidity": "Sinkt die absolute Feuchte innen beim Lüften unter diesen Wert, gilt der Tag als ausreichend gelüftet. Der Raumtyp oben schlägt beim Einrichten einen passenden Wert vor.",
               "max_temperature_difference": "Nicht lüften, wenn es draußen um mehr als diesen Wert wärmer ist als drinnen.",
               "comfort_temperature": "Ist es drinnen wärmer und draußen mindestens 2 °C kühler, wird Lüften zum Abkühlen empfohlen.",
+              "preheat_temperature": "Liegt die Raumtemperatur darunter und ist es draußen mindestens 2 °C wärmer als drinnen, wird nach einer kalten Nacht (unter der Heizgrenze) Lüften zum Vorheizen empfohlen, um das Heizen hinauszuzögern.",
               "cool_limit": "Warnt, wenn der Raum bei offenem Fenster kälter wird. 0 = aus.",
               "building_standard": "Bestimmt die geschätzte Temperatur an der kältesten Wandstelle und damit das Schimmelrisiko.",
               "humidity_hysteresis": "Wie deutlich sich die Lage erst verbessern muss, bevor eine aktive „Lüften wegen Feuchte“-Empfehlung wieder ausgeht. Höher = ruhiger, aber reagiert etwas träger; niedriger = reagiert schneller, kann bei sehr unruhigen Sensoren wieder häufiger wechseln."
@@ -262,6 +264,7 @@
               "target_absolute_humidity": "Tagesziel Luftfeuchte",
               "max_temperature_difference": "Sommer: Hitzesperre ab",
               "comfort_temperature": "Sommer: kühlen ab",
+              "preheat_temperature": "Winter: vorheizen ab",
               "cool_limit": "Auskühl-Warnung unter",
               "building_standard": "Dämmstandard der Außenwände",
               "humidity_hysteresis": "Feuchte-Puffer gegen Flackern"
@@ -271,6 +274,7 @@
               "target_absolute_humidity": "Sinkt die absolute Feuchte innen beim Lüften unter diesen Wert, gilt der Tag als ausreichend gelüftet. Der Raumtyp oben schlägt beim Einrichten einen passenden Wert vor.",
               "max_temperature_difference": "Nicht lüften, wenn es draußen um mehr als diesen Wert wärmer ist als drinnen.",
               "comfort_temperature": "Ist es drinnen wärmer und draußen mindestens 2 °C kühler, wird Lüften zum Abkühlen empfohlen.",
+              "preheat_temperature": "Liegt die Raumtemperatur darunter und ist es draußen mindestens 2 °C wärmer als drinnen, wird nach einer kalten Nacht (unter der Heizgrenze) Lüften zum Vorheizen empfohlen, um das Heizen hinauszuzögern.",
               "cool_limit": "Warnt, wenn der Raum bei offenem Fenster kälter wird. 0 = aus.",
               "building_standard": "Bestimmt die geschätzte Temperatur an der kältesten Wandstelle und damit das Schimmelrisiko.",
               "humidity_hysteresis": "Wie deutlich sich die Lage erst verbessern muss, bevor eine aktive „Lüften wegen Feuchte“-Empfehlung wieder ausgeht. Höher = ruhiger, aber reagiert etwas träger; niedriger = reagiert schneller, kann bei sehr unruhigen Sensoren wieder häufiger wechseln."

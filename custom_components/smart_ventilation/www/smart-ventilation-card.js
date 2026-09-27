@@ -40,6 +40,7 @@ function roomState(k) {
   if (k.laeuft && k.kuehlt_aus) return { tone: "bad", icon: "mdi:snowflake-alert", pill: "Kühlt aus" };
   if (k.laeuft) return { tone: "info", icon: "mdi:window-open-variant", pill: "Läuft", pulse: true };
   if (k.minuten > 0 && k.grund === "Kühlen") return { tone: "info", icon: "mdi:snowflake-thermometer", pill: "Kühlen" };
+  if (k.minuten > 0 && k.grund === "Vorheizen") return { tone: "info", icon: "mdi:thermometer-chevron-up", pill: "Vorheizen" };
   if (k.minuten > 0 && k.pausiert) return { tone: "neutral", icon: "mdi:pause-circle-outline", pill: "Pausiert" };
   if (k.nach_dusche && k.minuten > 0) return { tone: "warn", icon: "mdi:shower-head", pill: "Lüften" };
   if (k.minuten > 0) return { tone: "warn", icon: "mdi:window-open-variant", pill: "Lüften" };
@@ -55,6 +56,9 @@ function headline(k) {
   }
   if (k.minuten > 0 && k.grund === "Kühlen") {
     return { title: "Jetzt abkühlen", sub: join([`Fenster auf, ca. ${k.minuten} Min.`, k.kuehlen_plan && `Nacht: ${k.kuehlen_plan}`]) };
+  }
+  if (k.minuten > 0 && k.grund === "Vorheizen") {
+    return { title: "Jetzt vorheizen", sub: join([`Fenster auf, ca. ${k.minuten} Min.`, "warme Luft nutzt sich statt Heizung"]) };
   }
   if (k.minuten > 0 && k.pausiert) {
     const mode = String(k.modus || "Lüften").replace(" (Querlüften)", "");

@@ -17,8 +17,10 @@ from .const import (
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_WEEKLY_REPORT, COOL_MAX_EXTRA_HUMIDITY,
     COOL_MIN_DIFF, DEFAULT_COMFORT_TEMP, DEFAULT_TARGET_DIFF, DEHUM_MIN_RUNTIME_MINUTES,
     DEHUM_OFF_RH, DEHUM_ON_RH, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
-    SEASON_SUMMER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
+    SEASON_SUMMER, SEASON_WINTER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
+    CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER,
+    CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD,
 )
 from . import notify_util
 
@@ -239,6 +241,33 @@ class RoomExtrasMixin:
         target = max(self.comfort_temp, to + 0.5)
         return max(10, min(60, -60 / n * math.log((target - to) / (ti - to)) if ti > target else 10))
 
+    # ------------------------------------------------------------------
+    # Winter: Vorheizen per Lüften (nach kalter Nacht wärmere Luft tagsüber nutzen)
+    # ------------------------------------------------------------------
+    @property
+    def preheat_temp(self):
+        return float(self.data.get(CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP))
+
+    def preheat_minutes(self):
+        """Minuten zum Vorheizen, 0 = nicht sinnvoll.
+
+        Nur im Winter, nur nach einer Nacht mit Tiefstwerten unter der Heizgrenze (sonst macht
+        das Vorziehen der Heizung keinen Sinn) und nur, wenn draußen jetzt spürbar wärmer ist
+        als drinnen und der Raum noch unter der Vorheiz-Schwelle liegt.
+        """
+        if self.season != SEASON_WINTER:
+            return 0
+        threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
+        if self._last_night_low is None or self._last_night_low >= threshold:
+            return 0
+        ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
+        to = _num_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
+        if None in (ti, to) or ti >= self.preheat_temp or to < ti + PREHEAT_MIN_WARMER:
+            return 0
+        n = max(0.5, self.learned_ach)
+        target = min(self.preheat_temp, to - 0.5)
+        return max(10, min(60, -60 / n * math.log((to - target) / (to - ti)) if ti < target else 10))
+
     def cooling_plan(self, forecast):
         """Aus der Stundenvorhersage: ab wann abends kühler, bis wann morgens noch kühl."""
         ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
@@ -273,8 +302,9 @@ class RoomExtrasMixin:
         Dieselbe Grenze wie bei der Empfehlung, sonst widersprechen sich „Lüften“ und „Schließen“:
         - zum Kühlen gelüftet: sobald draußen wärmer als drinnen (Kühlen klappt nicht mehr)
         - wegen Feuchte/CO₂ gelüftet: erst ab der eingestellten Grenze
+        - zum Vorheizen gelüftet: gar nicht - die Wärme ist hier ja gerade das Ziel
         """
-        if not self.session or self._warm_warned:
+        if not self.session or self._warm_warned or self.session.get("preheat"):
             return
         ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
         to = _num_state(self.hass, self.data[CONF_OUTDOOR_TEMP])

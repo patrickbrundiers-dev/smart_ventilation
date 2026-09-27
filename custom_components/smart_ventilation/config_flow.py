@@ -27,6 +27,7 @@ from .const import (
     CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE, CONF_PERSONS, CONF_ENTRY_TYPE,
     ENTRY_TYPE_ROOM, ENTRY_TYPE_OVERVIEW, CONF_COMBINE, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP,
+    CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP,
     CONF_DEHUMIDIFIER, CONF_WEEKLY_REPORT, CONF_MONTHLY_REPORT,
 )
 
@@ -173,6 +174,9 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             ): _number(0, 2, 0.05, "g/m³"),
             vol.Required(CONF_MAX_TEMP_DIFF, default=g(CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF)): _number(0, 30, 0.5, "°C"),
             vol.Required(CONF_COMFORT_TEMP, default=g(CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP)): _number(16, 30, 0.5, "°C"),
+            vol.Required(
+                CONF_PREHEAT_TEMP, default=g(CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP)
+            ): _number(10, 25, 0.5, "°C"),
             vol.Required(CONF_COOL_LIMIT, default=g(CONF_COOL_LIMIT, DEFAULT_COOL_LIMIT)): _number(0, 25, 0.5, "°C"),
             vol.Required(CONF_BUILDING, default=g(CONF_BUILDING, DEFAULT_BUILDING)): _select(
                 list(U_VALUES), "building_standard"

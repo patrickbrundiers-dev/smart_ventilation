@@ -80,6 +80,7 @@
               "target_absolute_humidity": "Daily humidity target",
               "max_temperature_difference": "Summer: heat lock from",
               "comfort_temperature": "Summer: cool from",
+              "preheat_temperature": "Winter: preheat below",
               "cool_limit": "Cooling warning below",
               "building_standard": "Wall insulation standard",
               "humidity_hysteresis": "Humidity buffer against flickering"
@@ -89,6 +90,7 @@
               "target_absolute_humidity": "Once the indoor absolute humidity drops below this while venting, the day counts as sufficiently aired. The room type above suggests a matching value when setting up.",
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
+              "preheat_temperature": "If the room is below this temperature and it is at least 2 °C warmer outside than inside, ventilation to preheat the room is recommended after a cold night (below the heating threshold), to delay active heating.",
               "cool_limit": "Warns when the room gets colder than this while a window is open. 0 = off.",
               "building_standard": "Determines the estimated temperature at the coldest wall spot and therefore the mould risk.",
               "humidity_hysteresis": "How much conditions must clearly improve before an active \"vent due to humidity\" recommendation switches off again. Higher = steadier but reacts a bit slower; lower = reacts faster but can flicker more with noisy sensors."
@@ -262,6 +264,7 @@
               "target_absolute_humidity": "Daily humidity target",
               "max_temperature_difference": "Summer: heat lock from",
               "comfort_temperature": "Summer: cool from",
+              "preheat_temperature": "Winter: preheat below",
               "cool_limit": "Cooling warning below",
               "building_standard": "Wall insulation standard",
               "humidity_hysteresis": "Humidity buffer against flickering"
@@ -271,6 +274,7 @@
               "target_absolute_humidity": "Once the indoor absolute humidity drops below this while venting, the day counts as sufficiently aired. The room type above suggests a matching value when setting up.",
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
+              "preheat_temperature": "If the room is below this temperature and it is at least 2 °C warmer outside than inside, ventilation to preheat the room is recommended after a cold night (below the heating threshold), to delay active heating.",
               "cool_limit": "Warns when the room gets colder than this while a window is open. 0 = off.",
               "building_standard": "Determines the estimated temperature at the coldest wall spot and therefore the mould risk.",
               "humidity_hysteresis": "How much conditions must clearly improve before an active \"vent due to humidity\" recommendation switches off again. Higher = steadier but reacts a bit slower; lower = reacts faster but can flicker more with noisy sensors."
