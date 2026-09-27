@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  administration: write   # nötig, um die Repo-Beschreibung (About) zu aktualisieren
 
 jobs:
   release:
@@ -49,5 +50,12 @@ jobs:
       - name: Release anlegen
         if: steps.v.outputs.exists == 'false'
         run: gh release create "${{ steps.v.outputs.version }}" --title "${{ steps.v.outputs.version }}" --notes-file notes.md --target "${{ github.event.workflow_run.head_sha }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Repo-Beschreibung mit aktueller Version aktualisieren
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          gh repo edit --description "Adaptive Lüftungsempfehlung für Home Assistant – lernt aus echten Lüftungen (v${{ steps.v.outputs.version }})"
         env:
           GH_TOKEN: ${{ github.token }}

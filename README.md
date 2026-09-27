@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.23
+
+- **GitHub-Repo-Beschreibung wird jetzt automatisch mit aktualisiert:** Bei jedem neuen Release trägt die Pipeline die aktuelle Versionsnummer in die kurze Repo-Beschreibung (das „About“ auf GitHub) ein, damit sie nicht veraltet. Kein Verhaltensunterschied in der Integration selbst.
+
 ### Version 2.3.22
 
 - **Feldbeschreibungen in den Einstellungen aktualisiert:** Die Beschreibungen zu „Sommer-/Wintermodus“ und „Vorheizen ab“ erklären jetzt direkt in der App, dass die Automatik erst nach mehreren Stunden Trend umschaltet und dass Vorheizen nur bei manuell eingestelltem Sommer-Modus blockiert wird (nicht bei „Automatisch“). Kein Verhaltensunterschied, nur Doku.
