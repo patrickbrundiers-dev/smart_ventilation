@@ -24,13 +24,15 @@
               "name": "Room name",
               "window": "Window contacts",
               "volume": "Room volume",
-              "window_direction": "Window orientation"
+              "window_direction": "Window orientation",
+              "room_type": "Room type"
             },
             "data_description": {
               "name": "Used in notifications and as device name, e.g. “Bedroom”.",
               "window": "One or more contacts. Two or more open at the same time are detected as cross ventilation and learned separately.",
               "volume": "Floor area × ceiling height, e.g. 16 m² × 2.5 m = 40 m³. Used for heat loss and costs.",
-              "window_direction": "Direction the window faces: 0° north, 90° east, 180° south, 270° west."
+              "window_direction": "Direction the window faces: 0° north, 90° east, 180° south, 270° west.",
+              "room_type": "Just a suggestion: pre-fills the daily humidity target when setting up the room, unless you change it yourself."
             }
           },
           "indoor": {
@@ -83,7 +85,7 @@
             },
             "data_description": {
               "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible.",
-              "target_absolute_humidity": "If indoor absolute humidity drops below this while ventilating, the day counts as sufficiently ventilated.",
+              "target_absolute_humidity": "Once the indoor absolute humidity drops below this while venting, the day counts as sufficiently aired. The room type above suggests a matching value when setting up.",
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
               "cool_limit": "Warns when the room gets colder than this while a window is open. 0 = off.",
@@ -203,12 +205,14 @@
             "data": {
               "window": "Window contacts",
               "volume": "Room volume",
-              "window_direction": "Window orientation"
+              "window_direction": "Window orientation",
+              "room_type": "Room type"
             },
             "data_description": {
               "window": "One or more contacts. Two or more open at the same time are detected as cross ventilation and learned separately.",
               "volume": "Floor area × ceiling height, e.g. 16 m² × 2.5 m = 40 m³. Used for heat loss and costs.",
-              "window_direction": "Direction the window faces: 0° north, 90° east, 180° south, 270° west."
+              "window_direction": "Direction the window faces: 0° north, 90° east, 180° south, 270° west.",
+              "room_type": "Just a suggestion: pre-fills the daily humidity target when setting up the room, unless you change it yourself."
             }
           },
           "indoor": {
@@ -261,7 +265,7 @@
             },
             "data_description": {
               "season_mode": "Winter: short burst ventilation, never tilted windows. Summer: no ventilation when it is warmer outside; cooling by ventilation possible.",
-              "target_absolute_humidity": "If indoor absolute humidity drops below this while ventilating, the day counts as sufficiently ventilated.",
+              "target_absolute_humidity": "Once the indoor absolute humidity drops below this while venting, the day counts as sufficiently aired. The room type above suggests a matching value when setting up.",
               "max_temperature_difference": "Do not ventilate if it is warmer outside than inside by more than this.",
               "comfort_temperature": "If it is warmer inside and at least 2 °C cooler outside, ventilating to cool down is recommended.",
               "cool_limit": "Warns when the room gets colder than this while a window is open. 0 = off.",
@@ -374,6 +378,15 @@
         "average": "1960s–1990s (U ≈ 1.0)",
         "insulated": "Insulated, approx. 2000+ (U ≈ 0.35)",
         "passive": "New build / passive house (U ≈ 0.15)"
+      }
+    },
+    "room_type": {
+      "options": {
+        "bedroom": "Bedroom",
+        "bathroom": "Bathroom",
+        "living": "Living room / office",
+        "kitchen": "Kitchen",
+        "other": "Other"
       }
     }
   },

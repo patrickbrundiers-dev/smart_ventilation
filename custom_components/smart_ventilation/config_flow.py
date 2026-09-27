@@ -18,6 +18,7 @@ from .const import (
     DEFAULT_MAX_TEMP_DIFF, DEFAULT_MIN_SUN_ELEVATION, DEFAULT_SUN_ENTITY,
     DEFAULT_NOTIFICATION_COOLDOWN, CONF_NOTIFY_SERVICE, CONF_NOTIFY_SERVICES,
     CONF_NOTIFICATION_COOLDOWN, CONF_TARGET_ABS, DEFAULT_TARGET_ABS,
+    CONF_ROOM_TYPE, DEFAULT_ROOM_TYPE, ROOM_TYPE_TARGET_ABS,
     CONF_SEASON_MODE, CONF_SEASON_THRESHOLD, DEFAULT_SEASON_MODE, DEFAULT_SEASON_THRESHOLD,
     SEASON_AUTO, SEASON_SUMMER, SEASON_WINTER, CONF_WEATHER, CONF_COOL_LIMIT,
     DEFAULT_COOL_LIMIT, CONF_QUIET_START, CONF_QUIET_END, DEFAULT_QUIET_START,
@@ -135,6 +136,9 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             _req(CONF_WINDOW, _windows(d)): _entity(["binary_sensor", "sensor"], multiple=True),
             vol.Required(CONF_VOLUME, default=g(CONF_VOLUME, 40.0)): _number(1, 2000, 0.1, "m³"),
             vol.Required(CONF_WINDOW_DIRECTION, default=g(CONF_WINDOW_DIRECTION, 180)): _number(0, 359, 1, "°"),
+            vol.Required(CONF_ROOM_TYPE, default=g(CONF_ROOM_TYPE, DEFAULT_ROOM_TYPE)): _select(
+                list(ROOM_TYPE_TARGET_ABS), "room_type"
+            ),
         })
         return fields
 
@@ -272,6 +276,13 @@ class SmartVentilationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(data[CONF_NAME].strip().lower())
             self._abort_if_unique_id_configured()
             data[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
+            # Tagesziel unangetastet gelassen (zeigte nur den allgemeinen Vorschlag) ->
+            # stattdessen den zum gewählten Raumtyp passenden Richtwert übernehmen.
+            # Ein bewusst abweichend eingetragener Wert bleibt unangetastet.
+            if data.get(CONF_TARGET_ABS) == DEFAULT_TARGET_ABS:
+                data[CONF_TARGET_ABS] = ROOM_TYPE_TARGET_ABS.get(
+                    data.get(CONF_ROOM_TYPE), DEFAULT_TARGET_ABS
+                )
             return self.async_create_entry(title=data[CONF_NAME], data=data)
         return self.async_show_form(step_id="room", data_schema=room_schema(self.hass, {}, setup=True))
 

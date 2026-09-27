@@ -47,6 +47,39 @@ async def test_room_form_with_sections(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
 
+async def test_room_type_suggests_target_humidity(hass: HomeAssistant) -> None:
+    """Raumtyp „Schlafzimmer“ gewählt, Tagesziel unangetastet -> passender Richtwert statt
+    des allgemeinen Vorschlags (siehe ROOM_TYPE_TARGET_ABS)."""
+    set_room_states(hass)
+    room_input = {
+        **ROOM_INPUT,
+        "room": {**ROOM_INPUT["room"], "room_type": "bedroom"},
+    }
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], room_input)
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["room_type"] == "bedroom"
+    assert result["data"]["target_absolute_humidity"] == 8.5
+
+
+async def test_room_type_does_not_override_manual_target_humidity(hass: HomeAssistant) -> None:
+    """Wurde das Tagesziel bewusst gesetzt, darf der Raumtyp-Vorschlag es nicht überschreiben."""
+    set_room_states(hass)
+    room_input = {
+        **ROOM_INPUT,
+        "room": {**ROOM_INPUT["room"], "room_type": "bedroom"},
+        "behavior": {"target_absolute_humidity": 12.0},
+    }
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], room_input)
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["target_absolute_humidity"] == 12.0
+
+
 async def test_room_twice_aborts(hass: HomeAssistant) -> None:
     await setup_room(hass)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})

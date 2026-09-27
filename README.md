@@ -114,6 +114,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.13
+
+- **Richtwert für das Tagesziel je Raumtyp:** Beim Einrichten eines Raums lässt sich jetzt ein Raumtyp wählen (Schlafzimmer, Bad, Wohnzimmer/Büro, Küche, Sonstige). Danach wird das Tagesziel Luftfeuchte automatisch auf einen dazu passenden Richtwert vorbelegt (z. B. Schlafzimmer niedriger wegen Schimmelrisiko an Außenwänden, Bad höher wegen kurzfristiger Spitzen durchs Duschen) – lässt sich aber jederzeit manuell überschreiben, dann bleibt der eigene Wert erhalten.
+
 ### Version 2.3.12
 
 - **Feuchte-Empfehlung flackert nicht mehr:** Die Empfehlung „wegen Feuchte lüften“ konnte direkt an der Schwelle bei jeder kleinen Sensorschwankung an- und ausgehen (sichtbar als ständiger Wechsel zwischen „Kippfenster …“ und „Keine Lüftung erforderlich“ im Verlauf, teils im Minutentakt). Jetzt gilt eine Hysterese: Ist die Empfehlung erst aktiv, braucht es einen spürbar deutlicheren Rückgang (Feuchteunterschied, Zielwert, rel. Feuchte und Schimmelrisiko gemeinsam klar unter der Schwelle), bevor sie wieder ausgeht.

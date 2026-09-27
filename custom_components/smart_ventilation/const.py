@@ -39,6 +39,23 @@ STORE_KEY = "smart_ventilation_learning"
 CONF_TARGET_ABS = "target_absolute_humidity"
 DEFAULT_TARGET_ABS = 11.5  # g/m³ – Tagesziel absolute Feuchte innen
 
+# Raumtyp: liefert beim Einrichten nur einen Vorschlag für das Tagesziel (Feld bleibt frei
+# änderbar) – überschreibt einen bewusst abweichend eingetragenen Wert nicht.
+CONF_ROOM_TYPE = "room_type"
+ROOM_TYPE_BEDROOM = "bedroom"
+ROOM_TYPE_BATHROOM = "bathroom"
+ROOM_TYPE_LIVING = "living"
+ROOM_TYPE_KITCHEN = "kitchen"
+ROOM_TYPE_OTHER = "other"
+DEFAULT_ROOM_TYPE = ROOM_TYPE_OTHER
+ROOM_TYPE_TARGET_ABS = {
+    ROOM_TYPE_BEDROOM: 8.5,    # kühler, oft Außenwand -> niedriger halten (Schimmelvorbeugung)
+    ROOM_TYPE_BATHROOM: 11.5,  # kurzfristige Spitzen durchs Duschen normal
+    ROOM_TYPE_LIVING: 10.0,    # Wohnzimmer/Büro, normale Nutzung
+    ROOM_TYPE_KITCHEN: 10.5,   # etwas höher wegen Kochdunst
+    ROOM_TYPE_OTHER: DEFAULT_TARGET_ABS,
+}
+
 # Jahreszeit-Modus
 CONF_SEASON_MODE = "season_mode"
 CONF_SEASON_THRESHOLD = "season_threshold"
@@ -114,7 +131,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.3.12"
+VERSION = "2.3.13"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
