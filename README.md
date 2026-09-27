@@ -114,6 +114,12 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.18
+
+- **Vorheizen berücksichtigt jetzt die Wettervorhersage** (nur wenn eine Wetter-Entität eingerichtet ist):
+  - **Regen-Vorschau:** Droht laut Vorhersage in den nächsten ca. 2 Stunden Regen, wird nicht mehr zum Vorheizen geöffnet – auch wenn es gerade noch trocken ist.
+  - **Vorschau auf den nächsten Zeitpunkt:** Ist es aktuell noch nicht warm genug, zeigt die Karte an, ab wann es laut Vorhersage voraussichtlich warm (und trocken) genug wird, um vorzuheizen.
+
 ### Version 2.3.17
 
 - **Neu: Vorheizen per Lüften (Winter).** Ist ein Raum unter der neuen Schwelle „Winter: vorheizen ab“ (Vorgabe 19 °C) und es war die letzte Nacht (22–9 Uhr) schon einmal kälter als die eingestellte Heizgrenze (Vorgabe 15 °C), darf tagsüber trotz wärmerer Außenluft gelüftet werden, um warme Luft statt Heizungswärme in den Raum zu holen und so das Heizen hinauszuzögern bzw. den Raum warm zu halten. Voraussetzung ist außerdem, dass es draußen mindestens 2 °C wärmer ist als drinnen – sonst bringt das Lüften keinen Vorteil.

@@ -21,6 +21,7 @@ from .const import (
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
     CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER,
     CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD,
+    FORECAST_MAX_RAIN_MM, FORECAST_MAX_RAIN_PROB,
 )
 from . import notify_util
 
@@ -253,12 +254,15 @@ class RoomExtrasMixin:
 
         Nur im Winter, nur nach einer Nacht mit Tiefstwerten unter der Heizgrenze (sonst macht
         das Vorziehen der Heizung keinen Sinn) und nur, wenn draußen jetzt spürbar wärmer ist
-        als drinnen und der Raum noch unter der Vorheiz-Schwelle liegt.
+        als drinnen und der Raum noch unter der Vorheiz-Schwelle liegt. Droht laut Vorhersage
+        in Kürze Regen, lohnt sich das Öffnen nicht – auch wenn es gerade noch trocken ist.
         """
         if self.season != SEASON_WINTER:
             return 0
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
         if self._last_night_low is None or self._last_night_low >= threshold:
+            return 0
+        if self._rain_soon:
             return 0
         ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
         to = _num_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
@@ -267,6 +271,47 @@ class RoomExtrasMixin:
         n = max(0.5, self.learned_ach)
         target = min(self.preheat_temp, to - 0.5)
         return max(10, min(60, -60 / n * math.log((to - target) / (to - ti)) if ti < target else 10))
+
+    def preheat_plan(self, forecast):
+        """Aus der Stundenvorhersage: ab wann es heute/morgen warm genug zum Vorheizen wird,
+        bis wann noch – nur wenn die Nacht-Voraussetzung (kalte Nacht) bereits erfüllt ist."""
+        ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
+        threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
+        if (
+            self.season != SEASON_WINTER
+            or ti is None
+            or ti >= self.preheat_temp
+            or self._last_night_low is None
+            or self._last_night_low >= threshold
+        ):
+            return None
+        now = dt_util.now()
+        start = end = None
+        for item in forecast:
+            when = dt_util.parse_datetime(str(item.get("datetime", "")))
+            temp = item.get("temperature")
+            if when is None or temp is None:
+                continue
+            when = dt_util.as_local(when)
+            if when < now - timedelta(minutes=30) or when > now + timedelta(hours=24):
+                continue
+            rain = item.get("precipitation") or 0.0
+            rain_prob = item.get("precipitation_probability") or 0.0
+            warm = (
+                float(temp) >= ti + PREHEAT_MIN_WARMER
+                and rain <= FORECAST_MAX_RAIN_MM
+                and rain_prob < FORECAST_MAX_RAIN_PROB
+            )
+            if start is None and warm:
+                start = when
+            elif start is not None and not warm:
+                end = when
+                break
+        if start is None:
+            return None
+        day = "Heute" if start.date() == now.date() else "Morgen"
+        text = f"{day} ab {start.strftime('%H:%M')}"
+        return f"{text} bis {end.strftime('%H:%M')} Uhr" if end else f"{text} Uhr"
 
     def cooling_plan(self, forecast):
         """Aus der Stundenvorhersage: ab wann abends kühler, bis wann morgens noch kühl."""

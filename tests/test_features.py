@@ -5,8 +5,9 @@ from datetime import timedelta
 from pathlib import Path
 
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, SupportsResponse
 from homeassistant.helpers import intent
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed, async_mock_service
 
 from custom_components.smart_ventilation.const import DOMAIN
@@ -123,6 +124,55 @@ async def test_preheat_after_cold_night_overrides_warm_outside_block(
     assert rec.attributes["grund"] == "Vorheizen"
     assert rec.attributes["karte"]["minuten"] > 0
     assert "Vorheizen" in rec.state
+
+
+async def test_preheat_uses_forecast_for_rain_and_upcoming_window(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Die Vorhersage fließt beim Vorheizen mit ein: droht in Kürze Regen, wird trotz aktuell
+    passender Werte nicht vorgeheizt; außerdem zeigt die Karte an, ab wann es laut Vorhersage
+    warm genug wird."""
+    freezer.move_to("2026-12-05 23:00:00+01:00")  # innerhalb des Nachtfensters (22-9 Uhr)
+    forecast_holder: dict = {"data": []}
+
+    async def _handle_get_forecasts(call):
+        return {"weather.home": {"forecast": forecast_holder["data"]}}
+
+    hass.services.async_register(
+        "weather", "get_forecasts", _handle_get_forecasts,
+        supports_response=SupportsResponse.ONLY,
+    )
+    entry = await setup_room(hass, weather_entity="weather.home")
+
+    hass.states.async_set("sensor.aussen_t", -2.0)  # kalte Nacht
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)  # Nacht-Tiefsttemperatur wird mitgeschrieben
+
+    freezer.move_to("2026-12-06 09:30:00+01:00")  # Nachtfenster vorbei -> Tiefstwert übernommen
+    await _tick(hass, freezer, 1)
+
+    # Tagsüber: Raum kalt, draußen aktuell warm genug, Luftfeuchte unauffällig -
+    # ohne Vorhersage würde jetzt "Vorheizen" empfohlen.
+    hass.states.async_set("sensor.innen_t", 15.0)
+    hass.states.async_set("sensor.aussen_t", 19.0)
+    hass.states.async_set("sensor.innen_ah", 6.0)
+    hass.states.async_set("sensor.aussen_ah", 5.8)
+    await hass.async_block_till_done()
+
+    now = dt_util.now().replace(minute=0, second=0, microsecond=0)
+    forecast_holder["data"] = [
+        {"datetime": (now + timedelta(hours=h)).isoformat(), "temperature": t,
+         "humidity": 80, "precipitation": rain, "precipitation_probability": prob, "wind_speed": 5}
+        for h, t, rain, prob in [(1, 19, 3.0, 90), (5, 19, 0, 5), (6, 19, 0, 5), (7, 10, 0, 5)]
+    ]
+    await _tick(hass, freezer, 31)  # über die Auffrischungszeit hinaus -> neue Vorhersage wird geholt
+
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    # Regen in den nächsten 2 h -> kein Vorheizen, obwohl es gerade noch trocken und warm genug ist
+    assert "Vorheizen" not in rec.attributes["grund"]
+    # Vorhersage zeigt trotzdem an, wann es (nach dem Regen) warm genug werden soll
+    plan = rec.attributes["karte"]["vorheizen_plan"]
+    assert plan is not None and "Heute" in plan
 
 
 async def test_dehumidifier_runs_when_rain_blocks(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:

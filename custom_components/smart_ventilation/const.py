@@ -137,7 +137,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.3.17"
+VERSION = "2.3.18"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -164,6 +164,7 @@ DEFAULT_PREHEAT_TEMP = 19.0       # °C – unter dieser Innentemperatur "brauch
 PREHEAT_MIN_WARMER = 2.0          # draußen mind. so viel wärmer als drinnen
 NIGHT_LOW_START_HOUR = 22         # Nacht-Tiefsttemperatur wird zwischen 22 und 9 Uhr verfolgt
 NIGHT_LOW_END_HOUR = 9
+PREHEAT_RAIN_LOOKAHEAD_HOURS = 2  # Vorheizen nicht empfehlen, wenn es laut Vorhersage bald regnet
 
 # Luftentfeuchter
 CONF_DEHUMIDIFIER = "dehumidifier_entity"

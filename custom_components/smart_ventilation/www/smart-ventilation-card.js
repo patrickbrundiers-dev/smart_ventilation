@@ -58,7 +58,7 @@ function headline(k) {
     return { title: "Jetzt abkühlen", sub: join([`Fenster auf, ca. ${k.minuten} Min.`, k.kuehlen_plan && `Nacht: ${k.kuehlen_plan}`]) };
   }
   if (k.minuten > 0 && k.grund === "Vorheizen") {
-    return { title: "Jetzt vorheizen", sub: join([`Fenster auf, ca. ${k.minuten} Min.`, "warme Luft nutzt sich statt Heizung"]) };
+    return { title: "Jetzt vorheizen", sub: join([`Fenster auf, ca. ${k.minuten} Min.`, k.vorheizen_plan && `Warm: ${k.vorheizen_plan}`]) };
   }
   if (k.minuten > 0 && k.pausiert) {
     const mode = String(k.modus || "Lüften").replace(" (Querlüften)", "");
@@ -243,6 +243,7 @@ class SmartVentilationCard extends HTMLElement {
       [e.heute, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", `${k.heute_anzahl}× heute · ${fmt(k.heute_min, 0)} Min.`, k.gelueftet && "good"],
       k.heute_kwh > 0 && [e.kosten, "mdi:fire", `${fmt(k.heute_kwh, 2)} kWh · ${fmt(k.heute_eur, 2)} €`],
       k.kuehlen_plan && !(k.minuten > 0 && k.grund === "Kühlen") && [null, "mdi:weather-night", `Kühlen ${k.kuehlen_plan}`],
+      k.vorheizen_plan && !(k.minuten > 0 && k.grund === "Vorheizen") && [null, "mdi:thermometer-chevron-up", `Vorheizen ${k.vorheizen_plan}`],
       k.entfeuchter && [null, "mdi:air-humidifier", "Entfeuchter läuft"],
       k.ruhezeit && !String(k.pausiert || "").startsWith("Ruhezeit") && [null, "mdi:sleep", "Ruhezeit"],
     ]

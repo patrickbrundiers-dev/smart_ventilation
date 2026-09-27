@@ -143,6 +143,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._last_night_low = None  # zuletzt abgeschlossene Nacht - fürs Vorheizen
         self._unavailable_since = {}
         self.cool_plan = None
+        self.preheat_plan_text = None
+        self._rain_soon = False
         self._init_extras()
         self._init_history()
 
@@ -831,7 +833,28 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             return
         self._evaluate_forecast(forecast)
         self.cool_plan = self.cooling_plan(forecast)
+        self.preheat_plan_text = self.preheat_plan(forecast)
+        self._rain_soon = self._forecast_rain_soon(forecast)
         self._notify_listeners()
+
+    def _forecast_rain_soon(self, forecast):
+        """True, wenn laut Vorhersage in den nächsten Stunden Regen droht - auch wenn es
+        gerade noch trocken ist. Verhindert, dass zum Vorheizen geöffnet wird, kurz bevor
+        es zu regnen anfängt."""
+        now = dt_util.now()
+        for item in forecast:
+            when = dt_util.parse_datetime(str(item.get("datetime", "")))
+            if when is None:
+                continue
+            when = dt_util.as_local(when)
+            hours_ahead = (when - now).total_seconds() / 3600
+            if hours_ahead < -0.25 or hours_ahead > PREHEAT_RAIN_LOOKAHEAD_HOURS:
+                continue
+            rain = _num(item.get("precipitation")) or 0.0
+            rain_prob = _num(item.get("precipitation_probability")) or 0.0
+            if rain > FORECAST_MAX_RAIN_MM or rain_prob >= FORECAST_MAX_RAIN_PROB:
+                return True
+        return False
 
     def _set_best(self, when, reason, info):
         self.best_time = when
@@ -1570,6 +1593,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "pausiert": self.pause_reason(),
             "verlauf": self.trace_for_card(),
             "kuehlen_plan": self.cool_plan,
+            "vorheizen_plan": self.preheat_plan_text,
             "nach_dusche": self.after_shower,
             "urlaub": self.on_vacation,
             "entfeuchter": self.dehumidifier_active,
