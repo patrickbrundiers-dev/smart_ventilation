@@ -1306,11 +1306,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         - draußen deutlich trockener (ab START_DIFF g/m³)
         - und innen über dem Tagesziel, relative Feuchte hoch oder Schimmelrisiko an der Wand
 
-        Mit Hysterese: Ist die Empfehlung schon aktiv, braucht es einen deutlicheren Rückgang
-        (alle Werte klar unter der jeweiligen Schwelle), bevor sie wieder ausgeht. Ohne diesen
-        Puffer kippt die Empfehlung bei jeder kleinen Sensorschwankung genau an der Schwelle
-        hin und her – sichtbar als ständiger Wechsel zwischen „Kippfenster …“ und
-        „Keine Lüftung erforderlich“ im Verlauf.
+        Mit Hysterese: Ist die Empfehlung schon aktiv, bleibt sie es, bis entweder der
+        Feuchteunterschied ODER alle Einzelgründe (Zielwert, rel. Feuchte, Schimmel) klar
+        unter ihrer jeweiligen Schwelle liegen (Puffer siehe const.py) – genau die Umkehrung
+        der Bedingung oben, nur mit etwas Abstand zur Schwelle. Ohne diesen Puffer kippt die
+        Empfehlung bei jeder kleinen Sensorschwankung genau an der Schwelle hin und her –
+        sichtbar als ständiger Wechsel zwischen „Kippfenster …“ und „Keine Lüftung
+        erforderlich“ im Verlauf.
         """
         target_abs = float(self.data.get(CONF_TARGET_ABS, DEFAULT_TARGET_ABS))
         rh = self.indoor_rh
@@ -1325,14 +1327,17 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self._humidity_active = enter
             return enter
 
-        # aktiv -> erst wieder aus, wenn alles klar unter der Schwelle liegt (Puffer siehe const.py)
-        clearly_below = (
-            diff <= START_DIFF - HUMID_HYSTERESIS
-            and indoor <= target_abs - HUMID_HYSTERESIS
+        # aktiv -> aus, sobald der Feuchteunterschied allein klar unter der Schwelle liegt,
+        # oder (wenn er das noch nicht tut) alle anderen Gründe klar unter ihrer Schwelle
+        # liegen. Nur eines von beidem reicht - so bleibt es beim gleichen Entweder-oder wie
+        # bei der Einstiegsbedingung, nur mit Puffer statt einer scharfen Kante.
+        diff_clearly_below = diff <= START_DIFF - HUMID_HYSTERESIS
+        reasons_clearly_below = (
+            indoor <= target_abs - HUMID_HYSTERESIS
             and (rh is None or rh < HUMID_RH - HUMID_RH_HYSTERESIS)
             and mold not in ("erhöht", "hoch")
         )
-        self._humidity_active = not clearly_below
+        self._humidity_active = not (diff_clearly_below or reasons_clearly_below)
         return self._humidity_active
 
     def _update_recommendation(self):

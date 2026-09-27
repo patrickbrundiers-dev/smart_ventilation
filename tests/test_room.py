@@ -276,27 +276,26 @@ async def test_humidity_recommendation_has_hysteresis(
     # Ausgangslage (Standard-Fixture): Feuchteunterschied deutlich über der Schwelle -> aktiv
     assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
 
-    # Knapp unter der reinen Einstiegsschwelle (diff <= START_DIFF = 1.0), aber noch im
-    # Hysterese-Puffer (> START_DIFF - HUMID_HYSTERESIS = 0,6) -> darf NICHT sofort ausgehen.
-    hass.states.async_set("sensor.aussen_ah", 9.7)  # diff = 10,5 - 9,7 = 0,8
+    # Knapp unter der reinen Einstiegsschwelle (diff <= START_DIFF = 1,0), aber noch im
+    # Hysterese-Puffer (> START_DIFF - HUMID_HYSTERESIS = 0,9) -> darf NICHT sofort ausgehen.
+    # Genau dieser knappe Bereich hat vorher zum Flackern im Logbuch geführt.
+    hass.states.async_set("sensor.aussen_ah", 9.55)  # diff = 10,5 - 9,55 = 0,95
     await hass.async_block_till_done()
     await _tick(hass, freezer, 1)
     karte = hass.states.get(rec).attributes["karte"]
     assert karte["minuten"] > 0, "Empfehlung sollte im Hysterese-Puffer aktiv bleiben"
 
-    # Jetzt deutlich unter allen Schwellen inkl. Puffer (diff, Zielwert, rel. Feuchte, Schimmel)
-    # -> darf jetzt ausgehen.
-    hass.states.async_set("sensor.innen_ah", 8.0)
-    hass.states.async_set("sensor.aussen_ah", 7.5)  # diff = 0,5
+    # Jetzt klar unter dem Puffer (diff <= 0,9) -> darf jetzt ausgehen.
+    hass.states.async_set("sensor.aussen_ah", 9.9)  # diff = 0,6
     await hass.async_block_till_done()
     await _tick(hass, freezer, 1)
     karte = hass.states.get(rec).attributes["karte"]
-    assert karte["schimmel"] == "niedrig"
     assert karte["minuten"] == 0
     assert hass.states.get(rec).state == "Keine Lüftung erforderlich"
 
-    # Bleibt aus bei minimaler Schwankung knapp unterhalb der Schwelle - kein erneutes Flackern.
-    hass.states.async_set("sensor.aussen_ah", 7.6)  # diff = 0,4
+    # Bleibt aus bei minimaler Schwankung knapp darunter - kein erneutes Flackern, da für einen
+    # Neueinstieg wieder diff > START_DIFF (1,0) nötig wäre.
+    hass.states.async_set("sensor.aussen_ah", 9.85)  # diff = 0,65
     await hass.async_block_till_done()
     await _tick(hass, freezer, 1)
     assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
