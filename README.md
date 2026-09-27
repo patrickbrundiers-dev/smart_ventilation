@@ -114,6 +114,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.15
+
+- **Fix: Statistik nach Neustart konnte verfälscht sein.** Schloss sich ein Fenster während HA nicht lief (Neustart, Update) und kamen zwischen dem tatsächlichen Schließen und dem Wiederhochfahren mehrere Stunden zusammen, wurde beim Nachtragen der Lüftung fälschlich mit den dann aktuellen (aber längst nicht mehr aussagekräftigen) Sensorwerten geprüft, ob das Ziel erreicht wurde – eine zufällig trockene Raumluft Stunden später konnte so eine eigentlich wirkungslose Lüftung als „erfolgreich“ in die Statistik eintragen. Zählt jetzt nur noch, was schon vor dem Neustart als erreicht festgehalten war.
+- Kleinere Doku-Korrektur bei der internen Benachrichtigungs-Filterung (kein Verhaltensunterschied).
+
 ### Version 2.3.14
 
 - **Fix: Im Winter wurde trotz wärmerer Außenluft weiter „Lüften“ empfohlen.** Die Wärme-Sperre („draußen zu warm“) galt bisher nur im Sommer – im Winter wurde sie komplett übersprungen, auch an milden Tagen, an denen es draußen tatsächlich wärmer war als drinnen. Jetzt gilt dieselbe Grenze (Standard 3 °C) unabhängig von der Jahreszeit; ebenso der Hinweis zum Fenster schließen, falls es während des Lüftens wärmer wird.

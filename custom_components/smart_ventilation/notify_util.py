@@ -57,7 +57,10 @@ def anyone_home(hass: HomeAssistant, persons: list[str]) -> bool:
 def filter_targets(hass, targets, persons, only_home=True, only_person=None):
     """Nur Handys von Anwesenden (oder einer bestimmten Person).
 
-    Handys, die keiner Person zugeordnet werden können, bekommen immer Nachrichten.
+    Handys, die keiner Person zugeordnet werden können, bekommen bei der Anwesenheits-Filterung
+    (only_home) immer Nachrichten. Bei einer an eine bestimmte Person gerichteten Nachricht
+    (only_person gesetzt, z. B. „Willkommen zu Hause“) dagegen nicht - sie ist ja nur für diese
+    eine Person gedacht.
     """
     if not persons:
         return list(targets) if only_person is None else []

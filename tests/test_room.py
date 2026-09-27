@@ -212,6 +212,40 @@ async def test_unload(hass: HomeAssistant, berlin) -> None:
     await hass.async_block_till_done()
 
 
+async def test_restored_session_does_not_use_stale_sensor_values(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Fenster öffnet sich, HA startet neu (Fenster schließt währenddessen, unbemerkt),
+    und beim Wiederhochfahren liegen Stunden dazwischen. Die Erfolgsprüfung darf dann NICHT
+    die aktuellen (längst nicht mehr aussagekräftigen) Sensorwerte heranziehen - sonst zählt
+    eine tatsächlich wirkungslose Lüftung fälschlich als „Ziel erreicht“, nur weil der Raum
+    Stunden später zufällig trocken ist."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass)  # innen 10,5 / außen 4,0 g/m³, Tagesziel 10,0
+
+    hass.states.async_set("binary_sensor.fenster_1", "on")  # Lüftung beginnt
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_unload(entry.entry_id)  # "HA fährt runter"
+
+    # Während der Auszeit: Fenster schließt sich nach 3 Minuten (echte Lüftungsdauer,
+    # Feuchte damals unverändert hoch - das Ziel wurde nie erreicht).
+    freezer.tick(timedelta(minutes=3))
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+
+    # Erst Stunden später kommt HA wieder hoch. Der Raum ist inzwischen aus anderen Gründen
+    # trocken (z. B. Heizung lief durch) - das darf nicht rückwirkend als Erfolg gewertet werden.
+    freezer.tick(timedelta(hours=4))
+    hass.states.async_set("sensor.innen_ah", 9.0)  # jetzt unter dem Tagesziel (10,0)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    today = hass.states.get(eid(hass, "sensor", entry, "stats_day"))
+    assert today.state == "1"
+    assert today.attributes["erfolgreich"] == 0
+    assert today.attributes["ohne_ziel"] == 1
+
+
 def _heating_setup(hass, bt_window=False, cgh_window=False):
     """Wie beim Nutzer: 2 Thermostate -> Climate Group Helper -> Better Thermostat."""
     from homeassistant.helpers import entity_registry as er

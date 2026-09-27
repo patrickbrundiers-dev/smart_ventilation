@@ -967,9 +967,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         # Kurzes Auf/Zu (< 30 s) zählt nicht; nach Neustart nur plausible Dauer zählen
         if elapsed >= 30 and not (restored and elapsed > DEFAULT_MAX_SESSION):
-            self.session = session  # Startwerte für die Zielprüfung bereitstellen
-            reached, _ = self._target_reached_now()
-            self.session = None
+            if restored:
+                # Über einen Neustart hinweg können zwischen dem tatsächlichen Fensterschluss
+                # und diesem Abschluss hier Stunden liegen - die AKTUELLEN Sensorwerte sagen
+                # dann nichts mehr darüber aus, ob damals das Ziel erreicht wurde. Nur zählen,
+                # was schon vor dem Neustart als erreicht gespeichert war.
+                reached = False
+            else:
+                self.session = session  # Startwerte für die Zielprüfung bereitstellen
+                reached, _ = self._target_reached_now()
+                self.session = None
             success = (
                 elapsed >= DEFAULT_MIN_SESSION
                 and (session["target_reached"] or reached)
