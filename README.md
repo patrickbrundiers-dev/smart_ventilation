@@ -114,9 +114,13 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.24
+
+- Korrektur zu 2.3.23: Der Versuch, die kurze GitHub-Repo-Beschreibung automatisch bei jedem Release zu aktualisieren, hat die Release-Pipeline lahmgelegt (der Standard-Workflow-Token kann keine Repo-Einstellungen ändern, egal welche Berechtigung man ihm gibt). Zurückgenommen – kein Verhaltensunterschied in der Integration selbst.
+
 ### Version 2.3.23
 
-- **GitHub-Repo-Beschreibung wird jetzt automatisch mit aktualisiert:** Bei jedem neuen Release trägt die Pipeline die aktuelle Versionsnummer in die kurze Repo-Beschreibung (das „About“ auf GitHub) ein, damit sie nicht veraltet. Kein Verhaltensunterschied in der Integration selbst.
+- ~~GitHub-Repo-Beschreibung wird jetzt automatisch mit aktualisiert~~ (siehe 2.3.24 – ließ sich mit dem Standard-Workflow-Token nicht umsetzen).
 
 ### Version 2.3.22
 
