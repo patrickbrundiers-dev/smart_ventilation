@@ -696,28 +696,78 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.session["heating_external"] = external
         await self._save()
 
-    def _heating_targets(self):
-        """Gewählte Thermostate; Klima-Gruppen werden in ihre Mitglieder aufgelöst (keine Doppelschaltung)."""
-        result = []
-        for entity_id in self.climates:
-            state = self.hass.states.get(entity_id)
-            members = state.attributes.get("entity_id") if state is not None else None
-            if isinstance(members, (list, tuple)) and members:
-                result.extend(m for m in members if str(m).startswith("climate."))
-            else:
-                result.append(entity_id)
-        return list(dict.fromkeys(result))
+    # --- Heizungs-Hierarchie: Better Thermostat -> (Climate Group Helper / Gruppe) -> Thermostate ---
+    def _climate_children(self, entity_id):
+        """Direkt untergeordnete Thermostate: bei Better Thermostat die gesteuerten Geräte, bei Gruppen die Mitglieder."""
+        bt = self._integration_config(entity_id, "better_thermostat")
+        if bt is not None:
+            heaters = bt.get("thermostat") or []
+            return [h.get("trv") for h in heaters if isinstance(h, dict) and h.get("trv")]
+        state = self.hass.states.get(entity_id)
+        members = state.attributes.get("entity_id") if state is not None else None
+        if isinstance(members, (list, tuple)):
+            return [m for m in members if str(m).startswith("climate.")]
+        return []
 
-    def _window_managed_by(self, entity_id):
-        """Better Thermostat mit eigenem Fenstersensor schaltet beim Lüften selbst ab."""
+    def _integration_config(self, entity_id, domain):
+        """Einstellungen (data + options) der Integration, falls die Entität zu `domain` gehört."""
         entry = er.async_get(self.hass).async_get(entity_id)
-        if entry is None or entry.platform != "better_thermostat" or not entry.config_entry_id:
+        if entry is None or entry.platform != domain or not entry.config_entry_id:
             return None
         config = self.hass.config_entries.async_get_entry(entry.config_entry_id)
         if config is None:
             return None
-        if config.data.get("window_sensors") or config.options.get("window_sensors"):
+        return {**config.data, **config.options}
+
+    def _heating_targets(self):
+        """Welche Thermostate schalten? Immer die oberste Ebene, jede nur einmal.
+
+        - Liegt ein gewähltes Thermostat/eine Gruppe unter einem Better Thermostat,
+          wird das Better Thermostat geschaltet (sonst würde BT dagegen regeln).
+        - Ist ein Thermostat Mitglied einer ebenfalls gewählten Gruppe, wird nur die Gruppe geschaltet.
+        """
+        parent = {}
+        for state in self.hass.states.async_all("climate"):
+            for child in self._climate_children(state.entity_id):
+                # Better Thermostat hat Vorrang als übergeordnete Ebene
+                if child not in parent or self._integration_config(state.entity_id, "better_thermostat") is not None:
+                    parent[child] = state.entity_id
+        selected = set(self.climates)
+        result = []
+        for entity_id in self.climates:
+            chain, node = [], entity_id
+            while node in parent and node not in chain:
+                chain.append(node)
+                node = parent[node]
+            chain.append(node)
+            ancestors = chain[1:]
+            bt = [a for a in ancestors if self._integration_config(a, "better_thermostat") is not None]
+            chosen = [a for a in ancestors if a in selected]
+            if bt:
+                result.append(bt[-1])
+            elif chosen:
+                result.append(chosen[-1])
+            else:
+                result.append(entity_id)
+        return list(dict.fromkeys(result))
+
+    def _window_managed_by(self, entity_id, _seen=None):
+        """Regelt diese Heizung (oder eine Ebene darunter) beim Fensteröffnen selbst?"""
+        seen = _seen or set()
+        if entity_id in seen:
+            return None
+        seen.add(entity_id)
+        bt = self._integration_config(entity_id, "better_thermostat")
+        if bt is not None and bt.get("window_sensors"):
             return "Better Thermostat"
+        cgh = self._integration_config(entity_id, "climate_group_helper")
+        if cgh is not None and (cgh.get("room_sensor") or cgh.get("zone_sensor")) and str(
+            cgh.get("window_mode") or "disabled"
+        ) not in ("disabled", "off"):
+            return "Climate Group Helper"
+        for child in self._climate_children(entity_id):
+            if manager := self._window_managed_by(child, seen):
+                return manager
         return None
 
     async def _restore_heating(self, saved):

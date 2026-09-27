@@ -154,32 +154,69 @@ async def test_unload(hass: HomeAssistant, berlin) -> None:
     await hass.async_block_till_done()
 
 
-async def test_better_thermostat_and_climate_group(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
-    """Gruppe wird aufgelöst; Better Thermostat mit eigenem Fenstersensor wird nicht angefasst."""
+def _heating_setup(hass, bt_window=False, cgh_window=False):
+    """Wie beim Nutzer: 2 Thermostate -> Climate Group Helper -> Better Thermostat."""
     from homeassistant.helpers import entity_registry as er
     from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-    freezer.move_to("2026-12-05 10:00:00+01:00")
-    hvac = async_mock_service(hass, "climate", "set_hvac_mode")
-    bt_entry = MockConfigEntry(domain="better_thermostat", data={"window_sensors": "binary_sensor.fenster_1"})
-    bt_entry.add_to_hass(hass)
-    er.async_get(hass).async_get_or_create(
-        "climate", "better_thermostat", "bt1", config_entry=bt_entry, suggested_object_id="bad_bt"
+    reg = er.async_get(hass)
+    cgh_entry = MockConfigEntry(
+        domain="climate_group_helper",
+        options={"window_mode": "enabled", "room_sensor": "binary_sensor.fenster_1"} if cgh_window else {},
     )
+    cgh_entry.add_to_hass(hass)
+    reg.async_get_or_create("climate", "climate_group_helper", "g1", config_entry=cgh_entry, suggested_object_id="gr_bad")
+    bt_entry = MockConfigEntry(
+        domain="better_thermostat",
+        data={"thermostat": [{"trv": "climate.gr_bad"}], "window_sensors": "binary_sensor.fenster_1" if bt_window else None},
+    )
+    bt_entry.add_to_hass(hass)
+    reg.async_get_or_create("climate", "better_thermostat", "bt1", config_entry=bt_entry, suggested_object_id="bad_bt")
     modes = {"hvac_modes": ["heat", "off"], "temperature": 21}
+    hass.states.async_set("climate.trv_1", "heat", modes)
+    hass.states.async_set("climate.trv_2", "heat", modes)
+    hass.states.async_set("climate.gr_bad", "heat", {**modes, "entity_id": ["climate.trv_1", "climate.trv_2"]})
     hass.states.async_set("climate.bad_bt", "heat", modes)
-    hass.states.async_set("climate.bad_heizkoerper", "heat", modes)
-    hass.states.async_set("climate.bad_gruppe", "heat", {**modes, "entity_id": ["climate.bad_bt", "climate.bad_heizkoerper"]})
-    entry = await setup_room(hass, climate_entities=["climate.bad_gruppe", "climate.bad_heizkoerper"])
 
+
+async def _open_window(hass, freezer):
     hass.states.async_set("binary_sensor.fenster_1", "on")
     await hass.async_block_till_done()
     await _tick(hass, freezer, 2)
-    assert [(c.data["entity_id"], c.data["hvac_mode"]) for c in hvac] == [("climate.bad_heizkoerper", "off")]
+
+
+async def test_heating_switches_better_thermostat_on_top(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    """Gruppe oder einzelnes Thermostat gewählt -> geschaltet wird das Better Thermostat darüber."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    hvac = async_mock_service(hass, "climate", "set_hvac_mode")
+    _heating_setup(hass)
+    await setup_room(hass, climate_entities=["climate.gr_bad", "climate.trv_1"])
+    await _open_window(hass, freezer)
+    assert [(c.data["entity_id"], c.data["hvac_mode"]) for c in hvac] == [("climate.bad_bt", "off")]
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    await hass.async_block_till_done()
+    assert [(c.data["entity_id"], c.data["hvac_mode"]) for c in hvac][-1] == ("climate.bad_bt", "heat")
+
+
+async def test_heating_left_to_better_thermostat_window(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    hvac = async_mock_service(hass, "climate", "set_hvac_mode")
+    _heating_setup(hass, bt_window=True)
+    entry = await setup_room(hass, climate_entities=["climate.bad_bt"])
+    await _open_window(hass, freezer)
     await _tick(hass, freezer, 1)
+    assert not hvac
     running = hass.states.get(eid(hass, "sensor", entry, "ventilation_running"))
     assert running.attributes["heizung_selbst_geregelt"] == {"climate.bad_bt": "Better Thermostat"}
 
-    hass.states.async_set("binary_sensor.fenster_1", "off")
-    await hass.async_block_till_done()
-    assert [(c.data["entity_id"], c.data["hvac_mode"]) for c in hvac][-1] == ("climate.bad_heizkoerper", "heat")
+
+async def test_heating_left_to_climate_group_helper_window(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    hvac = async_mock_service(hass, "climate", "set_hvac_mode")
+    _heating_setup(hass, cgh_window=True)
+    entry = await setup_room(hass, climate_entities=["climate.bad_bt"])
+    await _open_window(hass, freezer)
+    await _tick(hass, freezer, 1)
+    assert not hvac
+    running = hass.states.get(eid(hass, "sensor", entry, "ventilation_running"))
+    assert running.attributes["heizung_selbst_geregelt"] == {"climate.bad_bt": "Climate Group Helper"}

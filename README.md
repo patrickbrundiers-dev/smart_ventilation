@@ -114,6 +114,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.3.8
+
+- **Better Thermostat + Climate Group Helper:** Die Heizungs-Hierarchie wird erkannt (Thermostate → Climate Group Helper → Better Thermostat). Geschaltet wird immer die oberste Ebene – egal ob im Raum das BT, die Gruppe oder ein einzelnes Thermostat gewählt ist. So regelt Better Thermostat nicht dagegen.
+- Hat Better Thermostat einen Fenstersensor **oder** der Climate Group Helper eine Fenstersteuerung, überlässt Smart Ventilation das Abschalten diesen Integrationen.
+
 ### Version 2.3.7
 
 - **Kein Widerspruch mehr zwischen „Lüften“ und „Fenster schließen“:** Die Warnung „draußen zu warm“ nutzt jetzt dieselbe Sommer-Grenze wie die Empfehlung. Nur wenn zum **Kühlen** gelüftet wird, kommt sie schon, sobald es draußen wärmer als drinnen ist.
