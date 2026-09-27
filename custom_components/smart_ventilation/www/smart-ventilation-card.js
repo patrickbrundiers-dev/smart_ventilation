@@ -35,6 +35,25 @@ const ago = (iso) => {
 const join = (parts) => parts.filter(Boolean).join(" · ");
 let UID = 0;
 
+/* Ein Chip statt zwei getrennter für Wärmeverlust und Vorheiz-Ersparnis: zeigt die Netto-Bilanz,
+   die Aufschlüsselung steht im Titel-Tooltip. */
+function renderChip([ent, icon, text, tone, title]) {
+  const t = title ? ` title="${esc(title)}"` : "";
+  return ent
+    ? `<button class="chip ${tone ? `tone-${tone}` : ""}" data-entity="${esc(ent)}"${t}><ha-icon icon="${icon}"></ha-icon>${esc(text)}</button>`
+    : `<span class="chip ${tone ? `tone-${tone}` : ""}"${t}><ha-icon icon="${icon}"></ha-icon>${esc(text)}</span>`;
+}
+
+function costChip(entity, kwh, eur, kwhSaved, eurSaved) {
+  if (!(kwh > 0) && !(kwhSaved > 0)) return null;
+  const netKwh = kwh - kwhSaved, netEur = eur - eurSaved;
+  const detail = join([kwh > 0 && `Wärmeverlust ${fmt(kwh, 2)} kWh`, kwhSaved > 0 && `Vorheizen −${fmt(kwhSaved, 2)} kWh`]);
+  if (netKwh > 0.004) {
+    return [entity, "mdi:fire", `${fmt(netKwh, 2)} kWh · ${fmt(netEur, 2)} €`, null, detail];
+  }
+  return [entity, "mdi:piggy-bank-outline", `Netto ${fmt(-netKwh, 2)} kWh gespart · ${fmt(-netEur, 2)} €`, "good", detail];
+}
+
 /* ---------- Status eines Raums ---------- */
 function roomState(k) {
   if (k.laeuft && k.kuehlt_aus) return { tone: "bad", icon: "mdi:snowflake-alert", pill: "Kühlt aus" };
@@ -129,7 +148,9 @@ class SmartVentilationCard extends HTMLElement {
     try {
       const entityId = this._findEntity();
       const state = entityId ? hass.states?.[entityId] : undefined;
-      const key = state ? JSON.stringify([state.attributes?.karte, state.attributes?.raeume, state.state]) : "none";
+      const key = state
+        ? JSON.stringify([state.attributes?.karte, state.attributes?.raeume, state.attributes?.summe, state.state])
+        : "none";
       if (key === this._last) return;
       this._last = key;
       this._entityId = entityId;
@@ -188,10 +209,10 @@ class SmartVentilationCard extends HTMLElement {
     } else if (state.attributes.karte) {
       body = this._room(state.attributes.karte);
     } else {
-      body = this._overview(state.attributes.raeume || []);
+      body = this._overview(state.attributes.raeume || [], state.attributes.summe || {});
     }
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card>${body}</ha-card>`;
-    this.shadowRoot.querySelectorAll("[data-entity]").forEach((el) => {
+    this.shadowRoot.querySelectorAll("[data-entity]:not([data-press])").forEach((el) => {
       const open = (ev) => {
         ev.stopPropagation();
         this._moreInfo(el.dataset.entity || this._entityId);
@@ -199,7 +220,20 @@ class SmartVentilationCard extends HTMLElement {
       el.addEventListener("click", open);
       el.addEventListener("keydown", (ev) => (ev.key === "Enter" || ev.key === " ") && open(ev));
     });
+    this.shadowRoot.querySelectorAll("[data-press]").forEach((el) => {
+      const press = (ev) => {
+        ev.stopPropagation();
+        this._press(el.dataset.entity);
+      };
+      el.addEventListener("click", press);
+      el.addEventListener("keydown", (ev) => (ev.key === "Enter" || ev.key === " ") && press(ev));
+    });
     this._bindChart();
+  }
+
+  _press(entityId) {
+    if (!entityId || !this._hass) return;
+    this._hass.callService("button", "press", { entity_id: entityId }).catch((err) => console.error("smart-ventilation-card", err));
   }
 
   /* ---------- Raum ---------- */
@@ -241,20 +275,24 @@ class SmartVentilationCard extends HTMLElement {
     const chips = [
       k.bester_zeitpunkt && [e.bester, "mdi:clock-check-outline", k.bester_zeitpunkt],
       [e.heute, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", `${k.heute_anzahl}× heute · ${fmt(k.heute_min, 0)} Min.`, k.gelueftet && "good"],
-      k.heute_kwh > 0 && [e.kosten, "mdi:fire", `${fmt(k.heute_kwh, 2)} kWh · ${fmt(k.heute_eur, 2)} €`],
-      k.heute_kwh_gespart > 0 && [null, "mdi:piggy-bank-outline", `Vorheizen spart ${fmt(k.heute_kwh_gespart, 2)} kWh · ${fmt(k.heute_eur_gespart, 2)} €`],
+      costChip(e.kosten, k.heute_kwh, k.heute_eur, k.heute_kwh_gespart, k.heute_eur_gespart),
       k.kuehlen_plan && !(k.minuten > 0 && k.grund === "Kühlen") && [null, "mdi:weather-night", `Kühlen ${k.kuehlen_plan}`],
       k.vorheizen_plan && !(k.minuten > 0 && k.grund === "Vorheizen") && [null, "mdi:thermometer-chevron-up", `Vorheizen ${k.vorheizen_plan}`],
       k.entfeuchter && [null, "mdi:air-humidifier", "Entfeuchter läuft"],
       k.ruhezeit && !String(k.pausiert || "").startsWith("Ruhezeit") && [null, "mdi:sleep", "Ruhezeit"],
     ]
       .filter(Boolean)
-      .map(([ent, icon, text, tone]) =>
-        ent
-          ? `<button class="chip ${tone ? `tone-${tone}` : ""}" data-entity="${esc(ent)}"><ha-icon icon="${icon}"></ha-icon>${esc(text)}</button>`
-          : `<span class="chip"><ha-icon icon="${icon}"></ha-icon>${esc(text)}</span>`
-      )
+      .map(renderChip)
       .join("");
+
+    const actions = this._config.show_actions !== false && k.minuten > 0 && !k.laeuft && !k.pausiert && e.snooze && e.skip
+      ? `<div class="actions">
+           <button class="action-btn" data-entity="${esc(e.snooze)}" data-press="1">
+             <ha-icon icon="mdi:alarm-snooze"></ha-icon>In 30 Min. erinnern</button>
+           <button class="action-btn" data-entity="${esc(e.skip)}" data-press="1">
+             <ha-icon icon="mdi:calendar-remove-outline"></ha-icon>Heute nicht mehr</button>
+         </div>`
+      : "";
 
     return `
       <div class="head" data-entity="" role="button" tabindex="0" aria-label="${esc(k.name)}: ${esc(h.title)}">
@@ -269,7 +307,7 @@ class SmartVentilationCard extends HTMLElement {
         <div class="headline">${esc(h.title)}</div>
         ${h.sub ? `<div class="sub">${esc(h.sub)}</div>` : ""}
       </div>
-      ${progress}${alertHtml}${tiles}${chart}
+      ${progress}${actions}${alertHtml}${tiles}${chart}
       ${chips ? `<div class="chips">${chips}</div>` : ""}`;
   }
 
@@ -326,27 +364,44 @@ class SmartVentilationCard extends HTMLElement {
     const first = pts[0], last = pts[pts.length - 1];
     const drop = first[1] > 0 ? Math.round((1 - last[1] / first[1]) * 100) : 0;
     const temps = has(first[2]) && has(last[2]) ? `Temp. ${fmt(first[2])} → ${fmt(last[2])} °C` : "";
-    this._chartData = { pts, x, y, W, H, t0 };
+
+    // Temperatur als zweite Linie, eigene (relative) Skala – es geht um den Verlauf, nicht um
+    // exakte Achsenwerte, daher keine zweite Beschriftung nötig.
+    const tPts = pts.filter((p) => has(p[2]));
+    let y2 = null, tempLine = "";
+    if (tPts.length >= 2) {
+      const tVals = tPts.map((p) => p[2]);
+      let tlo = Math.min(...tVals), thi = Math.max(...tVals);
+      const tpad = Math.max((thi - tlo) * 0.25, 0.3);
+      tlo -= tpad; thi += tpad;
+      y2 = (v) => PY + (1 - (v - tlo) / (thi - tlo)) * (H - 2 * PY);
+      tempLine = tPts.map((p, i) => `${i ? "L" : "M"}${x(p[0]).toFixed(1)},${y2(p[2]).toFixed(1)}`).join(" ");
+    }
+
+    this._chartData = { pts, x, y, y2, W, H, t0 };
     const title = trace.laeuft ? "Laufende Lüftung" : "Letzte Lüftung";
     return `
       <div class="chart">
         <div class="c-head">
           <span class="c-title">${title}</span>
+          ${tempLine ? `<span class="c-legend"><i class="lg lg-hum"></i>Feuchte<i class="lg lg-temp"></i>Temp.</span>` : ""}
           <span class="c-meta">${esc(join([!trace.laeuft && ago(trace.ende), dur(last[0] - first[0])]))}</span>
         </div>
         <div class="c-values"><b>${fmt(first[1])} → ${fmt(last[1])}</b> g/m³
           ${drop > 0 ? `<span class="delta">−${drop} %</span>` : ""}<span class="c-temp">${esc(temps)}</span></div>
-        <div class="plot" role="img" aria-label="${title}: absolute Feuchte von ${fmt(first[1])} auf ${fmt(last[1])} g/m³">
+        <div class="plot" role="img" aria-label="${title}: absolute Feuchte von ${fmt(first[1])} auf ${fmt(last[1])} g/m³${temps ? ", " + temps : ""}">
           <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
             <defs><linearGradient id="${this._uid}g" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stop-color="var(--sv-info)" stop-opacity=".28"/><stop offset="1" stop-color="var(--sv-info)" stop-opacity="0"/>
             </linearGradient></defs>
             <path d="${area}" fill="url(#${this._uid}g)"/>
+            ${tempLine ? `<path d="${tempLine}" class="line-temp"/>` : ""}
             <path d="${line}" class="line"/>
             <line class="cross" x1="0" x2="0" y1="0" y2="${H}" visibility="hidden"/>
           </svg>
           <span class="dot-end" style="left:${(x(last[0]) / W) * 100}%;top:${(y(last[1]) / H) * 100}%"></span>
           <span class="dot-hover" hidden></span>
+          <span class="dot-hover-temp" hidden></span>
           <div class="tip" hidden></div>
         </div>
         <div class="c-axis"><span>0:00</span><span>${dur(last[0] - first[0])}</span></div>
@@ -356,8 +411,9 @@ class SmartVentilationCard extends HTMLElement {
   _bindChart() {
     const plot = this.shadowRoot.querySelector(".plot");
     if (!plot || !this._chartData) return;
-    const { pts, x, y, W, H, t0 } = this._chartData;
-    const cross = plot.querySelector(".cross"), tip = plot.querySelector(".tip"), dot = plot.querySelector(".dot-hover");
+    const { pts, x, y, y2, W, H, t0 } = this._chartData;
+    const cross = plot.querySelector(".cross"), tip = plot.querySelector(".tip");
+    const dot = plot.querySelector(".dot-hover"), dotTemp = plot.querySelector(".dot-hover-temp");
     const show = (clientX) => {
       const r = plot.getBoundingClientRect();
       const vx = ((clientX - r.left) / r.width) * W;
@@ -366,6 +422,12 @@ class SmartVentilationCard extends HTMLElement {
       const px = x(best[0]), py = y(best[1]);
       cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.setAttribute("visibility", "visible");
       dot.hidden = false; dot.style.left = `${(px / W) * 100}%`; dot.style.top = `${(py / H) * 100}%`;
+      if (y2 && has(best[2])) {
+        dotTemp.hidden = false;
+        dotTemp.style.left = `${(px / W) * 100}%`; dotTemp.style.top = `${(y2(best[2]) / H) * 100}%`;
+      } else {
+        dotTemp.hidden = true;
+      }
       tip.hidden = false;
       tip.innerHTML = `<b>${fmt(best[1])} g/m³</b><span>${join([dur(best[0] - t0), has(best[2]) && `${fmt(best[2])} °C`])}</span>`;
       // rechts neben der Linie, in der rechten Hälfte links davon
@@ -374,18 +436,20 @@ class SmartVentilationCard extends HTMLElement {
       tip.style.left = `${right ? at + 10 : at - 10}px`;
       tip.style.transform = right ? "none" : "translateX(-100%)";
     };
-    const hide = () => { cross.setAttribute("visibility", "hidden"); tip.hidden = true; dot.hidden = true; };
+    const hide = () => { cross.setAttribute("visibility", "hidden"); tip.hidden = true; dot.hidden = true; dotTemp.hidden = true; };
     plot.addEventListener("pointermove", (ev) => show(ev.clientX));
     plot.addEventListener("pointerdown", (ev) => show(ev.clientX));
     plot.addEventListener("pointerleave", hide);
   }
 
   /* ---------- Übersicht ---------- */
-  _overview(rooms) {
+  _overview(rooms, summe) {
     const needing = rooms.filter((r) => r.lueften && !r.laeuft && !r.pausiert).length;
     const running = rooms.filter((r) => r.laeuft).length;
     const tone = needing ? "warn" : running ? "info" : "good";
     const pill = needing ? `${needing} lüften` : running ? `${running} läuft` : "Alles gut";
+    const chip = costChip(null, summe?.heute_kwh, summe?.heute_eur, summe?.heute_kwh_gespart, summe?.heute_eur_gespart);
+    const chips = chip ? `<div class="chips">${renderChip(chip)}</div>` : "";
     const rows = rooms
       .map((r) => {
         const t = r.laeuft ? ["info", "mdi:window-open-variant", "Lüftung läuft", "läuft"]
@@ -407,6 +471,7 @@ class SmartVentilationCard extends HTMLElement {
           <div class="meta">${rooms.length} ${rooms.length === 1 ? "Raum" : "Räume"}</div></div>
         <span class="pill tone-${tone}"><i></i>${esc(pill)}</span>
       </div>
+      ${chips}
       <div class="rows">${rows || '<div class="empty"><span>Noch keine Räume eingerichtet.</span></div>'}</div>`;
   }
 }
@@ -462,6 +527,14 @@ const STYLE = `
   .track { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--sv-info) 18%, transparent); overflow: hidden; }
   .track .fill { height: 100%; border-radius: 3px; background: var(--sv-info); transition: width .6s ease; }
 
+  /* Schnellaktionen */
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .action-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500;
+    padding: 7px 12px; border-radius: 999px; color: var(--sv-text-2); background: var(--sv-surface);
+    border: 1px solid var(--sv-line); transition: background .15s; }
+  .action-btn:hover { background: var(--sv-surface-hover); color: var(--sv-text); }
+  .action-btn ha-icon { --mdc-icon-size: 15px; }
+
   /* Hinweise */
   .alert { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--sv-inner);
     background: color-mix(in srgb, var(--tone) 12%, transparent); border: 1px solid color-mix(in srgb, var(--tone) 28%, transparent); }
@@ -494,6 +567,11 @@ const STYLE = `
   .chart { display: flex; flex-direction: column; gap: 4px; }
   .c-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .c-title { font-size: 13px; font-weight: 600; } .c-meta { font-size: 12px; color: var(--sv-text-2); }
+  .c-legend { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--sv-text-2); }
+  .c-legend .lg { display: inline-block; width: 10px; height: 2px; border-radius: 1px; margin-left: 8px; }
+  .c-legend .lg:first-child { margin-left: 0; }
+  .c-legend .lg-hum { background: var(--sv-info); }
+  .c-legend .lg-temp { background: var(--sv-warn, var(--sv-bad)); }
   .c-values { font-size: 12px; color: var(--sv-text-2); display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
   .c-values b { font-size: 14px; color: var(--sv-text); font-weight: 600; }
   .delta { font-weight: 600; color: var(--sv-text); padding: 1px 6px; border-radius: 999px;
@@ -503,15 +581,19 @@ const STYLE = `
   .plot svg { width: 100%; height: 100%; display: block; overflow: visible; }
   .plot .line { fill: none; stroke: var(--sv-info); stroke-width: 2; vector-effect: non-scaling-stroke;
     stroke-linejoin: round; stroke-linecap: round; }
+  .plot .line-temp { fill: none; stroke: var(--sv-warn, var(--sv-bad)); stroke-width: 1.5; stroke-dasharray: 4 3;
+    vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; opacity: .85; }
   .plot .cross { stroke: var(--sv-text-2); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
   .dot-end, .dot-hover { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
     background: var(--sv-info); box-shadow: 0 0 0 2px var(--card-background-color, var(--ha-card-background, #fff)); pointer-events: none; }
+  .dot-hover-temp { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%;
+    background: var(--sv-warn, var(--sv-bad)); box-shadow: 0 0 0 2px var(--card-background-color, var(--ha-card-background, #fff)); pointer-events: none; }
   .tip { position: absolute; top: 0; padding: 6px 8px; border-radius: 8px;
     font-size: 12px; line-height: 1.3; white-space: nowrap; pointer-events: none; display: flex; flex-direction: column;
     background: var(--card-background-color, var(--ha-card-background, #fff)); color: var(--sv-text);
     box-shadow: 0 2px 8px rgba(0,0,0,.18); border: 1px solid var(--sv-line); }
   .tip span { color: var(--sv-text-2); }
-  .tip[hidden], .dot-hover[hidden] { display: none; }
+  .tip[hidden], .dot-hover[hidden], .dot-hover-temp[hidden] { display: none; }
   .c-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--sv-text-2); font-variant-numeric: tabular-nums; }
 
   /* Chips */

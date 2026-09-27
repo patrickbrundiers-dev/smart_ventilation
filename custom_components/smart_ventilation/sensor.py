@@ -75,7 +75,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.3.26",
+            sw_version="2.4.0",
         )
 
     async def async_added_to_hass(self):
@@ -486,7 +486,7 @@ class OverviewBase(SensorEntity):
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.3.26",
+            sw_version="2.4.0",
         )
 
     async def async_added_to_hass(self):
@@ -496,7 +496,7 @@ class OverviewBase(SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        return {"raeume": self.coordinator.room_list()}
+        return {"raeume": self.coordinator.room_list(), "summe": self.coordinator.totals()}
 
 
 class MostUrgentRoomSensor(OverviewBase):

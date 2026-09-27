@@ -545,6 +545,12 @@
     "button": {
       "reset_learning": {
         "name": "Lernen zurücksetzen"
+      },
+      "snooze": {
+        "name": "Erinnerung aussetzen (30 Min.)"
+      },
+      "skip_today": {
+        "name": "Heute nicht mehr erinnern"
       }
     }
   },

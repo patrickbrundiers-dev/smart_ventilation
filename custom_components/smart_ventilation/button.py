@@ -11,7 +11,11 @@ from .const import DOMAIN
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([ResetLearningButton(coordinator)])
+    async_add_entities([
+        ResetLearningButton(coordinator),
+        SnoozeButton(coordinator),
+        SkipTodayButton(coordinator),
+    ])
 
 
 class ResetLearningButton(ButtonEntity):
@@ -29,3 +33,38 @@ class ResetLearningButton(ButtonEntity):
 
     async def async_press(self) -> None:
         await self.coordinator.async_reset_learning()
+
+
+class SnoozeButton(ButtonEntity):
+    """Erinnerung für 30 Minuten aussetzen – gleiche Wirkung wie der Button in der Push-Nachricht,
+    aber auch direkt von der Dashboard-Karte aus nutzbar."""
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator):
+        self.coordinator = coordinator
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_snooze"
+        self._attr_translation_key = "snooze"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.entry.entry_id)},
+        )
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_snooze()
+
+
+class SkipTodayButton(ButtonEntity):
+    """Heute keine weiteren Erinnerungen mehr – siehe SnoozeButton."""
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator):
+        self.coordinator = coordinator
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_skip_today"
+        self._attr_translation_key = "skip_today"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.entry.entry_id)},
+        )
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_skip_today()

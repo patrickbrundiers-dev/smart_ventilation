@@ -545,6 +545,12 @@
     "button": {
       "reset_learning": {
         "name": "Reset learning"
+      },
+      "snooze": {
+        "name": "Snooze reminder (30 min)"
+      },
+      "skip_today": {
+        "name": "Don't remind me today"
       }
     }
   },

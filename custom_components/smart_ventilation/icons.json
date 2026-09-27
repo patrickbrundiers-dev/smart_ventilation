@@ -184,6 +184,12 @@
     "button": {
       "reset_learning": {
         "default": "mdi:school-outline"
+      },
+      "snooze": {
+        "default": "mdi:alarm-snooze"
+      },
+      "skip_today": {
+        "default": "mdi:calendar-remove-outline"
       }
     }
   },

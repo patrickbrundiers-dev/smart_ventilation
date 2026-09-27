@@ -143,6 +143,13 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.4.0
+
+- **Schnellaktionen direkt auf der Karte**: Solange eine Lüftung ansteht, zeigt die Karte jetzt „In 30 Min. erinnern“ und „Heute nicht mehr“ als Buttons an – bislang ging das nur über die Aktionen in der Push-Nachricht. Dahinter stehen zwei neue Button-Entitäten (`button.snooze`, `button.skip_today`) pro Raum, die auch unabhängig von der Karte nutzbar sind.
+- **Zusammengefasste Kosten-Anzeige**: Statt zweier getrennter Chips für Wärmeverlust und Vorheiz-Ersparnis zeigt die Karte jetzt einen einzigen Netto-Chip (Kosten oder Ersparnis, je nachdem was überwiegt) mit einer Tooltip-Aufschlüsselung der beiden Anteile.
+- **Gesamtübersicht mit Tages-Bilanz**: Die Übersichtskarte (alle Räume) zeigt jetzt ebenfalls einen Netto-Kosten-Chip mit der aufsummierten Heizkosten-Bilanz des Tages über alle Räume.
+- **Temperaturverlauf im Diagramm**: Das Lüftungsdiagramm zeigt neben der Feuchte jetzt zusätzlich den Temperaturverlauf als zweite, gestrichelte Linie mit eigener Skala – inklusive Legende und synchronisiertem Hover-Punkt.
+
 ### Version 2.3.26
 
 - **Feuchte-Schutz beim Vorheizen**: Ist die Luft draußen deutlich feuchter als drinnen, wird nicht mehr vorgeheizt, auch wenn Temperatur und Nacht-Tiefstwert dafür sprächen – sonst würde man sich mit der Wärme zugleich ein Feuchteproblem einhandeln (spiegelbildlich zum bestehenden Feuchte-Schutz beim Sommer-Kühlen).

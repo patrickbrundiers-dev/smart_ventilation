@@ -372,6 +372,20 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self._skip_date = dt_util.now().date()
             self.hass.async_create_task(self._save())
 
+    async def async_snooze(self):
+        """Erinnerung für SNOOZE_MINUTES aussetzen - gleiche Wirkung wie der Button in der
+        Push-Nachricht, aber auch als eigene Button-Entität nutzbar (z. B. von der Karte aus)."""
+        self._snooze_until = dt_util.now() + timedelta(minutes=SNOOZE_MINUTES)
+        self._update_recommendation()
+        self._notify_listeners()
+
+    async def async_skip_today(self):
+        """Heute keine weiteren Erinnerungen mehr - siehe async_snooze()."""
+        self._skip_date = dt_util.now().date()
+        await self._save()
+        self._update_recommendation()
+        self._notify_listeners()
+
     @callback
     def _state_changed(self, event):
         entity_id = event.data["entity_id"]
@@ -1718,6 +1732,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "heute_eur": today["cost"],
             "heute_kwh_gespart": today["kwh_gespart"],
             "heute_eur_gespart": today["kosten_gespart"],
+            "heute_kwh_netto": round(today["kwh"] - today["kwh_gespart"], 2),
+            "heute_eur_netto": round(today["cost"] - today["kosten_gespart"], 2),
             "gelueftet": self.ventilated_today,
             "kuehlt_aus": self.cooling_down,
             "ruhezeit": self.in_quiet_hours(),
@@ -1738,6 +1754,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 "heute": self.own_entity("sensor", "stats_day"),
                 "bester": self.own_entity("sensor", "best_time"),
                 "kosten": self.own_entity("sensor", "cost_month"),
+                "snooze": self.own_entity("button", "snooze"),
+                "skip": self.own_entity("button", "skip_today"),
             },
             "schimmel_h_heute": self.mold_hours_today,
             "heizung_ab": [self._friendly_name(e) for e in (self.session or {}).get("heating") or {}],

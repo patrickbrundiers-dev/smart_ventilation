@@ -100,6 +100,24 @@ class OverviewCoordinator:
     def rooms_needing(self):
         return [r for r in self.room_list() if r["lueften"]]
 
+    def totals(self):
+        """Aufsummierte Heizkosten-Bilanz durchs Lüften heute, über alle Räume."""
+        kwh = cost = kwh_saved = cost_saved = 0.0
+        for room in self.rooms():
+            s = room.period_stats("day")
+            kwh += s["kwh"]
+            cost += s["cost"]
+            kwh_saved += s["kwh_gespart"]
+            cost_saved += s["kosten_gespart"]
+        return {
+            "heute_kwh": round(kwh, 2),
+            "heute_eur": round(cost, 2),
+            "heute_kwh_gespart": round(kwh_saved, 2),
+            "heute_eur_gespart": round(cost_saved, 2),
+            "heute_kwh_netto": round(kwh - kwh_saved, 2),
+            "heute_eur_netto": round(cost - cost_saved, 2),
+        }
+
     @property
     def most_urgent(self):
         needing = self.rooms_needing()
