@@ -1331,9 +1331,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         # oder (wenn er das noch nicht tut) alle anderen Gründe klar unter ihrer Schwelle
         # liegen. Nur eines von beidem reicht - so bleibt es beim gleichen Entweder-oder wie
         # bei der Einstiegsbedingung, nur mit Puffer statt einer scharfen Kante.
-        diff_clearly_below = diff <= START_DIFF - HUMID_HYSTERESIS
+        # (1e-6 Toleranz gegen Fließkomma-Rundung, z. B. 10,1 - 9,2 = 0,9000000000000004.)
+        diff_clearly_below = diff <= START_DIFF - HUMID_HYSTERESIS + 1e-6
         reasons_clearly_below = (
-            indoor <= target_abs - HUMID_HYSTERESIS
+            indoor <= target_abs - HUMID_HYSTERESIS + 1e-6
             and (rh is None or rh < HUMID_RH - HUMID_RH_HYSTERESIS)
             and mold not in ("erhöht", "hoch")
         )
