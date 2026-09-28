@@ -45,8 +45,12 @@ jobs:
         if: always()
         run: |
           echo "::notice title=Ergebnis::$(tail -n 1 pytest.log)"
-          grep -E "^(FAILED|ERROR) " pytest.log | while read -r line; do echo "::error title=Test::${line:0:900}"; done || true
-          grep -E "^E  " pytest.log | head -n 15 | while read -r line; do echo "::error title=Detail::${line:0:900}"; done || true
+          # GitHub begrenzt die Anzahl an ::error::-Annotations pro Step (bislang beobachtet:
+          # ~10) - die alten Zeile-für-Zeile-Greps haben dieses Budget bereits mit wenig
+          # hilfreichen, umgebrochenen Fortschrittszeilen ("FAILED    [ 81%]" statt echtem
+          # Testnamen) aufgebraucht, sodass die eigentlich interessanten Tracebacks nie ankamen.
+          # Jetzt: pro Fund GENAU EINE Annotation mit dem kompletten (mehrzeiligen) Block, damit
+          # innerhalb des Budgets deutlich mehr echte Information ankommt.
           python3 - <<'PYEOF' || true
           import re
 
@@ -60,12 +64,9 @@ jobs:
               if len(s) < 10:
                   return False
               core = s.strip("_= ")
-              # Trennzeile: fast nur aus "_" oder "=" bestehend (Testname optional in der Mitte).
               symbol_count = sum(1 for c in s if c in "_=")
               return symbol_count >= max(10, len(s) - len(core) - 2)
 
-          # Bloecke an Trennzeilen aufteilen (funktioniert fuer "____ test_x ____" wie auch fuer
-          # "==== FAILURES ====" - beide Formate zaehlen als Trennzeile).
           blocks = []
           current = []
           for line in raw_lines:
@@ -79,11 +80,16 @@ jobs:
               blocks.append(current)
 
           def block_text(b):
-              return "\n".join(b)
+              return "\n".join(l for l in b if l.strip())
 
           def looks_like_traceback(b):
               text = block_text(b)
-              return bool(re.search(r"^\s*E\s", text, re.M) or re.search(r"^\s*>", text, re.M) or "Error" in text or "Exception" in text)
+              return bool(
+                  re.search(r"^\s*E\s", text, re.M)
+                  or re.search(r"^\s*>", text, re.M)
+                  or "Error" in text
+                  or "Exception" in text
+              )
 
           error_blocks = [b for b in blocks if re.search(r"ERROR at (setup|teardown) of", block_text(b))]
           fail_blocks = [
@@ -95,26 +101,21 @@ jobs:
               and looks_like_traceback(b)
           ]
 
-          picked = error_blocks[:2] + fail_blocks[:3]
-          total = 0
+          def emit(title, text):
+              # Workflow-Command-Escaping für mehrzeilige Annotation-Messages.
+              escaped = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title={title}::{escaped[:6000]}")
+
+          picked = error_blocks[:3] + fail_blocks[:5]
           if not picked:
               # Fallback: falls die Blockerkennung nichts findet, wenigstens rohe Zeilen rund um
               # die ersten FAILED/ERROR-Marker aus der Kurzzusammenfassung ausgeben.
               for i, line in enumerate(raw_lines):
                   if line.startswith(("FAILED ", "ERROR ")):
-                      for ctx in raw_lines[max(0, i - 20):i + 1]:
-                          if ctx.strip():
-                              print(f"::error title=Fallback::{ctx[:500]}")
+                      ctx = [l for l in raw_lines[max(0, i - 25):i + 1] if l.strip()]
+                      emit("Fallback", "\n".join(ctx))
                       break
           else:
-              for block in picked:
-                  for line in block:
-                      if not line.strip():
-                          continue
-                      total += 1
-                      if total > 150:
-                          break
-                      print(f"::error title=Trace::{line[:500]}")
-                  if total > 150:
-                      break
+              for idx, block in enumerate(picked):
+                  emit(f"Trace{idx + 1}", block_text(block))
           PYEOF
