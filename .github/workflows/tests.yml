@@ -50,45 +50,71 @@ jobs:
           python3 - <<'PYEOF' || true
           import re
 
-          with open("pytest.log", encoding="utf-8", errors="replace") as f:
-              lines = f.readlines()
+          ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
-          # Kompakte Traceback-Bloecke (--tb=short) sind durch Trennzeilen wie
-          # "________ ERROR at setup of test_x ________" oder
-          # "________ test_x ________" abgegrenzt. Fuer die ersten paar Bloecke
-          # jeweils den vollen Inhalt als Annotation ausgeben, da die einfachen
-          # FAILED/ERROR-Zeilen und "E  "-Greps offenbar nicht genug Kontext liefern.
-          divider = re.compile(r"^_{5,}.*_{5,}$")
+          with open("pytest.log", encoding="utf-8", errors="replace") as f:
+              raw_lines = [ANSI.sub("", l).rstrip("\n") for l in f.readlines()]
+
+          def is_divider(s: str) -> bool:
+              s = s.strip()
+              if len(s) < 10:
+                  return False
+              core = s.strip("_= ")
+              # Trennzeile: fast nur aus "_" oder "=" bestehend (Testname optional in der Mitte).
+              symbol_count = sum(1 for c in s if c in "_=")
+              return symbol_count >= max(10, len(s) - len(core) - 2)
+
+          # Bloecke an Trennzeilen aufteilen (funktioniert fuer "____ test_x ____" wie auch fuer
+          # "==== FAILURES ====" - beide Formate zaehlen als Trennzeile).
           blocks = []
-          current = None
-          for line in lines:
-              line = line.rstrip("\n")
-              if divider.match(line):
-                  if current is not None:
+          current = []
+          for line in raw_lines:
+              if is_divider(line):
+                  if current:
                       blocks.append(current)
                   current = [line]
-              elif current is not None:
-                  if line.startswith("="):
-                      blocks.append(current)
-                      current = None
-                  else:
-                      current.append(line)
-          if current is not None:
+              else:
+                  current.append(line)
+          if current:
               blocks.append(current)
 
-          error_blocks = [b for b in blocks if "ERROR at setup" in b[0] or "ERROR at teardown" in b[0]]
-          fail_blocks = [b for b in blocks if b not in error_blocks]
+          def block_text(b):
+              return "\n".join(b)
 
-          picked = error_blocks[:2] + fail_blocks[:2]
+          def looks_like_traceback(b):
+              text = block_text(b)
+              return bool(re.search(r"^\s*E\s", text, re.M) or re.search(r"^\s*>", text, re.M) or "Error" in text or "Exception" in text)
+
+          error_blocks = [b for b in blocks if re.search(r"ERROR at (setup|teardown) of", block_text(b))]
+          fail_blocks = [
+              b for b in blocks
+              if b not in error_blocks
+              and len(b) > 1
+              and "PASSED" not in block_text(b)
+              and "test session starts" not in block_text(b)
+              and looks_like_traceback(b)
+          ]
+
+          picked = error_blocks[:2] + fail_blocks[:3]
           total = 0
-          for block in picked:
-              for line in block:
-                  if not line.strip():
-                      continue
-                  total += 1
-                  if total > 120:
+          if not picked:
+              # Fallback: falls die Blockerkennung nichts findet, wenigstens rohe Zeilen rund um
+              # die ersten FAILED/ERROR-Marker aus der Kurzzusammenfassung ausgeben.
+              for i, line in enumerate(raw_lines):
+                  if line.startswith(("FAILED ", "ERROR ")):
+                      for ctx in raw_lines[max(0, i - 20):i + 1]:
+                          if ctx.strip():
+                              print(f"::error title=Fallback::{ctx[:500]}")
                       break
-                  print(f"::error title=Trace::{line[:500]}")
-              if total > 120:
-                  break
+          else:
+              for block in picked:
+                  for line in block:
+                      if not line.strip():
+                          continue
+                      total += 1
+                      if total > 150:
+                          break
+                      print(f"::error title=Trace::{line[:500]}")
+                  if total > 150:
+                      break
           PYEOF
