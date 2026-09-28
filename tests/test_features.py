@@ -438,16 +438,22 @@ async def test_assist_intent_and_service(hass: HomeAssistant, berlin) -> None:
 
 
 async def test_no_humidity_nag_when_room_is_dry_enough(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
-    """Innen 10,1 / außen 9,2 g/m³ bei 20 °C: Lüften bringt kaum etwas -> keine Aufforderung."""
+    """Innen 10,1 / außen 9,2 g/m³ bei 20 °C: Lüften bringt kaum etwas -> keine aktive Aufforderung
+    (0 Minuten). Innen liegt hauchdünn über dem Zielwert (10,0), draußen ist es aber nicht
+    trockener genug (diff 0,9 < START_DIFF 1,0) - die Statusmeldung weist das jetzt ehrlich aus,
+    statt pauschal "in Ordnung" zu melden (siehe test_humid_outdoor_warning_when_window_opened_anyway
+    in test_room.py für den deutlicheren Fall inkl. Schließen-Erinnerung)."""
     freezer.move_to("2026-09-27 10:00:00+02:00")
     entry = await setup_room(hass, season_mode="summer")
+    rec = eid(hass, "sensor", entry, "recommendation")
     for eid_, val in (("sensor.innen_t", 20.4), ("sensor.aussen_t", 20), ("sensor.innen_ah", 10.1), ("sensor.aussen_ah", 9.2)):
         hass.states.async_set(eid_, val)
     await _tick(hass, freezer, 1)
-    assert hass.states.get(eid(hass, "sensor", entry, "recommendation")).state == "Keine Lüftung erforderlich"
+    assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
+    assert hass.states.get(rec).state == "Raumluft feucht – Außenluft aktuell nicht trockener"
     hass.states.async_set("sensor.innen_ah", 12.5)        # jetzt wirklich zu feucht
     await _tick(hass, freezer, 1)
-    assert hass.states.get(eid(hass, "sensor", entry, "recommendation")).state != "Keine Lüftung erforderlich"
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
 
 
 async def test_humidity_airing_not_contradicted_by_warm_warning(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:

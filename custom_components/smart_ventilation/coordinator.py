@@ -141,6 +141,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._skip_date = None
         self._last_session_end = None
         self._humidity_active = False
+        self._humidity_reasons_met = False
         self._night_low = None       # läuft gerade mit (innerhalb des Nachtfensters)
         self._last_night_low = None  # zuletzt abgeschlossene Nacht - fürs Vorheizen
         self._unavailable_since = {}
@@ -767,6 +768,32 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
     async def _check_warnings(self):
         name = self.data[CONF_NAME]
         tag = f"smart_ventilation_{self.entry.entry_id}_warn"
+
+        # Fenster wurde geöffnet, obwohl die Außenluft gerade nicht trockener ist als die
+        # Raumluft (siehe _update_recommendation: "Raumluft feucht – Außenluft aktuell nicht
+        # trockener") - Lüften bringt in diesem Fall eher zusätzliche Feuchte rein, statt welche
+        # loszuwerden. Einmalig pro Sitzung darauf hinweisen, damit das Fenster nicht versehentlich
+        # zu lange offen bleibt.
+        if not self.session.get("humid_outdoor_warned"):
+            indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+            outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
+            if (
+                indoor is not None and outdoor is not None
+                and (indoor - outdoor) <= START_DIFF
+                and self._humidity_reasons_met
+            ):
+                self.session["humid_outdoor_warned"] = True
+                await self._send(
+                    f"Außenluft nicht trockener: {name}",
+                    (
+                        "Die Luft draußen ist gerade nicht trockener als drinnen – Lüften bringt "
+                        "hier eher zusätzliche Feuchte rein, statt welche loszuwerden. Am besten "
+                        "das Fenster wieder schließen."
+                    ),
+                    tag,
+                    category=CAT_WARNING,
+                )
+                await self._save()
 
         if self.cooling_down and not self.session.get("cool_warned"):
             self.session["cool_warned"] = True
@@ -1673,11 +1700,17 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         rh = self.indoor_rh
         mold = self.mold_risk
 
-        enter = diff > START_DIFF and (
+        # Getrennt von "enter" gehalten (das braucht zusätzlich den Außenluft-Unterschied) - nur
+        # für eine ehrlichere Statusmeldung, wenn die Raumluft für sich genommen zu feucht wäre,
+        # aber gerade nicht gelüftet werden kann, weil die Außenluft nicht trockener ist (siehe
+        # _update_recommendation: sonst würde "Raumklima in Ordnung" angezeigt, obwohl der
+        # Zielwert/die rel. Feuchte/das Schimmelrisiko gerade tatsächlich überschritten ist).
+        self._humidity_reasons_met = (
             indoor > target_abs
             or (rh is not None and rh >= HUMID_RH)
             or mold in ("erhöht", "hoch")
         )
+        enter = diff > START_DIFF and self._humidity_reasons_met
         if not self._humidity_active:
             self._humidity_active = enter
             return enter
@@ -1725,6 +1758,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.recommend_reason = " + ".join(reasons)
 
         if not need_humidity and not need_co2 and not need_cool and not need_preheat:
+            if self._humidity_reasons_met and diff <= START_DIFF:
+                # Zielwert/rel. Feuchte/Schimmelrisiko wären für sich genommen ein Grund zum
+                # Lüften - nur die Außenluft ist gerade nicht (mehr) trockener, Lüften würde die
+                # Lage also nicht verbessern. "Raumklima in Ordnung" wäre hier irreführend: das
+                # Klima ist NICHT in Ordnung, es lässt sich nur gerade nichts dagegen tun.
+                self.recommendation = "Raumluft feucht – Außenluft aktuell nicht trockener"
+                self.recommended_minutes = 0
+                self.recommended_mode = "Keine Lüftung"
+                self.block_reason = "Außenluft nicht trockener"
+                return
             self.recommendation = "Keine Lüftung erforderlich"
             self.recommended_minutes = 0
             self.recommended_mode = "Keine Lüftung"

@@ -212,6 +212,35 @@ async def test_cooling_warning(hass: HomeAssistant, freezer: FrozenDateTimeFacto
     assert hass.states.get(eid(hass, "binary_sensor", entry, "cooling_down")).state == "on"
 
 
+async def test_humid_outdoor_warning_when_window_opened_anyway(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Öffnet man trotz „Raumluft feucht – Außenluft aktuell nicht trockener" das Fenster
+    (Lüften hilft hier ja gerade nicht, weil draußen nicht trockener ist), soll einmalig eine
+    Erinnerung kommen, es wieder zu schließen - sonst bleibt es unbemerkt offen und die Feuchte
+    verschlechtert sich eher, statt sich zu verbessern."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    entry = await setup_room(hass)
+    rec = eid(hass, "sensor", entry, "recommendation")
+
+    # Innen (10,5) über dem Zielwert (10,0), aber draußen (9,9) nicht trockener genug -> Karte
+    # zeigt "nicht in Ordnung, aber Lüften hilft gerade nicht" statt "Lüften".
+    hass.states.async_set("sensor.aussen_ah", 9.9)
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
+    assert hass.states.get(rec).state == "Raumluft feucht – Außenluft aktuell nicht trockener"
+
+    # Trotzdem geöffnet -> einmalige Erinnerung, wieder zu schließen.
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    await _tick(hass, freezer, 1)
+    warnings = [c for c in pushes if "Außenluft nicht trockener" in c.data["title"]]
+    assert len(warnings) == 1
+
+
 async def test_reminder_has_buttons_and_quiet_hours(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     freezer.move_to("2026-12-05 23:00:00+01:00")
     pushes = async_mock_service(hass, "notify", "mobile_app_test")
@@ -457,7 +486,10 @@ async def test_humidity_recommendation_has_hysteresis(
     await _tick(hass, freezer, 1)
     karte = hass.states.get(rec).attributes["karte"]
     assert karte["minuten"] == 0
-    assert hass.states.get(rec).state == "Keine Lüftung erforderlich"
+    # Innen (10,5) liegt weiter über dem Zielwert (10,0) - nur die Außenluft ist nicht trocken
+    # genug, damit sich Lüften lohnt. Die Statusmeldung soll das jetzt widerspiegeln statt
+    # pauschal "in Ordnung" zu melden.
+    assert hass.states.get(rec).state == "Raumluft feucht – Außenluft aktuell nicht trockener"
 
     # Bleibt aus bei minimaler Schwankung knapp darunter - kein erneutes Flackern, da für einen
     # Neueinstieg wieder diff > START_DIFF (1,0) nötig wäre.

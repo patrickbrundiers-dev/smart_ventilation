@@ -143,6 +143,14 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.9.0
+
+Ehrlichere Statusmeldungen auf der Karte, wenn Lüften wegen der Außenluft gerade nichts bringt:
+
+- **Verbesserung**: Liegt die Raumluft über dem Zielwert, der relativen Feuchte-Schwelle oder im erhöhten/hohen Schimmelrisiko, aber die Außenluft ist gerade nicht trockener als drinnen (Lüften würde also eher zusätzliche Feuchte reinbringen statt welche loszuwerden), zeigt die Karte jetzt "Raumluft feucht – Außenluft aktuell nicht trockener" statt pauschal "Raumklima in Ordnung". Vorher wirkte es so, als sei alles in Ordnung, obwohl es das eigentlich nicht war.
+- **Neu**: Wird in genau dieser Situation trotzdem das Fenster geöffnet, kommt einmalig pro Lüftungsvorgang eine Erinnerung, es wegen der ungünstigen Außenluft wieder zu schließen.
+- Die übrigen Blockier-Meldungen (Regen, zu warme Außenluft, direkte Sonne) wurden im Zuge dessen erneut geprüft – dort war die Meldung bereits stimmig und wurde nicht verändert.
+
 ### Version 2.8.5
 
 Finaler Prüfdurchgang, drei parallele Reviews über die gesamte Codebasis:
