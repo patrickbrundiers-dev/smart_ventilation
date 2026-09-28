@@ -806,7 +806,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             return False
 
     async def _check_heating(self):
-        if not self.climates or self.session.get("heating") is not None:
+        # Session synchron festhalten: die folgende Schleife wartet auf mehrere echte
+        # climate.*-Serviceaufrufe, währenddessen kann das Fenster zugehen (_finish_session setzt
+        # self.session dann auf None) oder sogar eine neue Sitzung beginnen - siehe denselben
+        # Schutz in _finish_session().
+        session = self.session
+        if not self.climates or not session or session.get("heating") is not None:
             return
         if self.current_duration_seconds < HEATING_DELAY_SECONDS:
             return
@@ -834,9 +839,17 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                                     {"entity_id": entity_id, "temperature": low}):
                     saved[entity_id] = {"temperature": target}
 
-        self.session["heating"] = saved
-        self.session["heating_external"] = external
-        await self._save()
+        if self.session is session:
+            session["heating"] = saved
+            session["heating_external"] = external
+            await self._save()
+        else:
+            # Die Sitzung wurde inzwischen abgeschlossen oder durch eine neue ersetzt, während wir
+            # noch auf die Thermostat-Befehle gewartet haben. _finish_session() kannte "saved" zu
+            # dem Zeitpunkt noch nicht (heating war noch None) und konnte die eben abgesenkten
+            # Thermostate deshalb nicht wiederherstellen - das holen wir hier nach, statt sie
+            # dauerhaft abgesenkt zu lassen.
+            await self._restore_heating(saved)
 
     # --- Heizungs-Hierarchie: Better Thermostat -> (Climate Group Helper / Gruppe) -> Thermostate ---
     def _climate_children(self, entity_id):

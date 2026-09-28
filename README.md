@@ -143,6 +143,16 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.8.5
+
+Finaler Prüfdurchgang, drei parallele Reviews über die gesamte Codebasis:
+
+- **Bugfix**: Ging während des Absenkens der Heizung beim Lüftungsstart das Fenster schon wieder zu (oder erneut auf), bevor alle Thermostat-Befehle durch waren, konnte das zu einem internen Fehler oder dazu führen, dass eine abgesenkte Heizung nie wieder hochgefahren wurde.
+- **Bugfix**: Der Übersichts-Wochenbericht wurde in einer seltenen Startreihenfolge (Übersicht schon aktiv, Räume noch nicht) als "diese Woche schon verschickt" vermerkt, obwohl er mangels Räumen gar nicht verschickt wurde – für den Rest der Woche kam dann keiner mehr.
+- **Bugfix**: Der Vorjahresvergleich im Monatsbericht verschluckte wie zuvor schon der Vormonatsvergleich "0 % Änderung" komplett, statt "gegenüber dem Vorjahr unverändert" anzuzeigen.
+- **Bugfix**: Eine beschädigte gespeicherte Schimmel-Warnung hätte die Schimmel-, Monats- und Anomalie-Prüfung eines Raums dauerhaft blockiert, statt nur diese eine Warnung zu überspringen.
+- **Bugfix**: Wurden der letzte Raum entfernt und gleichzeitig ein neuer Eintrag hinzugefügt, konnte die Dashboard-Karte für den neuen Eintrag dauerhaft nicht registriert werden.
+
 ### Version 2.8.4
 
 Gezielte Überprüfung und Verbesserung der Lüft- und Lernlogik (Luftwechsel-Modell):

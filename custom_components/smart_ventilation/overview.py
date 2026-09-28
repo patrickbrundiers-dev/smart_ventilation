@@ -275,11 +275,14 @@ class OverviewCoordinator:
             return
         if not (now.weekday() == REPORT_WEEKDAY and now.hour >= REPORT_HOUR and self._last_report != _week_key(now)):
             return
-        self._last_report = _week_key(now)
-        await self._save()
         rooms = [r.weekly_summary() for r in self.rooms()]
         if not rooms:
+            # Noch keine Räume registriert (z. B. Startup-Race, in der die Übersicht schon läuft,
+            # aber die Raum-Einträge noch nicht) - NICHT als "diese Woche schon berichtet"
+            # vermerken, sonst gäbe es für diese Woche nie mehr einen Bericht.
             return
+        self._last_report = _week_key(now)
+        await self._save()
         total = sum(r["anzahl"] for r in rooms)
         kwh = sum(r["kwh"] for r in rooms)
         cost = sum(r["kosten"] for r in rooms)

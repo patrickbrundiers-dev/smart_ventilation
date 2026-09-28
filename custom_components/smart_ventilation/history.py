@@ -65,7 +65,12 @@ class HistoryMixin:
         self.mold_log = stored.get("mold_log") or {}
         self.history = stored.get("history") or {}
         self.day_log = stored.get("day_log") or {}
-        self._mold_warned = stored.get("mold_warned")
+        mold_warned = stored.get("mold_warned")
+        # Nur ein dict wie erwartet übernehmen - eine beschädigte/fremde Ablage (z. B. von Hand
+        # bearbeitete .storage-Datei) würde sonst in _mold_early_warning() bei warned.get("start")
+        # mit einem AttributeError abbrechen und dabei _monthly_report()/_anomaly_check() für den
+        # Raum bei jedem Tick mit blockieren (_history_tick ruft sie danach auf).
+        self._mold_warned = mold_warned if isinstance(mold_warned, dict) else None
         self._last_month_report = stored.get("last_month_report")
         if stored.get("last_anomaly_check"):
             try:
@@ -307,7 +312,13 @@ class HistoryMixin:
             text += f" {abs(p)} % {'mehr' if p > 0 else 'weniger'} Bedarf als im {c['vormonat']['monat'].split()[0]}." if p else " Bedarf wie im Vormonat."
         if c["bedarf_vs_vorjahr_prozent"] is not None:
             p = c["bedarf_vs_vorjahr_prozent"]
-            text += f" Gegenüber dem Vorjahr {abs(p)} % {'mehr' if p > 0 else 'weniger'}." if p else ""
+            # p kann 0 sein (unveränderter Bedarf) - das ist ein echtes Ergebnis und darf nicht wie
+            # "kein Vorjahresvergleich möglich" stillschweigend übersprungen werden (derselbe Fehler
+            # wurde beim Vormonatsvergleich eine Zeile darüber schon behoben).
+            text += (
+                f" Gegenüber dem Vorjahr {abs(p)} % {'mehr' if p > 0 else 'weniger'}."
+                if p else " Gegenüber dem Vorjahr unverändert."
+            )
         if c["schimmeltage"]:
             text += f" {c['schimmeltage']} kritische Schimmeltage."
         return text

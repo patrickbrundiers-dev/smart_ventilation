@@ -66,8 +66,12 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Letzten Eintrag entfernt: Dashboard-Ressource der Karte wieder austragen."""
     remaining = [e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id != entry.entry_id]
     if not remaining:
-        await async_remove_resource(hass)
-        # Flag zurücksetzen, damit async_setup_entry() die Ressource für einen später neu
-        # hinzugefügten Eintrag wieder registriert (sonst bliebe sie bis zum HA-Neustart "schon
-        # registriert", obwohl die Datei/Ressource gerade gelöscht wurde).
+        # Flag VOR dem (mehrere await-Schritte umfassenden) Aufräumen zurücksetzen, nicht danach:
+        # würde currently gleichzeitig ein anderer Eintrag hinzugefügt (async_setup_entry ruft
+        # async_register_card auf), während dieses Aufräumen hier noch läuft, und das Flag erst
+        # danach gelöscht, könnte der andere Aufruf das (noch gesetzte) Flag sehen und sich für
+        # "schon registriert" halten - die Ressource bliebe dann bis zum HA-Neustart fehlend. So
+        # herum registriert der andere Aufruf im schlimmsten Fall einmal zu viel (harmlos, da
+        # idempotent), statt gar nicht mehr.
         hass.data.pop(CARD_DATA_URL, None)
+        await async_remove_resource(hass)

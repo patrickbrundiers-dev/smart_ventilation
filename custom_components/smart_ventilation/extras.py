@@ -437,7 +437,10 @@ class RoomExtrasMixin:
                     await self._save()
             return
 
-        # Ausschalten: Fenster auf, trocken genug – nach Mindestlaufzeit
+        # Ausschalten: sobald ein Fenster geöffnet wird (dann übernimmt das Lüften, und
+        # Entfeuchten + offenes Fenster wäre nur verschwendete Energie) - die Mindestlaufzeit
+        # gilt nur für den zweiten Fall unten (trocken genug/nicht mehr nötig), nicht fürs
+        # Aufhören wegen eines geöffneten Fensters.
         ran = (now - self._dehum_on_since) >= timedelta(minutes=DEHUM_MIN_RUNTIME_MINUTES)
         done = rh is not None and rh <= DEHUM_OFF_RH
         if self.open_windows() or (ran and (done or not need)):
