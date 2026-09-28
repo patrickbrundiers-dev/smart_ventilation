@@ -471,12 +471,13 @@ async def test_shutter_closes_and_reopens_with_direct_sun(
     assert len(open_) == 1
 
 
-async def test_shutter_notification_once_per_exposure(
+async def test_shutter_notification_close_and_open_once_per_exposure(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
-    """Benachrichtigung nur einmal pro zusammenhängendem Sonnen-Expositionsfenster, nicht bei
-    jedem 30-s-Tick - und noch einmal, wenn die Sonne später erneut aufs Fenster trifft. Ohne
-    hinterlegtes Rollo-Entity ist der Text eine Bitte, mit Entity eine Bestätigung."""
+    """Ohne hinterlegtes Rollo-Entity: Benachrichtigung zum Schließen einmal pro zusammenhängendem
+    Sonnen-Expositionsfenster (nicht bei jedem 30-s-Tick), und sofort wieder eine zum Öffnen, sobald
+    keine direkte Sonne mehr anliegt - danach erneut zum Schließen, wenn die Sonne später wieder
+    aufs Fenster trifft (z. B. am nächsten Tag)."""
     freezer.move_to("2026-06-15 12:00:00+02:00")
     pushes = async_mock_service(hass, "notify", "mobile_app_test")
     await setup_room(hass, use_sun=True, season_mode="summer")
@@ -485,18 +486,51 @@ async def test_shutter_notification_once_per_exposure(
     )
     await _tick(hass, freezer, 0.5)
     await _tick(hass, freezer, 0.5)  # zweiter Tick, weiterhin direkte Sonne -> keine zweite Push
-    shutter_pushes = [c for c in pushes if "Rollo" in c.data["title"]]
-    assert len(shutter_pushes) == 1
-    assert shutter_pushes[0].data["title"] == "Rollo schließen: Schlafzimmer"  # kein Rollo hinterlegt -> Bitte
+    shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
+    assert shutter_titles == ["Rollo schließen: Schlafzimmer"]  # kein Rollo hinterlegt -> Bitte
 
     hass.states.async_set("sun.sun", "above_horizon", {"elevation": 40, "azimuth": 250})  # weg vom Fenster
     await _tick(hass, freezer, 0.5)
+    shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
+    assert shutter_titles == ["Rollo schließen: Schlafzimmer", "Rollo öffnen: Schlafzimmer"]
+
     hass.states.async_set(
         "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # wieder direkt aufs Fenster
     )
     await _tick(hass, freezer, 0.5)
-    shutter_pushes = [c for c in pushes if "Rollo" in c.data["title"]]
-    assert len(shutter_pushes) == 2
+    shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
+    assert shutter_titles == [
+        "Rollo schließen: Schlafzimmer", "Rollo öffnen: Schlafzimmer", "Rollo schließen: Schlafzimmer",
+    ]
+
+
+async def test_shutter_notification_with_entity_confirms_automatic_action(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Mit hinterlegtem Rollo-Entity: Bestätigung statt Bitte, und die "geöffnet"-Meldung kommt
+    erst, wenn _shutter_control es nach der Mindestlaufzeit tatsächlich wieder geöffnet hat -
+    nicht schon in dem Moment, in dem die direkte Sonne endet."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    async_mock_service(hass, "cover", "close_cover")
+    async_mock_service(hass, "cover", "open_cover")
+    hass.states.async_set("cover.rollo", "open")
+    await setup_room(hass, use_sun=True, season_mode="summer", shutter_entity="cover.rollo")
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # = Fensterausrichtung
+    )
+    await _tick(hass, freezer, 0.5)
+    shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
+    assert shutter_titles == ["Rollo geschlossen: Schlafzimmer"]  # Bestätigung, nicht Bitte
+
+    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 40, "azimuth": 250})  # weg vom Fenster
+    await _tick(hass, freezer, 0.5)  # Sonne vorbei, aber Mindestlaufzeit (15 Min.) noch nicht um
+    shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
+    assert shutter_titles == ["Rollo geschlossen: Schlafzimmer"]  # noch keine "geöffnet"-Meldung
+
+    await _tick(hass, freezer, 16)  # über die Mindestlaufzeit hinaus
+    shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
+    assert shutter_titles == ["Rollo geschlossen: Schlafzimmer", "Rollo geöffnet: Schlafzimmer"]
 
 
 async def test_weekly_report(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:

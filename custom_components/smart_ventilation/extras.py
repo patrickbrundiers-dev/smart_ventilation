@@ -503,32 +503,57 @@ class RoomExtrasMixin:
     def shutter_closed(self):
         return self._shutter_closed_since is not None
 
-    async def _shutter_notify(self):
-        """Einmal pro zusammenhängendem Sonnen-Expositionsfenster benachrichtigen (nicht bei
-        jedem 30-s-Tick) - sobald keine direkte Sonne mehr anliegt, wird zurückgesetzt, damit am
-        nächsten Tag bzw. bei erneuter Exposition wieder benachrichtigt wird."""
-        if not self.shutter_recommended:
-            if self._shutter_notified:
-                self._shutter_notified = False
-                await self._save()
-            return
-        if self._shutter_notified:
-            return
-        self._shutter_notified = True
-        await self._save()
+    async def _shutter_notify(self, was_closed):
+        """Push-Benachrichtigungen zur Rollo-Empfehlung: einmalig beim Beginn direkter Sonne
+        (schließen) und einmalig, sobald sie vorbei ist (öffnen) - jeweils einmal pro
+        zusammenhängendem Expositionsfenster, nicht bei jedem 30-s-Tick.
+
+        was_closed: Rollo-Status VOR dem _shutter_control()-Aufruf in diesem Tick - damit lässt
+        sich erkennen, ob gerade in diesem Tick automatisch wieder geöffnet wurde.
+        """
         name = self.data[CONF_NAME]
-        if self.shutter_closed:
-            title = f"Rollo geschlossen: {name}"
-            message = "Direkte Sonne am Fenster – das Rollo wurde automatisch geschlossen."
-        else:
-            title = f"Rollo schließen: {name}"
-            message = (
-                "Direkte Sonne am Fenster – am besten Rollo/Jalousie schließen, damit sich "
-                "der Raum nicht aufheizt."
+        tag = f"smart_ventilation_{self.entry.entry_id}_shutter"
+
+        if self.shutter_recommended:
+            if not self._shutter_notified:
+                self._shutter_notified = True
+                await self._save()
+                if self.shutter_closed:
+                    title = f"Rollo geschlossen: {name}"
+                    message = "Direkte Sonne am Fenster – das Rollo wurde automatisch geschlossen."
+                else:
+                    title = f"Rollo schließen: {name}"
+                    message = (
+                        "Direkte Sonne am Fenster – am besten Rollo/Jalousie schließen, damit "
+                        "sich der Raum nicht aufheizt."
+                    )
+                await self._send(title, message, tag, category=CAT_WARNING)
+            return
+
+        if self._shutter_notified:
+            self._shutter_notified = False
+            await self._save()
+            if not self.data.get(CONF_SHUTTER):
+                # Reine Empfehlung ohne hinterlegtes Rollo-Entity: sofort informieren, sobald
+                # keine direkte Sonne mehr anliegt - es gibt hier keine Automatik, die das später
+                # übernehmen würde.
+                await self._send(
+                    f"Rollo öffnen: {name}",
+                    "Keine direkte Sonne mehr am Fenster – Rollo/Jalousie kann wieder geöffnet "
+                    "werden.",
+                    tag, category=CAT_WARNING,
+                )
+
+        if was_closed and not self.shutter_closed:
+            # Mit hinterlegtem Entity: erst benachrichtigen, wenn _shutter_control es (nach der
+            # Mindestlaufzeit) tatsächlich wieder geöffnet hat - nicht schon, sobald die direkte
+            # Sonne vorbei ist, sonst würde die Meldung der echten Aktion vorauseilen.
+            await self._send(
+                f"Rollo geöffnet: {name}",
+                "Keine direkte Sonne mehr am Fenster – das Rollo wurde automatisch wieder "
+                "geöffnet.",
+                tag, category=CAT_WARNING,
             )
-        await self._send(
-            title, message, f"smart_ventilation_{self.entry.entry_id}_shutter", category=CAT_WARNING
-        )
 
     # ------------------------------------------------------------------
     # Wochenbericht
@@ -609,7 +634,8 @@ class RoomExtrasMixin:
         await self._shower_followup(now)
         await self._vacation_mold_watch(now)
         await self._dehumidifier_control(now)
+        was_shutter_closed = self.shutter_closed
         await self._shutter_control(now)
-        await self._shutter_notify()
+        await self._shutter_notify(was_shutter_closed)
         self._track_mold_day(now)
         await self._weekly_report(now)
