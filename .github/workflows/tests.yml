@@ -47,3 +47,48 @@ jobs:
           echo "::notice title=Ergebnis::$(tail -n 1 pytest.log)"
           grep -E "^(FAILED|ERROR) " pytest.log | while read -r line; do echo "::error title=Test::${line:0:900}"; done || true
           grep -E "^E  " pytest.log | head -n 15 | while read -r line; do echo "::error title=Detail::${line:0:900}"; done || true
+          python3 - <<'PYEOF' || true
+          import re
+
+          with open("pytest.log", encoding="utf-8", errors="replace") as f:
+              lines = f.readlines()
+
+          # Kompakte Traceback-Bloecke (--tb=short) sind durch Trennzeilen wie
+          # "________ ERROR at setup of test_x ________" oder
+          # "________ test_x ________" abgegrenzt. Fuer die ersten paar Bloecke
+          # jeweils den vollen Inhalt als Annotation ausgeben, da die einfachen
+          # FAILED/ERROR-Zeilen und "E  "-Greps offenbar nicht genug Kontext liefern.
+          divider = re.compile(r"^_{5,}.*_{5,}$")
+          blocks = []
+          current = None
+          for line in lines:
+              line = line.rstrip("\n")
+              if divider.match(line):
+                  if current is not None:
+                      blocks.append(current)
+                  current = [line]
+              elif current is not None:
+                  if line.startswith("="):
+                      blocks.append(current)
+                      current = None
+                  else:
+                      current.append(line)
+          if current is not None:
+              blocks.append(current)
+
+          error_blocks = [b for b in blocks if "ERROR at setup" in b[0] or "ERROR at teardown" in b[0]]
+          fail_blocks = [b for b in blocks if b not in error_blocks]
+
+          picked = error_blocks[:2] + fail_blocks[:2]
+          total = 0
+          for block in picked:
+              for line in block:
+                  if not line.strip():
+                      continue
+                  total += 1
+                  if total > 120:
+                      break
+                  print(f"::error title=Trace::{line[:500]}")
+              if total > 120:
+                  break
+          PYEOF
