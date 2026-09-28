@@ -245,7 +245,12 @@ class RoomExtrasMixin:
         if ai is not None and ao is not None and ao > ai + COOL_MAX_EXTRA_HUMIDITY:
             return 0
         wind, angle, temp_diff = self._context()
-        n, _ = self._model_ach(wind, angle, temp_diff)
+        # cross mitgeben wie bei der normalen Lüftungsempfehlung (_update_recommendation) - sonst
+        # würde hier immer der nicht-Querlüften-Bucket abgefragt, obwohl bei zwei Fenstern
+        # tatsächlich (und beim Lernen genauso) quergelüftet wird, und das gelernte Modell für
+        # diesen Raum bliebe für Kühlen/Vorheizen dauerhaft ungenutzt.
+        cross = len(self.windows) >= 2
+        n, _ = self._model_ach(wind, angle, temp_diff, cross)
         target = max(self.comfort_temp, to + 0.5)
         return max(10, min(60, -60 / n * math.log((target - to) / (ti - to)) if ti > target else 10))
 
@@ -291,7 +296,9 @@ class RoomExtrasMixin:
         if ai is not None and ao is not None and ao > ai + PREHEAT_MAX_EXTRA_HUMIDITY:
             return 0
         wind, angle, temp_diff = self._context()
-        n, _ = self._model_ach(wind, angle, temp_diff)
+        # cross mitgeben - siehe Kommentar in cooling_minutes() weiter oben.
+        cross = len(self.windows) >= 2
+        n, _ = self._model_ach(wind, angle, temp_diff, cross)
         target = min(self.preheat_temp, to - 0.5)
         return max(10, min(60, -60 / n * math.log((to - target) / (to - ti)) if ti < target else 10))
 

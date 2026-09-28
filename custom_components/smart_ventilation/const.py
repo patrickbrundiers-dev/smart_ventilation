@@ -165,7 +165,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.8.3"
+VERSION = "2.8.4"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -230,6 +230,13 @@ ANOMALY_MIN_MINUTES = 60           # unterhalb lohnt sich der Vergleich nicht (z
 ANOMALY_BASELINE_DAYS = 14         # Vergleichszeitraum davor (siehe DAY_LOG_DAYS)
 ANOMALY_MIN_SAMPLE_DAYS = 5        # erst ab so vielen Tagen Historie überhaupt vergleichen
 ANOMALY_FACTOR = 2.5               # ab dem Wievielfachen des Schnitts gilt es als Anomalie
+
+# Ab wie vielen Lüftungs-Sitzungen ein Wind/Winkel/Temperatur-Bucket (siehe coordinator.py::
+# _bucket()) als "gelernt" gilt und sein eigener Wert statt des globalen Durchschnitts genutzt
+# wird. Solange weniger Sitzungen vorliegen, wird gleichgewichtet gemittelt statt exponentiell
+# geglättet (siehe _finish_session()) - sonst würde eine einzelne verrauschte erste Messung mit
+# 80 % Gewicht sofort als "gelernter" Wert übernommen und dort für lange Zeit hängen bleiben.
+BUCKET_TRUST_SAMPLES = 5
 
 # Je Benachrichtigungsart eigene Empfänger wählbar (z. B. Handy alles, Alexa nur Erinnerung + Fertig).
 # Fehlt eine Kategorie in den Einstellungen (noch nicht konfiguriert oder alter Eintrag), bekommen

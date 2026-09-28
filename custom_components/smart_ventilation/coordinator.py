@@ -540,11 +540,35 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return f"{key}|cross" if cross else key
 
     def _model_ach(self, wind, angle, temp_diff, cross=False):
+        """Geschätzter Luftwechsel pro Stunde für die aktuellen Bedingungen.
+
+        Gibt es für genau diese Wind-/Winkel-/Temperatur-Kombination (siehe _bucket()) schon
+        mindestens BUCKET_TRUST_SAMPLES gelernte Sitzungen, wird deren beobachteter Wert direkt übernommen - der
+        steckt bereits drin, wie stark Wind und Winkel bei GENAU dieser Kombination tatsächlich
+        wirken. Der generische Wind-/Winkel-Bonus unten darf dann NICHT zusätzlich angewendet
+        werden, sonst würde derselbe Effekt doppelt gezählt - und das umso stärker, je mehr die
+        Buckets über die Zeit tatsächlich "lernen" (siehe CHANGELOG 2.8.4: das führte dazu, dass
+        gut gelernte, windgünstige Kombinationen mit der Zeit systematisch zu kurze
+        Lüftungsempfehlungen bekamen). Der Bonus gilt deshalb nur als Schätzung für Buckets, zu
+        denen noch keine ausreichende eigene Erfahrung vorliegt (Rückgriff auf den globalen
+        Schnitt `learned_ach`).
+        """
         key = self._bucket(wind, angle, temp_diff, cross)
         model = self.models.get(key)
-        if model and model.get("samples", 0) >= 2:
+        if model and model.get("samples", 0) >= BUCKET_TRUST_SAMPLES:
             return max(0.5, float(model["ach"])), key
-        return max(0.5, self.learned_ach), key
+
+        ach = self.learned_ach
+        if wind is not None:
+            ach *= 1 + min(wind / 60, 0.5)
+            if angle is not None:
+                if angle <= 30:
+                    ach *= 1.25
+                elif angle <= 60:
+                    ach *= 1.10
+                else:
+                    ach *= 0.9
+        return max(0.5, ach), key
 
     def _start_session(self):
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
@@ -571,6 +595,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "heating": None,
             "cooling": self.cooling_minutes() > 0 and (diff is None or diff <= DEFAULT_TARGET_DIFF),
             "preheat": self.preheat_minutes() > 0 and (diff is None or diff <= DEFAULT_TARGET_DIFF),
+            # Nach dem Duschen verdunstet noch Restfeuchte von Wänden/Spiegel/Boden weiter, auch
+            # bei offenem Fenster - der gemessene Feuchteabfall wäre dann NICHT allein durch den
+            # Luftaustausch erklärt, sondern durch die anhaltende Verdunstung gebremst. Ein daraus
+            # gelernter Luftwechsel würde systematisch zu niedrig ausfallen. Deshalb hier merken
+            # und in _finish_session() vom Lernen ausnehmen (die Lüftung selbst läuft normal weiter).
+            "after_shower": self.after_shower,
             "trace": [[0, indoor, _float_state(self.hass, self.data[CONF_INDOOR_TEMP])]],
         }
         self._warm_warned = False
@@ -644,6 +674,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._update_recommendation()
         if not self.session:
             return
+        if _is_raining(self.hass, self.data[CONF_RAIN]):
+            # Für _finish_session() merken: hat es IRGENDWANN während der Sitzung geregnet (nicht
+            # nur exakt im Moment des Fensterschließens), soll daraus nichts gelernt werden - Regen
+            # verfälscht den gemessenen Feuchteabfall unabhängig davon, wann genau er auftrat.
+            self.session["rained"] = True
         if not self.open_windows():
             return
 
@@ -1210,7 +1245,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             category=CAT_FINISHED,
         )
 
-        if _is_raining(self.hass, self.data[CONF_RAIN]):
+        if session.get("rained") or _is_raining(self.hass, self.data[CONF_RAIN]):
+            return
+        if session.get("after_shower"):
+            # Siehe Kommentar in _start_session(): anhaltende Verdunstung nach dem Duschen würde
+            # den gelernten Luftwechsel verfälschen (zu niedrig).
             return
 
         # Luftwechsel pro STUNDE (elapsed in Sekunden)
@@ -1228,7 +1267,17 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         old = self.models.get(key, {"ach": self.learned_ach, "samples": 0})
         count = int(old.get("samples", 0))
         old_ach = float(old.get("ach", ach))
-        new_ach = old_ach * 0.8 + ach * 0.2 if count else ach
+        if count < BUCKET_TRUST_SAMPLES:
+            # Gleichgewichteter Schnitt, solange der Bucket noch nicht als "gelernt" gilt (siehe
+            # BUCKET_TRUST_SAMPLES) - eine einzelne verrauschte erste Messung soll nicht sofort
+            # mit 80 % Gewicht "einbrennen", bevor überhaupt genug Beobachtungen vorliegen, um sie
+            # einzuordnen. Ab BUCKET_TRUST_SAMPLES Beobachtungen (dann wird der Bucket in
+            # _model_ach() als vertrauenswürdig behandelt) auf die reaktionsschnellere
+            # exponentielle Glättung wechseln, damit sich echte Änderungen (z. B. neue
+            # Dichtungen) noch bemerkbar machen können.
+            new_ach = (old_ach * count + ach) / (count + 1)
+        else:
+            new_ach = old_ach * 0.8 + ach * 0.2
 
         self.models[key] = {
             "ach": new_ach,
@@ -1692,17 +1741,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         wind, angle, temp_diff = self._context()
         cross = len(self.windows) >= 2
+        # Wind-/Winkel-Bonus steckt für bereits gut gelernte Kombinationen schon in effective_ach
+        # (siehe _model_ach) - hier nicht zusätzlich anwenden, sonst würde derselbe Effekt doppelt
+        # gezählt.
         effective_ach, bucket = self._model_ach(wind, angle, temp_diff, cross)
-
-        if wind is not None:
-            effective_ach *= 1 + min(wind / 60, 0.5)
-            if angle is not None:
-                if angle <= 30:
-                    effective_ach *= 1.25
-                elif angle <= 60:
-                    effective_ach *= 1.10
-                else:
-                    effective_ach *= 0.9
 
         minutes = 0.0
         if need_humidity:

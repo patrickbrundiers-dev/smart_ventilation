@@ -143,6 +143,16 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.8.4
+
+Gezielte Überprüfung und Verbesserung der Lüft- und Lernlogik (Luftwechsel-Modell):
+
+- **Bugfix**: Der Wind-/Winkel-Bonus auf den geschätzten Luftwechsel wurde doppelt verrechnet, sobald für die aktuelle Wind-/Winkel-/Temperatur-Kombination schon genug gelernt worden war – dadurch wurden gut gelernte, windgünstige Bedingungen mit der Zeit zunehmend zu kurz eingeschätzt. Der Bonus gilt jetzt nur noch als Schätzung, solange für diese Kombination noch nicht genug eigene Erfahrung vorliegt.
+- **Verbesserung**: Ein neu gelernter Wind-/Winkel-/Temperatur-Bucket wird jetzt erst nach 5 (statt 2) Sitzungen als "gelernt" vertraut, und bis dahin gleichgewichtet statt exponentiell geglättet gemittelt – eine einzelne verrauschte erste Messung (z. B. eine Windböe) konnte sich bisher sofort mit hohem Gewicht festsetzen.
+- **Bugfix**: Sitzungen direkt nach dem Duschen fließen nicht mehr ins Luftwechsel-Lernen ein – die nachträglich verdunstende Restfeuchte von Wänden/Spiegel hätte den gelernten Luftwechsel sonst systematisch zu niedrig erscheinen lassen.
+- **Bugfix**: Hat es nur zeitweise während einer Lüftung geregnet (nicht mehr im Moment des Fensterschließens), wurde die Sitzung bisher trotzdem fürs Lernen verwendet.
+- **Bugfix**: Kühlen und Vorheizen fragten für Räume mit zwei Fenstern immer das Nicht-Querlüften-Modell ab, obwohl dort tatsächlich (und beim Lernen genauso) quergelüftet wird – das gelernte Modell blieb für diese beiden Funktionen dadurch dauerhaft ungenutzt.
+
 ### Version 2.8.3
 
 - **Bugfix**: Bei der zusammengefassten Übersichts-Erinnerung konnte derselbe Doppel-Versand-Fehler wie bei den Einzelraum-Erinnerungen auftreten (Cooldown wird jetzt ebenfalls sofort reserviert statt erst nach dem Versand).

@@ -325,7 +325,9 @@ async def test_cooling_and_preheat_use_bucketed_ach_model(
     await hass.async_block_till_done()
 
     wind, angle, temp_diff = room._context()
-    key = room._bucket(wind, angle, temp_diff)
+    # Der Testraum hat 2 Fenster -> cross=True, wie cooling_minutes()/preheat_minutes() es
+    # inzwischen (wie die normale Lüftungsempfehlung) auch tatsächlich abfragen.
+    key = room._bucket(wind, angle, temp_diff, cross=True)
 
     room.learned_ach = 0.5  # sehr langsamer globaler Durchschnitt
     minutes_flat = room.cooling_minutes()
