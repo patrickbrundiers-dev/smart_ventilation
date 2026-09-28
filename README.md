@@ -126,6 +126,7 @@ Ordner `custom_components/smart_ventilation` nach `/config/custom_components/` k
 
 Pro Raum:
 - Sensor absolute Feuchte innen und außen (g/m³)
+- Optional: Sensor relative Feuchte innen und außen (%) – wird sonst aus absoluter Feuchte + Temperatur berechnet
 - Temperatur innen und außen
 - Windgeschwindigkeit (km/h oder m/s) und Windrichtung (°)
 - Regensensor (Binärsensor oder mm/h)
@@ -142,6 +143,15 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.10.0
+
+Optionale echte RH-Sensoren statt reiner Rückrechnung aus der absoluten Feuchte:
+
+- **Neu**: In den Bereichen "Innen" und "Außen" kann jetzt zusätzlich ein optionaler %-Luftfeuchte-Sensor hinterlegt werden. Ist er gesetzt und liefert einen Wert, wird er direkt für die relative Feuchte verwendet – statt sie wie bisher ausschließlich aus absoluter Feuchte und Temperatur zurückzurechnen. Das vermeidet die doppelte Umrechnung (z. B. wenn der AH-Sensor selbst schon aus einem Temp+RH-Template berechnet wird) und nutzt den ohnehin vorhandenen, direkt gemessenen Wert.
+- Ist kein RH-Sensor hinterlegt oder liefert er gerade keinen Wert (z. B. "nicht verfügbar"), wird wie bisher automatisch aus absoluter Feuchte + Temperatur gerechnet – kein Verhalten ändert sich, wenn das Feld leer bleibt.
+- Betrifft nur die Raumluft-/Außenluft-Feuchte bei Lufttemperatur; das separate Schimmelrisiko an der kalten Wand wird weiterhin aus der absoluten Feuchte und der berechneten Wandtemperatur ermittelt, da das kein Sensor direkt messen kann.
+- Die beiden Diagnose-Sensoren "Relative Raumfeuchte" / "Relative Außenfeuchte" (vorher "Berechnete …") liefern jetzt je nach Konfiguration entweder den direkt gemessenen oder weiterhin den rechnerischen Wert.
 
 ### Version 2.9.0
 

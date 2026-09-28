@@ -5,6 +5,13 @@ CONF_VOLUME = "volume"
 CONF_WINDOW_DIRECTION = "window_direction"
 CONF_INDOOR_HUMIDITY = "indoor_absolute_humidity"
 CONF_OUTDOOR_HUMIDITY = "outdoor_absolute_humidity"
+# Optional: echter %-Sensor statt der aus AH+Temperatur zurückgerechneten rel. Feuchte (indoor_rh/
+# outdoor_rh in coordinator.py) - vermeidet die doppelte Umrechnung, wenn ohnehin ein physischer
+# RH-Sensor vorhanden ist. Betrifft NUR indoor_rh/outdoor_rh (Raumluft/Außenluft bei Lufttemperatur);
+# wall_rh (Schimmelrisiko an der kalten Wand) bleibt bewusst über AH+Wandtemperatur berechnet, das
+# kann kein Sensor direkt messen.
+CONF_INDOOR_RH = "indoor_relative_humidity"
+CONF_OUTDOOR_RH = "outdoor_relative_humidity"
 CONF_INDOOR_TEMP = "indoor_temperature"
 CONF_OUTDOOR_TEMP = "outdoor_temperature"
 CONF_WIND_SPEED = "wind_speed"
@@ -165,7 +172,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.9.0"
+VERSION = "2.10.0"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus

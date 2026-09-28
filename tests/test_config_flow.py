@@ -46,6 +46,38 @@ async def test_room_form_with_sections(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
 
+async def test_room_form_accepts_optional_rh_sensors(hass: HomeAssistant) -> None:
+    """Die optionalen RH-Sensoren (indoor/outdoor) lassen sich beim Einrichten mit angeben und
+    werden wie die anderen optionalen Felder (z. B. CO₂-Sensor) flach gespeichert; werden sie
+    weggelassen, bleiben sie leer statt das Speichern zu blockieren (wie bei co2_sensor)."""
+    set_room_states(hass)
+    room_input = {
+        **ROOM_INPUT,
+        "indoor": {**ROOM_INPUT["indoor"], "indoor_relative_humidity": "sensor.innen_rh"},
+        "outdoor": {**ROOM_INPUT["outdoor"], "outdoor_relative_humidity": "sensor.aussen_rh"},
+    }
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], room_input)
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    data = result["data"]
+    assert data["indoor_relative_humidity"] == "sensor.innen_rh"
+    assert data["outdoor_relative_humidity"] == "sensor.aussen_rh"
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    room_input_2 = {
+        **ROOM_INPUT,
+        "room": {**ROOM_INPUT["room"], "name": "Büro", "window": ["binary_sensor.fenster_2"]},
+    }
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], room_input_2)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["indoor_relative_humidity"] == ""
+    assert result["data"]["outdoor_relative_humidity"] == ""
+
+
 async def test_room_type_suggests_target_humidity(hass: HomeAssistant) -> None:
     """Raumtyp „Schlafzimmer“ gewählt, Tagesziel unangetastet -> passender Richtwert statt
     des allgemeinen Vorschlags (siehe ROOM_TYPE_TARGET_ABS)."""

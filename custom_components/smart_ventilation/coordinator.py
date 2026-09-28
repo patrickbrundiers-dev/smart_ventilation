@@ -1980,12 +1980,23 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def indoor_rh(self):
+        # Falls ein echter RH-Sensor konfiguriert ist: direkt verwenden statt aus AH+Temperatur
+        # zurückzurechnen (spart eine Umrechnung samt deren Rundungsfehler). Ohne Sensor oder wenn
+        # er gerade keinen Wert liefert (z. B. "unavailable"), wie bisher aus AH ableiten.
+        rh_entity = self.data.get(CONF_INDOOR_RH)
+        direct = _float_state(self.hass, rh_entity) if rh_entity else None
+        if direct is not None:
+            return direct
         ah = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
         return _relative_humidity_from_absolute(ah, temp)
 
     @property
     def outdoor_rh(self):
+        rh_entity = self.data.get(CONF_OUTDOOR_RH)
+        direct = _float_state(self.hass, rh_entity) if rh_entity else None
+        if direct is not None:
+            return direct
         ah = _float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
         temp = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         return _relative_humidity_from_absolute(ah, temp)

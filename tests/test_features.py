@@ -456,6 +456,38 @@ async def test_no_humidity_nag_when_room_is_dry_enough(hass: HomeAssistant, free
     assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
 
 
+async def test_direct_rh_sensor_used_instead_of_derived_value(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Ist ein echter %-RH-Sensor konfiguriert, wird dessen Wert direkt übernommen statt aus
+    AH+Temperatur zurückgerechnet - erkennbar daran, dass ein Sensorwert genommen wird, der klar
+    von der rechnerischen Rückrechnung abweicht (bei innen_ah=10,5/innen_t=20,5 wären das rechnerisch
+    rund 59 %, nicht die hier gesetzten 40 %)."""
+    freezer.move_to("2026-09-27 10:00:00+02:00")
+    entry = await setup_room(
+        hass,
+        indoor_relative_humidity="sensor.innen_rh",
+        outdoor_relative_humidity="sensor.aussen_rh",
+    )
+    indoor_rh_entity = eid(hass, "sensor", entry, "indoor_rh")
+    outdoor_rh_entity = eid(hass, "sensor", entry, "outdoor_rh")
+
+    hass.states.async_set("sensor.innen_rh", 40.0)
+    hass.states.async_set("sensor.aussen_rh", 88.0)
+    await _tick(hass, freezer, 1)
+
+    assert hass.states.get(indoor_rh_entity).state == "40.0"
+    assert hass.states.get(outdoor_rh_entity).state == "88.0"
+
+    # Wird der direkte Sensor unverfügbar, greift wieder die Rückrechnung aus AH+Temperatur statt
+    # dass der Wert einfach fehlt.
+    hass.states.async_set("sensor.innen_rh", "unavailable")
+    await _tick(hass, freezer, 1)
+    derived = float(hass.states.get(indoor_rh_entity).state)
+    assert derived != 40.0
+    assert 50.0 < derived < 70.0  # rechnerischer Bereich für 10,5 g/m³ bei 20,5 °C
+
+
 async def test_humidity_airing_not_contradicted_by_warm_warning(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     """Wegen Feuchte empfohlen, draußen 0,6 °C wärmer -> kein „Fenster schließen“; erst ab Sommer-Grenze."""
     freezer.move_to("2026-09-27 10:00:00+02:00")

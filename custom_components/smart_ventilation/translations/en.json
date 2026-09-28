@@ -45,6 +45,7 @@
             "data": {
               "indoor_temperature": "Temperature",
               "indoor_absolute_humidity": "Absolute humidity",
+              "indoor_relative_humidity": "Relative humidity (optional)",
               "co2_sensor": "CO₂ sensor",
               "shower_sensor": "Shower sensor",
               "shower_detect": "Detect showers automatically"
@@ -54,7 +55,8 @@
               "indoor_absolute_humidity": "Sensor with the absolute humidity in the room (g/m³).",
               "co2_sensor": "Optional. Ventilation is also recommended above 1000 ppm.",
               "shower_sensor": "Optional, for bathrooms: immediate hint after showering, reminder after 30 minutes if still humid.",
-              "shower_detect": "For bathrooms without a shower sensor: detects a fast humidity rise (+1.5 g/m³ within 10 minutes)."
+              "shower_detect": "For bathrooms without a shower sensor: detects a fast humidity rise (+1.5 g/m³ within 10 minutes).",
+              "indoor_relative_humidity": "Real percentage sensor in the room. If set, it is used directly instead of deriving relative humidity from absolute humidity."
             }
           },
           "outdoor": {
@@ -63,6 +65,7 @@
             "data": {
               "outdoor_temperature": "Outdoor temperature",
               "outdoor_absolute_humidity": "Outdoor absolute humidity",
+              "outdoor_relative_humidity": "Outdoor relative humidity (optional)",
               "rain": "Rain sensor",
               "wind_speed": "Wind speed",
               "wind_direction": "Wind direction",
@@ -81,7 +84,8 @@
               "weather_entity": "Optional. With an hourly forecast the best ventilation time and a summer night-cooling plan are calculated.",
               "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
               "sun_entity": "Usually “sun.sun”.",
-              "min_sun_elevation": "Below this the sun does not count as shining directly."
+              "min_sun_elevation": "Below this the sun does not count as shining directly.",
+              "outdoor_relative_humidity": "Real percentage sensor outdoors. If set, it is used directly instead of deriving relative humidity from absolute humidity."
             }
           },
           "behavior": {
@@ -258,6 +262,7 @@
             "data": {
               "indoor_temperature": "Temperature",
               "indoor_absolute_humidity": "Absolute humidity",
+              "indoor_relative_humidity": "Relative humidity (optional)",
               "co2_sensor": "CO₂ sensor",
               "shower_sensor": "Shower sensor",
               "shower_detect": "Detect showers automatically"
@@ -267,7 +272,8 @@
               "indoor_absolute_humidity": "Sensor with the absolute humidity in the room (g/m³).",
               "co2_sensor": "Optional. Ventilation is also recommended above 1000 ppm.",
               "shower_sensor": "Optional, for bathrooms: immediate hint after showering, reminder after 30 minutes if still humid.",
-              "shower_detect": "For bathrooms without a shower sensor: detects a fast humidity rise (+1.5 g/m³ within 10 minutes)."
+              "shower_detect": "For bathrooms without a shower sensor: detects a fast humidity rise (+1.5 g/m³ within 10 minutes).",
+              "indoor_relative_humidity": "Real percentage sensor in the room. If set, it is used directly instead of deriving relative humidity from absolute humidity."
             }
           },
           "outdoor": {
@@ -276,6 +282,7 @@
             "data": {
               "outdoor_temperature": "Outdoor temperature",
               "outdoor_absolute_humidity": "Outdoor absolute humidity",
+              "outdoor_relative_humidity": "Outdoor relative humidity (optional)",
               "rain": "Rain sensor",
               "wind_speed": "Wind speed",
               "wind_direction": "Wind direction",
@@ -294,7 +301,8 @@
               "weather_entity": "Optional. With an hourly forecast the best ventilation time and a summer night-cooling plan are calculated.",
               "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
               "sun_entity": "Usually “sun.sun”.",
-              "min_sun_elevation": "Below this the sun does not count as shining directly."
+              "min_sun_elevation": "Below this the sun does not count as shining directly.",
+              "outdoor_relative_humidity": "Real percentage sensor outdoors. If set, it is used directly instead of deriving relative humidity from absolute humidity."
             }
           },
           "behavior": {

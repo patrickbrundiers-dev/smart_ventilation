@@ -12,7 +12,8 @@ vol = getattr(cv, "probatio", None) or cv.vol
 
 from .const import (
     DOMAIN, CONF_NAME, CONF_VOLUME, CONF_WINDOW_DIRECTION,
-    CONF_INDOOR_HUMIDITY, CONF_OUTDOOR_HUMIDITY, CONF_INDOOR_TEMP, CONF_OUTDOOR_TEMP,
+    CONF_INDOOR_HUMIDITY, CONF_OUTDOOR_HUMIDITY, CONF_INDOOR_RH, CONF_OUTDOOR_RH,
+    CONF_INDOOR_TEMP, CONF_OUTDOOR_TEMP,
     CONF_WIND_SPEED, CONF_WIND_DIRECTION, CONF_WIND_IS_FROM, CONF_RAIN, CONF_WINDOW,
     CONF_MAX_TEMP_DIFF, CONF_USE_SUN, CONF_MIN_SUN_ELEVATION, CONF_SUN_ENTITY,
     DEFAULT_MAX_TEMP_DIFF, DEFAULT_MIN_SUN_ELEVATION, DEFAULT_SUN_ENTITY,
@@ -46,7 +47,7 @@ OPEN_ON_SETUP = {"room", "indoor", "outdoor"}
 OPTIONAL_EMPTY = {
     CONF_CO2: "", CONF_SHOWER: "", CONF_WEATHER: "", CONF_VACATION: "",
     CONF_VACATION_KEYWORD: "", CONF_NOTIFY_SERVICES: [], CONF_PERSONS: [],
-    CONF_CLIMATES: [], CONF_DEHUMIDIFIER: "",
+    CONF_CLIMATES: [], CONF_DEHUMIDIFIER: "", CONF_INDOOR_RH: "", CONF_OUTDOOR_RH: "",
 }
 
 
@@ -170,7 +171,7 @@ def _current_notify(d: dict) -> list[str]:
 # Entitäten. Alles andere (Außensensoren, Schwellwerte, Benachrichtigungen, ...) darf gerne
 # übernommen werden - oft dieselben Werte im ganzen Haus bzw. bewusst gewählte Vorlieben.
 TEMPLATE_STRIP = {
-    CONF_NAME, CONF_WINDOW, CONF_INDOOR_TEMP, CONF_INDOOR_HUMIDITY, CONF_CO2, CONF_SHOWER,
+    CONF_NAME, CONF_WINDOW, CONF_INDOOR_TEMP, CONF_INDOOR_HUMIDITY, CONF_INDOOR_RH, CONF_CO2, CONF_SHOWER,
     # Eigene Geräte des Quell-Raums - sonst würde der neue Raum unbemerkt das Thermostat oder
     # den Entfeuchter eines ANDEREN Raums mitsteuern, statt nur unverfängliche Werte wie
     # Schwellen oder Außensensoren zu übernehmen.
@@ -237,6 +238,7 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
         return {
             _req(CONF_INDOOR_TEMP, g(CONF_INDOOR_TEMP)): sensor,
             _req(CONF_INDOOR_HUMIDITY, g(CONF_INDOOR_HUMIDITY)): sensor,
+            _opt(CONF_INDOOR_RH, g(CONF_INDOOR_RH)): sensor,
             _opt(CONF_CO2, g(CONF_CO2)): sensor,
             _opt(CONF_SHOWER, g(CONF_SHOWER)): _entity(["binary_sensor", "input_boolean"]),
             vol.Required(CONF_SHOWER_DETECT, default=g(CONF_SHOWER_DETECT, False)): bool,
@@ -246,6 +248,7 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
         return {
             _req(CONF_OUTDOOR_TEMP, g(CONF_OUTDOOR_TEMP)): sensor,
             _req(CONF_OUTDOOR_HUMIDITY, g(CONF_OUTDOOR_HUMIDITY)): sensor,
+            _opt(CONF_OUTDOOR_RH, g(CONF_OUTDOOR_RH)): sensor,
             _req(CONF_RAIN, g(CONF_RAIN)): _entity(["binary_sensor", "sensor"]),
             _req(CONF_WIND_SPEED, g(CONF_WIND_SPEED)): sensor,
             _req(CONF_WIND_DIRECTION, g(CONF_WIND_DIRECTION)): sensor,

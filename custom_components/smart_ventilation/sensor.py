@@ -76,7 +76,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.9.0",
+            sw_version="2.10.0",
         )
 
     async def async_added_to_hass(self):
@@ -149,7 +149,7 @@ class TemperatureDifferenceSensor(BaseSensor):
 class IndoorRHSensor(BaseSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_device_class = SensorDeviceClass.HUMIDITY
-    def __init__(self, c): super().__init__(c, "indoor_rh", "Berechnete Raumfeuchte")
+    def __init__(self, c): super().__init__(c, "indoor_rh", "Relative Raumfeuchte")
     @property
     def native_value(self):
         v = self.coordinator.indoor_rh
@@ -162,7 +162,7 @@ class OutdoorRHSensor(BaseSensor):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_device_class = SensorDeviceClass.HUMIDITY
-    def __init__(self, c): super().__init__(c, "outdoor_rh", "Berechnete Außenfeuchte")
+    def __init__(self, c): super().__init__(c, "outdoor_rh", "Relative Außenfeuchte")
     @property
     def native_value(self):
         v = self.coordinator.outdoor_rh
@@ -512,7 +512,7 @@ class OverviewBase(SensorEntity):
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.9.0",
+            sw_version="2.10.0",
         )
 
     async def async_added_to_hass(self):

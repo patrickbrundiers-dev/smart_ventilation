@@ -45,6 +45,7 @@
             "data": {
               "indoor_temperature": "Temperatur",
               "indoor_absolute_humidity": "Absolute Luftfeuchte",
+              "indoor_relative_humidity": "Relative Luftfeuchte (optional)",
               "co2_sensor": "CO₂-Sensor",
               "shower_sensor": "Dusch-Sensor",
               "shower_detect": "Duschen automatisch erkennen"
@@ -54,7 +55,8 @@
               "indoor_absolute_humidity": "Sensor mit der absoluten Feuchte im Raum in g/m³.",
               "co2_sensor": "Optional. Ab 1000 ppm wird auch wegen verbrauchter Luft gelüftet.",
               "shower_sensor": "Optional, für Bäder: Nach dem Duschen kommt sofort ein Lüft-Hinweis, nach 30 Minuten ggf. eine Erinnerung.",
-              "shower_detect": "Für Bäder ohne Dusch-Sensor: erkennt Duschen an einem schnellen Feuchteanstieg (+1,5 g/m³ in 10 Minuten)."
+              "shower_detect": "Für Bäder ohne Dusch-Sensor: erkennt Duschen an einem schnellen Feuchteanstieg (+1,5 g/m³ in 10 Minuten).",
+              "indoor_relative_humidity": "Echter %-Sensor im Raum. Falls angegeben, wird er direkt für die relative Feuchte genutzt statt sie aus der absoluten Feuchte zurückzurechnen."
             }
           },
           "outdoor": {
@@ -63,6 +65,7 @@
             "data": {
               "outdoor_temperature": "Außentemperatur",
               "outdoor_absolute_humidity": "Absolute Außenfeuchte",
+              "outdoor_relative_humidity": "Relative Außenfeuchte (optional)",
               "rain": "Regensensor",
               "wind_speed": "Windgeschwindigkeit",
               "wind_direction": "Windrichtung",
@@ -81,7 +84,8 @@
               "weather_entity": "Optional. Mit stündlicher Vorhersage werden der beste Lüftungszeitpunkt und im Sommer ein Nachtkühlplan berechnet.",
               "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
               "sun_entity": "Meist „sun.sun“.",
-              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend."
+              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend.",
+              "outdoor_relative_humidity": "Echter %-Sensor draußen. Falls angegeben, wird er direkt für die relative Feuchte genutzt statt sie aus der absoluten Feuchte zurückzurechnen."
             }
           },
           "behavior": {
@@ -258,6 +262,7 @@
             "data": {
               "indoor_temperature": "Temperatur",
               "indoor_absolute_humidity": "Absolute Luftfeuchte",
+              "indoor_relative_humidity": "Relative Luftfeuchte (optional)",
               "co2_sensor": "CO₂-Sensor",
               "shower_sensor": "Dusch-Sensor",
               "shower_detect": "Duschen automatisch erkennen"
@@ -267,7 +272,8 @@
               "indoor_absolute_humidity": "Sensor mit der absoluten Feuchte im Raum in g/m³.",
               "co2_sensor": "Optional. Ab 1000 ppm wird auch wegen verbrauchter Luft gelüftet.",
               "shower_sensor": "Optional, für Bäder: Nach dem Duschen kommt sofort ein Lüft-Hinweis, nach 30 Minuten ggf. eine Erinnerung.",
-              "shower_detect": "Für Bäder ohne Dusch-Sensor: erkennt Duschen an einem schnellen Feuchteanstieg (+1,5 g/m³ in 10 Minuten)."
+              "shower_detect": "Für Bäder ohne Dusch-Sensor: erkennt Duschen an einem schnellen Feuchteanstieg (+1,5 g/m³ in 10 Minuten).",
+              "indoor_relative_humidity": "Echter %-Sensor im Raum. Falls angegeben, wird er direkt für die relative Feuchte genutzt statt sie aus der absoluten Feuchte zurückzurechnen."
             }
           },
           "outdoor": {
@@ -276,6 +282,7 @@
             "data": {
               "outdoor_temperature": "Außentemperatur",
               "outdoor_absolute_humidity": "Absolute Außenfeuchte",
+              "outdoor_relative_humidity": "Relative Außenfeuchte (optional)",
               "rain": "Regensensor",
               "wind_speed": "Windgeschwindigkeit",
               "wind_direction": "Windrichtung",
@@ -294,7 +301,8 @@
               "weather_entity": "Optional. Mit stündlicher Vorhersage werden der beste Lüftungszeitpunkt und im Sommer ein Nachtkühlplan berechnet.",
               "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
               "sun_entity": "Meist „sun.sun“.",
-              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend."
+              "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend.",
+              "outdoor_relative_humidity": "Echter %-Sensor draußen. Falls angegeben, wird er direkt für die relative Feuchte genutzt statt sie aus der absoluten Feuchte zurückzurechnen."
             }
           },
           "behavior": {
