@@ -461,6 +461,15 @@ class RoomExtrasMixin:
             await self._call(domain, "turn_off", {"entity_id": entity_id})
             self._dehum_on_since = None
             await self._save()
+        elif state.state == "off":
+            # Wir gehen eigentlich davon aus, dass er noch läuft (sonst wäre der Zweig oben
+            # genommen worden), aber das Gerät selbst meldet "aus" - der Einschalt-Befehl kam nie
+            # an, jemand hat es von Hand wieder ausgeschaltet, oder ein Neustart hat den echten
+            # Gerätezustand nicht mitbekommen. Zustand korrigieren, damit die Einschalt-Logik oben
+            # beim nächsten Durchlauf erneut greifen kann, statt für immer in diesem "wir denken
+            # er läuft" hängen zu bleiben (die Feuchte sinkt ja nie, wenn er in Wahrheit aus ist).
+            self._dehum_on_since = None
+            await self._save()
 
     @property
     def dehumidifier_active(self):

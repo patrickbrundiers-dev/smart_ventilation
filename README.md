@@ -145,6 +145,13 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.13.2
+
+Zwei weitere Fehlerbehebungen:
+
+- **Luftentfeuchter blieb dauerhaft hängen, wenn der Einschalt-Befehl das Gerät nie erreichte** (oder jemand es von Hand wieder ausschaltete): Home Assistant ging dann fälschlich davon aus, das Gerät liefe noch, und hat es nie erneut versucht – ohne echten Betrieb sinkt ja weder die Feuchte noch verschwindet der Bedarf, wodurch auch die normale Ausschalt-Logik nie griff. Die Automatik erkennt diesen Widerspruch jetzt (Gerät meldet "aus", obwohl wir "an" annehmen) und versucht es beim nächsten Durchlauf erneut, statt für immer stumm zu bleiben.
+- Die Sensoren „Lüftungskosten Monat" und „Vorheiz-Ersparnis Monat" verursachten auf aktuellen Home-Assistant-Versionen eine Fehlermeldung im Protokoll (unzulässige Kombination aus Geräteklasse „Währung" und einer state_class, die sich monatlich zurücksetzt). Behoben, ohne die Werte selbst zu verändern – nur die Langzeitstatistik dieser beiden Sensoren läuft dadurch nicht mehr mit (dafür gibt es ohnehin den Gesamt-Energiesensor fürs Energie-Dashboard).
+
 ### Version 2.13.1
 
 Fehlerbehebung: Version 2.13.0 brach auf aktuellen Home-Assistant-Versionen (ab 2026.9.4).

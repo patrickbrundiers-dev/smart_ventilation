@@ -76,7 +76,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.13.1",
+            sw_version="2.13.2",
         )
 
     async def async_added_to_hass(self):
@@ -464,14 +464,16 @@ class EnergyTotalSensor(BaseSensor):
 class CostMonthSensor(BaseSensor):
     """Geschätzte Heizkosten durch Lüften im laufenden Monat.
 
-    state_class MEASUREMENT statt TOTAL: der Wert springt zu Monatsbeginn zurück auf 0, ohne
-    dass ein last_reset-Zeitstempel gemeldet wird. Mit TOTAL würde der Recorder diesen Sprung
-    beim Bilden der Langzeitstatistik-Summe als echten (großen negativen) Verbrauchswert
-    verrechnen und die Statistik dauerhaft verfälschen - MEASUREMENT bildet stattdessen nur
-    Mittelwert/Min/Max, was für einen sich zurücksetzenden "aktueller Monat"-Wert korrekt ist.
+    Kein state_class: der Wert springt zu Monatsbeginn zurück auf 0, ohne dass ein
+    last_reset-Zeitstempel gemeldet wird. TOTAL würde diesen Sprung in der Langzeitstatistik als
+    echten (großen negativen) Verbrauchswert verrechnen und sie dauerhaft verfälschen -
+    MEASUREMENT wäre dafür zwar unproblematisch gewesen, ist aber laut Home Assistant mit
+    device_class MONETARY gar nicht kombinierbar (erlaubt nur None oder TOTAL). Ohne state_class
+    bleibt der aktuelle Wert weiterhin sichtbar (u. a. auf der Karte), nur die
+    Langzeitstatistik/Auswertung im Energie-Dashboard läuft eben nicht über diesen Sensor - dafür
+    gibt es ohnehin EnergyTotalSensor mit TOTAL_INCREASING.
     """
     _attr_device_class = SensorDeviceClass.MONETARY
-    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, c): super().__init__(c, "cost_month", "Lüftungskosten Monat")
     @property
@@ -483,11 +485,10 @@ class CostMonthSensor(BaseSensor):
 class PreheatSavingsMonthSensor(BaseSensor):
     """Geschätzte Heizkosten-Ersparnis durchs Vorheizen im laufenden Monat.
 
-    state_class MEASUREMENT statt TOTAL - siehe Begründung bei CostMonthSensor: ohne
-    last_reset würde der monatliche Rücksprung auf 0 die Langzeitstatistik-Summe verfälschen.
+    Kein state_class - siehe Begründung bei CostMonthSensor: MONETARY lässt laut Home Assistant
+    nur None oder TOTAL zu, TOTAL wäre wegen des monatlichen Rücksprungs auf 0 aber falsch.
     """
     _attr_device_class = SensorDeviceClass.MONETARY
-    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, c): super().__init__(c, "preheat_savings_month", "Vorheiz-Ersparnis Monat")
     @property
@@ -512,7 +513,7 @@ class OverviewBase(SensorEntity):
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.13.1",
+            sw_version="2.13.2",
         )
 
     async def async_added_to_hass(self):

@@ -419,6 +419,36 @@ async def test_dehumidifier_runs_even_when_outdoor_air_is_more_humid(
     assert len(on) == 1
 
 
+async def test_dehumidifier_resyncs_when_device_reports_off_unexpectedly(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Home Assistant glaubt, der Entfeuchter laufe (z. B. weil der Einschalt-Befehl das Gerät nie
+    erreicht hat, oder jemand hat es von Hand wieder ausgeschaltet) - das Gerät selbst meldet aber
+    weiterhin "aus". Ohne Korrektur bliebe das dauerhaft so hängen: die Einschalt-Logik greift nur,
+    wenn wir "aus" glauben, und die normale Ausschalt-Logik nicht, weil ohne echten Betrieb weder
+    die Feuchte sinkt noch der Bedarf verschwindet - die Automatik muss den Widerspruch selbst
+    erkennen und es erneut versuchen, statt für immer "läuft schon" anzunehmen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    on = async_mock_service(hass, "switch", "turn_on")
+    hass.states.async_set("switch.entfeuchter", "off")
+    await setup_room(hass, dehumidifier_entity="switch.entfeuchter")
+    hass.states.async_set("sensor.regen", 1.2)            # Regen -> Lüften blockiert
+    hass.states.async_set("sensor.innen_ah", 12.5)         # weiterhin feucht (~70 % rel. Feuchte)
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 1                                    # erster Einschalt-Versuch
+
+    # Das Gerät selbst bleibt "aus" (Befehl kam nie an) - Feuchte/Blockade bleiben unverändert,
+    # die normale Ausschalt-Logik greift also nicht (weder "trocken genug" noch "nicht mehr
+    # nötig"). Nach der Mindestlaufzeit erkennt die Automatik den Widerspruch und setzt ihren
+    # Zustand zurück.
+    await _tick(hass, freezer, 20)
+    assert len(on) == 1                                    # Reset selbst löst noch keinen Versuch aus
+
+    # Beim nächsten Durchlauf greift die Einschalt-Logik erneut, statt für immer stumm zu bleiben.
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 2
+
+
 async def test_shutter_recommended_only_in_summer_with_direct_sun(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
