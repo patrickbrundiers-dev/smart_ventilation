@@ -18,6 +18,12 @@ from .history import HistoryMixin, month_name
 
 
 def _float_state(hass, entity_id):
+    # Neuere HA-Versionen werfen in hass.states.get() eine AttributeError, sobald entity_id None
+    # ist (statt einfach None zurückzugeben) - alle optionalen, nicht konfigurierten Sensoren
+    # rufen diese Funktion aber genau mit None auf (z. B. self.data.get(CONF_SOLAR_RADIATION)),
+    # daher hier vorab abfangen.
+    if not entity_id:
+        return None
     state = hass.states.get(entity_id)
     if state is None:
         return None
@@ -31,6 +37,8 @@ def _float_state(hass, entity_id):
 
 
 def _is_on(hass, entity_id):
+    if not entity_id:
+        return False
     state = hass.states.get(entity_id)
     return state is not None and state.state in ON_STATES
 
@@ -66,6 +74,8 @@ def _angle_diff(a, b):
 
 
 def _wind_kmh(hass, entity_id):
+    if not entity_id:
+        return None
     state = hass.states.get(entity_id)
     value = _float_state(hass, entity_id)
     if value is None:

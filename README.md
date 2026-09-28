@@ -145,6 +145,13 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.13.1
+
+Fehlerbehebung: Version 2.13.0 brach auf aktuellen Home-Assistant-Versionen (ab 2026.9.4).
+
+- Neuere Home Assistant Versionen werfen einen Fehler, wenn interne Sensor-Abfragen mit einer leeren Entität aufgerufen werden, statt einfach "kein Wert" zurückzugeben – betraf alle vier neuen optionalen Wettersensoren aus 2.13.0, sobald sie NICHT konfiguriert waren (also praktisch jede bestehende Installation) und führte dazu, dass die komplette Empfehlungsberechnung abstürzte.
+- Unabhängig davon lehnen neuere Home-Assistant-Versionen die Kategorie des Party-Modus-Sensors ab, da er rein lesbar ist – auf die passende Kategorie umgestellt.
+
 ### Version 2.13.0
 
 Vier neue optionale Wettersensoren (z. B. von KachelmannWetter oder ähnlichen Integrationen), alle im Bereich "Außen":

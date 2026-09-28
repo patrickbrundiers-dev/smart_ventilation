@@ -105,7 +105,10 @@ class MoldAlarmSensor(BaseBinary):
 
 class PartyModeSensor(BaseBinary):
     """An, während der Party-Modus läuft (per Button aktiviert, schaltet sich von selbst ab)."""
-    _attr_entity_category = EntityCategory.CONFIG
+    # Nicht CONFIG: das ist ein rein lesbarer binary_sensor (der Button daneben ist die eigentliche
+    # Steuerung) - neuere Home-Assistant-Versionen lehnen CONFIG bei einer nicht änderbaren Entität
+    # inzwischen mit einem Fehler ab. DIAGNOSTIC passt inhaltlich ohnehin besser (Statusanzeige).
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, c): super().__init__(c, "party_mode", "Party-Modus")
 
