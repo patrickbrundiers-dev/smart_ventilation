@@ -35,7 +35,7 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 - Bad-Modus nach dem Duschen (Sensor oder automatische Erkennung über Feuchtesprung) mit Nachfass-Erinnerung
 - Urlaubsmodus: normale Erinnerungen aus, Schimmelrisiko bleibt überwacht
 - Luftentfeuchter-Steuerung nach relativer Feuchte
-- Rollo/Jalousie-Empfehlung bei direkter Sommersonne am Fenster, optional automatisch gesteuert
+- Rollo/Jalousie-Empfehlung (Karte + Push) bei direkter Sommersonne am Fenster, optional automatisch gesteuert
 - Warnung bei offenem Fenster, wenn niemand zu Hause ist
 
 **Statistik & Kosten**
@@ -144,6 +144,10 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.12.0
+
+- **Neu**: Zur Rollo-Empfehlung aus 2.11.0 gibt es jetzt zusätzlich eine Push-Benachrichtigung (Kategorie "Warnung", wie die bestehende Auskühl-Warnung) – einmalig pro zusammenhängendem Sonnen-Expositionsfenster, nicht bei jedem Tick. Ohne hinterlegtes Rollo-Entity ist es eine Bitte, es zu schließen; mit hinterlegter Entity eine Bestätigung, dass es automatisch geschlossen wurde. Verschwindet die direkte Sonne und kommt später wieder (z. B. am nächsten Tag), wird erneut einmalig benachrichtigt.
 
 ### Version 2.11.0
 

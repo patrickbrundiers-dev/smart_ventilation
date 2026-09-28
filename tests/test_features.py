@@ -471,6 +471,34 @@ async def test_shutter_closes_and_reopens_with_direct_sun(
     assert len(open_) == 1
 
 
+async def test_shutter_notification_once_per_exposure(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Benachrichtigung nur einmal pro zusammenhängendem Sonnen-Expositionsfenster, nicht bei
+    jedem 30-s-Tick - und noch einmal, wenn die Sonne später erneut aufs Fenster trifft. Ohne
+    hinterlegtes Rollo-Entity ist der Text eine Bitte, mit Entity eine Bestätigung."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    await setup_room(hass, use_sun=True, season_mode="summer")
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # = Fensterausrichtung
+    )
+    await _tick(hass, freezer, 0.5)
+    await _tick(hass, freezer, 0.5)  # zweiter Tick, weiterhin direkte Sonne -> keine zweite Push
+    shutter_pushes = [c for c in pushes if "Rollo" in c.data["title"]]
+    assert len(shutter_pushes) == 1
+    assert shutter_pushes[0].data["title"] == "Rollo schließen: Schlafzimmer"  # kein Rollo hinterlegt -> Bitte
+
+    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 40, "azimuth": 250})  # weg vom Fenster
+    await _tick(hass, freezer, 0.5)
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # wieder direkt aufs Fenster
+    )
+    await _tick(hass, freezer, 0.5)
+    shutter_pushes = [c for c in pushes if "Rollo" in c.data["title"]]
+    assert len(shutter_pushes) == 2
+
+
 async def test_weekly_report(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     freezer.move_to("2026-12-06 19:05:00+01:00")  # Sonntag
     pushes = async_mock_service(hass, "notify", "mobile_app_test")

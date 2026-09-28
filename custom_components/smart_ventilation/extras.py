@@ -59,6 +59,7 @@ class RoomExtrasMixin:
         self._vacation_warned = None        # Datum der letzten Urlaubs-Schimmelwarnung
         self._dehum_on_since = None         # nur gesetzt, wenn WIR eingeschaltet haben
         self._shutter_closed_since = None   # nur gesetzt, wenn WIR das Rollo geschlossen haben
+        self._shutter_notified = False      # einmalig pro Sonnen-Expositionsfenster benachrichtigt
         self._last_report = None            # Kalenderwoche des letzten Wochenberichts
         self._warm_warned = False
         self.last_trace = None
@@ -72,6 +73,7 @@ class RoomExtrasMixin:
             "vacation_warned": self._vacation_warned,
             "dehum_on_since": self._dehum_on_since.isoformat() if self._dehum_on_since else None,
             "shutter_closed_since": self._shutter_closed_since.isoformat() if self._shutter_closed_since else None,
+            "shutter_notified": self._shutter_notified,
             "last_trace": self.last_trace,
         }
 
@@ -82,6 +84,7 @@ class RoomExtrasMixin:
             self._dehum_on_since = dt_util.parse_datetime(stored["dehum_on_since"])
         if stored.get("shutter_closed_since"):
             self._shutter_closed_since = dt_util.parse_datetime(stored["shutter_closed_since"])
+        self._shutter_notified = bool(stored.get("shutter_notified", False))
         self.last_trace = stored.get("last_trace")
 
     def _extras_entities(self):
@@ -500,6 +503,33 @@ class RoomExtrasMixin:
     def shutter_closed(self):
         return self._shutter_closed_since is not None
 
+    async def _shutter_notify(self):
+        """Einmal pro zusammenhängendem Sonnen-Expositionsfenster benachrichtigen (nicht bei
+        jedem 30-s-Tick) - sobald keine direkte Sonne mehr anliegt, wird zurückgesetzt, damit am
+        nächsten Tag bzw. bei erneuter Exposition wieder benachrichtigt wird."""
+        if not self.shutter_recommended:
+            if self._shutter_notified:
+                self._shutter_notified = False
+                await self._save()
+            return
+        if self._shutter_notified:
+            return
+        self._shutter_notified = True
+        await self._save()
+        name = self.data[CONF_NAME]
+        if self.shutter_closed:
+            title = f"Rollo geschlossen: {name}"
+            message = "Direkte Sonne am Fenster – das Rollo wurde automatisch geschlossen."
+        else:
+            title = f"Rollo schließen: {name}"
+            message = (
+                "Direkte Sonne am Fenster – am besten Rollo/Jalousie schließen, damit sich "
+                "der Raum nicht aufheizt."
+            )
+        await self._send(
+            title, message, f"smart_ventilation_{self.entry.entry_id}_shutter", category=CAT_WARNING
+        )
+
     # ------------------------------------------------------------------
     # Wochenbericht
     # ------------------------------------------------------------------
@@ -580,5 +610,6 @@ class RoomExtrasMixin:
         await self._vacation_mold_watch(now)
         await self._dehumidifier_control(now)
         await self._shutter_control(now)
+        await self._shutter_notify()
         self._track_mold_day(now)
         await self._weekly_report(now)
