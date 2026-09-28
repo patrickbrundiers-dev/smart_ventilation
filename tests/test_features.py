@@ -419,6 +419,58 @@ async def test_dehumidifier_runs_even_when_outdoor_air_is_more_humid(
     assert len(on) == 1
 
 
+async def test_shutter_recommended_only_in_summer_with_direct_sun(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Direkte Sonne am Fenster (Azimut = Fensterausrichtung, Höhe über der Mindesthöhe) soll im
+    Sommer "Rollo schließen" empfehlen, im Winter dagegen nicht - dort ist die Sonnenwärme durchs
+    Fenster erwünscht (Vorheizen), ein geschlossenes Rollo würde das verhindern."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    entry = await setup_room(hass, use_sun=True, season_mode="summer")
+    rec = eid(hass, "sensor", entry, "recommendation")
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # = Fensterausrichtung
+    )
+    await _tick(hass, freezer, 0.5)
+    assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is True
+
+
+async def test_shutter_not_recommended_in_winter_despite_direct_sun(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Gleiche direkte Sonne wie im Sommer-Test, aber Winter -> keine Rollo-Empfehlung, da die
+    Sonnenwärme durchs Fenster dort willkommen ist (Vorheizen) statt unerwünscht."""
+    freezer.move_to("2026-01-15 12:00:00+01:00")
+    entry = await setup_room(hass, use_sun=True, season_mode="winter")
+    rec = eid(hass, "sensor", entry, "recommendation")
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # = Fensterausrichtung
+    )
+    await _tick(hass, freezer, 0.5)
+    assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is False
+
+
+async def test_shutter_closes_and_reopens_with_direct_sun(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Mit hinterlegtem Rollo-Entity: schließt automatisch bei direkter Sonne im Sommer, öffnet
+    nach Mindestlaufzeit wieder, sobald keine direkte Sonne mehr am Fenster anliegt."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    close = async_mock_service(hass, "cover", "close_cover")
+    open_ = async_mock_service(hass, "cover", "open_cover")
+    hass.states.async_set("cover.rollo", "open")
+    await setup_room(hass, use_sun=True, season_mode="summer", shutter_entity="cover.rollo")
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # = Fensterausrichtung
+    )
+    await _tick(hass, freezer, 0.5)
+    assert len(close) == 1
+
+    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 40, "azimuth": 250})  # weg vom Fenster
+    await _tick(hass, freezer, 16)  # über die Mindestlaufzeit von 15 Min. hinaus
+    assert len(open_) == 1
+
+
 async def test_weekly_report(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     freezer.move_to("2026-12-06 19:05:00+01:00")  # Sonntag
     pushes = async_mock_service(hass, "notify", "mobile_app_test")

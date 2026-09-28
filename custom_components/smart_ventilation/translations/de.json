@@ -163,12 +163,14 @@
             "data": {
               "climate_entities": "Thermostate absenken",
               "dehumidifier_entity": "Luftentfeuchter",
+              "shutter_entity": "Rollo/Jalousie",
               "energy_price": "Wärmepreis"
             },
             "data_description": {
               "climate_entities": "Optional. Nach 1 Minute offenem Fenster aus bzw. auf Minimum, danach zurück. Leer lassen, wenn die Thermostate selbst eine Fenster-offen-Erkennung haben.",
               "dehumidifier_entity": "Optional: Steckdose oder Entfeuchter. Läuft, wenn es feucht ist und gerade nicht gelüftet werden kann.",
-              "energy_price": "Für die Kostenschätzung, z. B. Gas ≈ 0,12 €/kWh, Wärmepumpe ≈ 0,10 €/kWh."
+              "energy_price": "Für die Kostenschätzung, z. B. Gas ≈ 0,12 €/kWh, Wärmepumpe ≈ 0,10 €/kWh.",
+              "shutter_entity": "Optional: Rollo/Jalousie (cover). Wird im Sommer bei direkter Sonne am Fenster automatisch geschlossen und danach wieder geöffnet, sobald keine direkte Sonne mehr anliegt."
             }
           }
         }
@@ -380,12 +382,14 @@
             "data": {
               "climate_entities": "Thermostate absenken",
               "dehumidifier_entity": "Luftentfeuchter",
+              "shutter_entity": "Rollo/Jalousie",
               "energy_price": "Wärmepreis"
             },
             "data_description": {
               "climate_entities": "Optional. Nach 1 Minute offenem Fenster aus bzw. auf Minimum, danach zurück. Leer lassen, wenn die Thermostate selbst eine Fenster-offen-Erkennung haben.",
               "dehumidifier_entity": "Optional: Steckdose oder Entfeuchter. Läuft, wenn es feucht ist und gerade nicht gelüftet werden kann.",
-              "energy_price": "Für die Kostenschätzung, z. B. Gas ≈ 0,12 €/kWh, Wärmepumpe ≈ 0,10 €/kWh."
+              "energy_price": "Für die Kostenschätzung, z. B. Gas ≈ 0,12 €/kWh, Wärmepumpe ≈ 0,10 €/kWh.",
+              "shutter_entity": "Optional: Rollo/Jalousie (cover). Wird im Sommer bei direkter Sonne am Fenster automatisch geschlossen und danach wieder geöffnet, sobald keine direkte Sonne mehr anliegt."
             }
           },
           "messages": {

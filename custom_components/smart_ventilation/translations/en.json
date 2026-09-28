@@ -163,12 +163,14 @@
             "data": {
               "climate_entities": "Lower thermostats",
               "dehumidifier_entity": "Dehumidifier",
+              "shutter_entity": "Shutter/blind",
               "energy_price": "Heat price"
             },
             "data_description": {
               "climate_entities": "Optional. Off or minimum after 1 minute with an open window, restored afterwards. Leave empty if your thermostats have their own open-window detection.",
               "dehumidifier_entity": "Optional: switch or dehumidifier. Runs when it is humid and ventilating is not possible right now.",
-              "energy_price": "For the cost estimate, e.g. gas ≈ 0.12 €/kWh, heat pump ≈ 0.10 €/kWh."
+              "energy_price": "For the cost estimate, e.g. gas ≈ 0.12 €/kWh, heat pump ≈ 0.10 €/kWh.",
+              "shutter_entity": "Optional: shutter or blind (cover). Closed automatically in summer when the sun shines directly on the window, and reopened once that's no longer the case."
             }
           }
         }
@@ -380,12 +382,14 @@
             "data": {
               "climate_entities": "Lower thermostats",
               "dehumidifier_entity": "Dehumidifier",
+              "shutter_entity": "Shutter/blind",
               "energy_price": "Heat price"
             },
             "data_description": {
               "climate_entities": "Optional. Off or minimum after 1 minute with an open window, restored afterwards. Leave empty if your thermostats have their own open-window detection.",
               "dehumidifier_entity": "Optional: switch or dehumidifier. Runs when it is humid and ventilating is not possible right now.",
-              "energy_price": "For the cost estimate, e.g. gas ≈ 0.12 €/kWh, heat pump ≈ 0.10 €/kWh."
+              "energy_price": "For the cost estimate, e.g. gas ≈ 0.12 €/kWh, heat pump ≈ 0.10 €/kWh.",
+              "shutter_entity": "Optional: shutter or blind (cover). Closed automatically in summer when the sun shines directly on the window, and reopened once that's no longer the case."
             }
           },
           "messages": {

@@ -1487,6 +1487,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         return True, False, ""
 
+    @property
+    def shutter_recommended(self):
+        """Empfehlung, Rollo/Jalousie zu schließen: direkte Sonne am Fenster im Sommer - dort ist
+        zusätzliche Wärme unerwünscht. Im Winter nie, da die Sonnenwärme dort erwünscht ist (siehe
+        Vorheizen) - ein geschlossenes Rollo würde genau das verhindern."""
+        if self.season != SEASON_SUMMER:
+            return False
+        _, direct_sun, _ = self._sun_effect()
+        return direct_sun
+
     async def _welcome_home(self, person):
         """Beim Heimkommen einmal erinnern, falls Lüften fällig ist."""
         self._update_recommendation()
@@ -1939,6 +1949,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "nach_dusche": self.after_shower,
             "urlaub": self.on_vacation,
             "entfeuchter": self.dehumidifier_active,
+            "rollo_empfehlung": self.shutter_recommended,
+            "rollo_geschlossen": self.shutter_closed,
             "schimmel_tage": self.mold_streak()[0],
             "fenster_anzahl": len(self.windows),
             "party_modus": self.party_active,

@@ -35,6 +35,7 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 - Bad-Modus nach dem Duschen (Sensor oder automatische Erkennung über Feuchtesprung) mit Nachfass-Erinnerung
 - Urlaubsmodus: normale Erinnerungen aus, Schimmelrisiko bleibt überwacht
 - Luftentfeuchter-Steuerung nach relativer Feuchte
+- Rollo/Jalousie-Empfehlung bei direkter Sommersonne am Fenster, optional automatisch gesteuert
 - Warnung bei offenem Fenster, wenn niemand zu Hause ist
 
 **Statistik & Kosten**
@@ -143,6 +144,14 @@ Home Assistant **2024.11** oder neuer.
 > Die Schimmelrisiko-Einschätzung basiert nur auf der Raumluft und ersetzt keine bauphysikalische Bewertung von Wandoberflächen.
 
 ## Changelog
+
+### Version 2.11.0
+
+Neue optionale Rollo/Jalousie-Empfehlung bei direkter Sommersonne:
+
+- **Neu**: Ein neuer Sensor-Wert "Rollo schließen empfohlen" (Karten-Chip) meldet sich im Sommer, sobald die Sonne laut Fensterausrichtung und Sonnenstand direkt aufs Fenster trifft – reiner Hitzeschutz. Im Winter erscheint die Empfehlung bewusst nie, da dort die Sonnenwärme durchs Fenster erwünscht ist (siehe Vorheizen).
+- **Neu**: Optional lässt sich pro Raum eine Rollo/Jalousie-Entity (`cover`) hinterlegen. Ist eine gesetzt, wird sie bei direkter Sonne automatisch geschlossen und – frühestens nach 15 Minuten Mindestlaufzeit – wieder geöffnet, sobald keine direkte Sonne mehr anliegt. Ohne hinterlegte Entity bleibt es bei der reinen Kartenempfehlung.
+- Wie beim Luftentfeuchter wird nur verwaltet, was die Integration selbst geschlossen hat – eine von Hand auf eine Zwischenposition gefahrene oder bereits geschlossene Jalousie wird nicht angefasst.
 
 ### Version 2.10.1
 

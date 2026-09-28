@@ -13,11 +13,11 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CAT_MOLD, CAT_REPORT, CAT_SHOWER, CAT_WARNING,
     CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF,
-    CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP,
+    CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_SHUTTER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP,
     CONF_NAME, CONF_OUTDOOR_HUMIDITY, CONF_OUTDOOR_TEMP, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_WEEKLY_REPORT, COOL_MAX_EXTRA_HUMIDITY,
     COOL_MIN_DIFF, DEFAULT_COMFORT_TEMP, DEFAULT_TARGET_DIFF, DEHUM_MIN_RUNTIME_MINUTES,
-    DEHUM_OFF_RH, DEHUM_ON_RH, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
+    DEHUM_OFF_RH, DEHUM_ON_RH, SHUTTER_MIN_RUNTIME_MINUTES, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
     SEASON_SUMMER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
     CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER, PREHEAT_MAX_EXTRA_HUMIDITY,
@@ -58,6 +58,7 @@ class RoomExtrasMixin:
         self._last_shower_detect = None
         self._vacation_warned = None        # Datum der letzten Urlaubs-Schimmelwarnung
         self._dehum_on_since = None         # nur gesetzt, wenn WIR eingeschaltet haben
+        self._shutter_closed_since = None   # nur gesetzt, wenn WIR das Rollo geschlossen haben
         self._last_report = None            # Kalenderwoche des letzten Wochenberichts
         self._warm_warned = False
         self.last_trace = None
@@ -70,6 +71,7 @@ class RoomExtrasMixin:
             "last_report": self._last_report,
             "vacation_warned": self._vacation_warned,
             "dehum_on_since": self._dehum_on_since.isoformat() if self._dehum_on_since else None,
+            "shutter_closed_since": self._shutter_closed_since.isoformat() if self._shutter_closed_since else None,
             "last_trace": self.last_trace,
         }
 
@@ -78,6 +80,8 @@ class RoomExtrasMixin:
         self._vacation_warned = stored.get("vacation_warned")
         if stored.get("dehum_on_since"):
             self._dehum_on_since = dt_util.parse_datetime(stored["dehum_on_since"])
+        if stored.get("shutter_closed_since"):
+            self._shutter_closed_since = dt_util.parse_datetime(stored["shutter_closed_since"])
         self.last_trace = stored.get("last_trace")
 
     def _extras_entities(self):
@@ -460,6 +464,43 @@ class RoomExtrasMixin:
         return self._dehum_on_since is not None
 
     # ------------------------------------------------------------------
+    # Rollo/Jalousie
+    # ------------------------------------------------------------------
+    async def _shutter_control(self, now):
+        entity_id = self.data.get(CONF_SHUTTER)
+        if not entity_id:
+            return
+        domain = entity_id.partition(".")[0]
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in ("unavailable", "unknown"):
+            return
+        need = self.shutter_recommended
+
+        if self._shutter_closed_since is None:
+            # Schließen: nur ein tatsächlich offenes Rollo anfassen - eine manuell gewählte
+            # Zwischenposition (z. B. teilweise geschlossen) wird nicht überschrieben, und ein
+            # bereits von Hand geschlossenes Rollo übernehmen wir nicht in unsere Steuerung (siehe
+            # dasselbe Prinzip beim Entfeuchter: nur verwalten, was WIR selbst gestartet haben).
+            if need and state.state == "open":
+                if await self._call(domain, "close_cover", {"entity_id": entity_id}):
+                    self._shutter_closed_since = now
+                    await self._save()
+            return
+
+        # Öffnen: erst nach Mindestlaufzeit und sobald keine direkte Sonne mehr am Fenster
+        # anliegt - vermeidet ständiges Auf/Zu, wenn die Sonne kurz hinter einer Wolke
+        # verschwindet oder genau an der Winkel-Schwelle entlangwandert.
+        ran = (now - self._shutter_closed_since) >= timedelta(minutes=SHUTTER_MIN_RUNTIME_MINUTES)
+        if ran and not need:
+            await self._call(domain, "open_cover", {"entity_id": entity_id})
+            self._shutter_closed_since = None
+            await self._save()
+
+    @property
+    def shutter_closed(self):
+        return self._shutter_closed_since is not None
+
+    # ------------------------------------------------------------------
     # Wochenbericht
     # ------------------------------------------------------------------
     def _track_mold_day(self, now):
@@ -538,5 +579,6 @@ class RoomExtrasMixin:
         await self._shower_followup(now)
         await self._vacation_mold_watch(now)
         await self._dehumidifier_control(now)
+        await self._shutter_control(now)
         self._track_mold_day(now)
         await self._weekly_report(now)

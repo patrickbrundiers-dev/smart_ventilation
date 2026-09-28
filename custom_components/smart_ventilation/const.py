@@ -172,7 +172,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.10.1"
+VERSION = "2.11.0"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -208,6 +208,12 @@ CONF_DEHUMIDIFIER = "dehumidifier_entity"
 DEHUM_ON_RH = 60.0
 DEHUM_OFF_RH = 55.0
 DEHUM_MIN_RUNTIME_MINUTES = 15
+
+# Rollo/Jalousie – Empfehlung (und optional automatische Steuerung) bei direkter Sonne im Sommer.
+# Im Winter nie, da die Sonnenwärme dort erwünscht ist (siehe Vorheizen) – ein geschlossenes Rollo
+# würde genau das verhindern.
+CONF_SHUTTER = "shutter_entity"
+SHUTTER_MIN_RUNTIME_MINUTES = 15  # Mindest-Zu-Dauer, bevor bei kurz verschwundener Sonne wieder geöffnet wird
 
 # Wochenbericht
 CONF_WEEKLY_REPORT = "weekly_report"

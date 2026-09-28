@@ -450,6 +450,8 @@ class SmartVentilationCard extends HTMLElement {
       !compact && k.kuehlen_plan && !(k.minuten > 0 && k.grund === "Kühlen") && [null, "mdi:weather-night", `Kühlen ${k.kuehlen_plan}`],
       !compact && k.vorheizen_plan && !(k.minuten > 0 && k.grund === "Vorheizen") && [null, "mdi:thermometer-chevron-up", `Vorheizen ${k.vorheizen_plan}`],
       !compact && k.entfeuchter && [null, "mdi:air-humidifier", "Entfeuchter läuft"],
+      !compact && k.rollo_geschlossen && [null, "mdi:roller-shade-closed", "Rollo geschlossen"],
+      !compact && k.rollo_empfehlung && !k.rollo_geschlossen && [null, "mdi:roller-shade", "Rollo schließen empfohlen", "warn"],
       !compact && k.ruhezeit && !String(k.pausiert || "").startsWith("Ruhezeit") && [null, "mdi:sleep", "Ruhezeit"],
     ]
       .filter(Boolean)
@@ -805,6 +807,7 @@ const STYLE = `
   button.chip:hover { background: var(--sv-surface-hover); }
   .chip ha-icon { --mdc-icon-size: 15px; }
   .chip.tone-good ha-icon { color: var(--sv-good); }
+  .chip.tone-warn ha-icon { color: var(--sv-warn); }
   .chip-caret { --mdc-icon-size: 14px !important; opacity: .6; margin-left: -1px; }
 
   /* 7-Tage-Trend (Sparkline) */

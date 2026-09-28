@@ -29,7 +29,7 @@ from .const import (
     ENTRY_TYPE_ROOM, ENTRY_TYPE_OVERVIEW, CONF_COMBINE, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_COMFORT_TEMP, DEFAULT_COMFORT_TEMP,
     CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP,
-    CONF_DEHUMIDIFIER, CONF_WEEKLY_REPORT, CONF_MONTHLY_REPORT,
+    CONF_DEHUMIDIFIER, CONF_SHUTTER, CONF_WEEKLY_REPORT, CONF_MONTHLY_REPORT,
     CONF_QUIET_WEEKEND_DIFFERENT, CONF_QUIET_START_WEEKEND, CONF_QUIET_END_WEEKEND,
     CATEGORY_CONF_KEYS, CAT_REMINDER, CAT_REPORT,
 )
@@ -48,6 +48,7 @@ OPTIONAL_EMPTY = {
     CONF_CO2: "", CONF_SHOWER: "", CONF_WEATHER: "", CONF_VACATION: "",
     CONF_VACATION_KEYWORD: "", CONF_NOTIFY_SERVICES: [], CONF_PERSONS: [],
     CONF_CLIMATES: [], CONF_DEHUMIDIFIER: "", CONF_INDOOR_RH: "", CONF_OUTDOOR_RH: "",
+    CONF_SHUTTER: "",
 }
 
 
@@ -172,10 +173,10 @@ def _current_notify(d: dict) -> list[str]:
 # übernommen werden - oft dieselben Werte im ganzen Haus bzw. bewusst gewählte Vorlieben.
 TEMPLATE_STRIP = {
     CONF_NAME, CONF_WINDOW, CONF_INDOOR_TEMP, CONF_INDOOR_HUMIDITY, CONF_INDOOR_RH, CONF_CO2, CONF_SHOWER,
-    # Eigene Geräte des Quell-Raums - sonst würde der neue Raum unbemerkt das Thermostat oder
-    # den Entfeuchter eines ANDEREN Raums mitsteuern, statt nur unverfängliche Werte wie
-    # Schwellen oder Außensensoren zu übernehmen.
-    CONF_CLIMATES, CONF_DEHUMIDIFIER,
+    # Eigene Geräte des Quell-Raums - sonst würde der neue Raum unbemerkt das Thermostat, den
+    # Entfeuchter oder das Rollo eines ANDEREN Raums mitsteuern, statt nur unverfängliche Werte
+    # wie Schwellen oder Außensensoren zu übernehmen.
+    CONF_CLIMATES, CONF_DEHUMIDIFIER, CONF_SHUTTER,
     # Ohne das würde ein von der Vorlage übernommener Zielwert bei unverändert übernommenem Feld
     # NICHT als "unangetastet" erkannt (das prüft async_step_room nur gegen DEFAULT_TARGET_ABS),
     # wodurch der zum tatsächlich gewählten Raumtyp passende Richtwert nie automatisch gesetzt
@@ -306,6 +307,7 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
         return {
             _opt(CONF_CLIMATES, g(CONF_CLIMATES, [])): _entity("climate", multiple=True),
             _opt(CONF_DEHUMIDIFIER, g(CONF_DEHUMIDIFIER)): _entity(["switch", "humidifier"]),
+            _opt(CONF_SHUTTER, g(CONF_SHUTTER)): _entity("cover"),
             vol.Required(CONF_ENERGY_PRICE, default=g(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE)): _number(0, 2, 0.01, "€/kWh"),
         }
 
