@@ -76,7 +76,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.8.2",
+            sw_version="2.8.3",
         )
 
     async def async_added_to_hass(self):
@@ -462,9 +462,16 @@ class EnergyTotalSensor(BaseSensor):
 
 
 class CostMonthSensor(BaseSensor):
-    """Geschätzte Heizkosten durch Lüften im laufenden Monat."""
+    """Geschätzte Heizkosten durch Lüften im laufenden Monat.
+
+    state_class MEASUREMENT statt TOTAL: der Wert springt zu Monatsbeginn zurück auf 0, ohne
+    dass ein last_reset-Zeitstempel gemeldet wird. Mit TOTAL würde der Recorder diesen Sprung
+    beim Bilden der Langzeitstatistik-Summe als echten (großen negativen) Verbrauchswert
+    verrechnen und die Statistik dauerhaft verfälschen - MEASUREMENT bildet stattdessen nur
+    Mittelwert/Min/Max, was für einen sich zurücksetzenden "aktueller Monat"-Wert korrekt ist.
+    """
     _attr_device_class = SensorDeviceClass.MONETARY
-    _attr_state_class = SensorStateClass.TOTAL
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, c): super().__init__(c, "cost_month", "Lüftungskosten Monat")
     @property
@@ -474,9 +481,13 @@ class CostMonthSensor(BaseSensor):
 
 
 class PreheatSavingsMonthSensor(BaseSensor):
-    """Geschätzte Heizkosten-Ersparnis durchs Vorheizen im laufenden Monat."""
+    """Geschätzte Heizkosten-Ersparnis durchs Vorheizen im laufenden Monat.
+
+    state_class MEASUREMENT statt TOTAL - siehe Begründung bei CostMonthSensor: ohne
+    last_reset würde der monatliche Rücksprung auf 0 die Langzeitstatistik-Summe verfälschen.
+    """
     _attr_device_class = SensorDeviceClass.MONETARY
-    _attr_state_class = SensorStateClass.TOTAL
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, c): super().__init__(c, "preheat_savings_month", "Vorheiz-Ersparnis Monat")
     @property
@@ -501,7 +512,7 @@ class OverviewBase(SensorEntity):
             name=coordinator.data.get("name", "Lüften Übersicht"),
             manufacturer="Custom",
             model="Adaptive Ventilation – Übersicht",
-            sw_version="2.8.2",
+            sw_version="2.8.3",
         )
 
     async def async_added_to_hass(self):

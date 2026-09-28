@@ -175,6 +175,13 @@ TEMPLATE_STRIP = {
     # den Entfeuchter eines ANDEREN Raums mitsteuern, statt nur unverfängliche Werte wie
     # Schwellen oder Außensensoren zu übernehmen.
     CONF_CLIMATES, CONF_DEHUMIDIFIER,
+    # Ohne das würde ein von der Vorlage übernommener Zielwert bei unverändert übernommenem Feld
+    # NICHT als "unangetastet" erkannt (das prüft async_step_room nur gegen DEFAULT_TARGET_ABS),
+    # wodurch der zum tatsächlich gewählten Raumtyp passende Richtwert nie automatisch gesetzt
+    # würde, wenn sich der Raumtyp vom Quell-Raum unterscheidet (z. B. Vorlage "Bad" -> neuer Raum
+    # "Schlafzimmer"). Ohne Vorlage bleibt das Feld leer und async_step_room setzt ohnehin den
+    # zum gewählten Raumtyp passenden Wert.
+    CONF_TARGET_ABS,
 }
 
 

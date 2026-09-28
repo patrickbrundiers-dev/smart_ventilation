@@ -1,7 +1,7 @@
 """Übersicht über alle Räume: dringendster Raum und Sammel-Benachrichtigung."""
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.config_entries import ConfigEntry
@@ -150,6 +150,13 @@ class OverviewCoordinator:
         stored = await self.store.async_load() or {}
         if stored.get("last_notification_at"):
             self.last_notification_at = dt_util.parse_datetime(stored["last_notification_at"])
+        if stored.get("skip_date"):
+            try:
+                self._skip_date = date.fromisoformat(stored["skip_date"])
+            except ValueError:
+                self._skip_date = None
+        if stored.get("snooze_until"):
+            self._snooze_until = dt_util.parse_datetime(stored["snooze_until"])
         self._last_report = stored.get("last_report")
         self._last_month_report = stored.get("last_month_report")
         self._unsubs.append(
@@ -179,8 +186,10 @@ class OverviewCoordinator:
         action = event.data.get("action", "")
         if action == f"{ACTION_SNOOZE}{self.entry.entry_id}":
             self._snooze_until = dt_util.now() + timedelta(minutes=SNOOZE_MINUTES)
+            self.hass.async_create_task(self._save())
         elif action == f"{ACTION_SKIP}{self.entry.entry_id}":
             self._skip_date = dt_util.now().date()
+            self.hass.async_create_task(self._save())
 
     async def _tick(self, _now=None):
         for update_callback in list(self._listeners):
@@ -208,6 +217,7 @@ class OverviewCoordinator:
                 return
             self._snooze_until = None
             snooze_over = True
+            await self._save()
 
         cooldown = int(self.data.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)) * 60
         if (
@@ -225,6 +235,14 @@ class OverviewCoordinator:
         )
         targets = notify_util.targets_for_category(self.data, CAT_REMINDER, self.notify_targets)
         targets = notify_util.filter_targets(self.hass, targets, self.persons)
+
+        # Cooldown-Fenster sofort reservieren, bevor auf den (async) Versand gewartet wird - siehe
+        # dieselbe Race in coordinator.py::_send_notification_if_needed: der 60-Sekunden-Tick
+        # wartet nicht auf den vorherigen Lauf, ein langsames notify.*-Ziel könnte sonst zwei
+        # sich überlappende Aufrufe beide am (noch alten) last_notification_at vorbeikommen lassen.
+        self.last_notification_at = now
+        await self._save()
+
         sent = await notify_util.send(
             self.hass,
             targets,
@@ -237,13 +255,15 @@ class OverviewCoordinator:
                 {"action": f"{ACTION_SKIP}{self.entry.entry_id}", "title": "Heute nicht mehr"},
             ],
         )
-        if sent:
-            self.last_notification_at = now
+        if not sent:
+            self.last_notification_at = None
             await self._save()
 
     async def _save(self):
         await self.store.async_save({
             "last_notification_at": self.last_notification_at.isoformat() if self.last_notification_at else None,
+            "skip_date": self._skip_date.isoformat() if self._skip_date else None,
+            "snooze_until": self._snooze_until.isoformat() if self._snooze_until else None,
             "last_report": self._last_report,
             "last_month_report": self._last_month_report,
         })
@@ -299,8 +319,14 @@ class OverviewCoordinator:
         cost = sum(c["kosten"] for _, c in comparisons)
         lines = [f"{month_name(month_key)}: Lüftungsbedarf {de(need)} h, {de(kwh)} kWh ≈ {de(cost, 2)} €"]
         change = change_percent(need, sum(prev)) if len(prev) == len(comparisons) else None
-        if change:
-            lines.append(f"{abs(change)} % {'mehr' if change > 0 else 'weniger'} Bedarf als im Vormonat")
+        if change is not None:
+            # "change" kann 0 sein (unveränderter Bedarf) - das ist ein echtes Ergebnis und darf
+            # nicht wie "kein Vergleich möglich" (None) stillschweigend übersprungen werden, siehe
+            # history.py::monthly_text() für dieselbe Fallunterscheidung im Pro-Raum-Bericht.
+            lines.append(
+                f"{abs(change)} % {'mehr' if change > 0 else 'weniger'} Bedarf als im Vormonat"
+                if change else "Bedarf wie im Vormonat"
+            )
         for name, c in sorted(comparisons, key=lambda x: -x[1]["bedarf_h"]):
             mold = f", {c['schimmeltage']} Schimmeltage" if c["schimmeltage"] else ""
             lines.append(f"• {name}: {de(c['bedarf_h'])} h Bedarf, {c['lueftungen']}× gelüftet{mold}")

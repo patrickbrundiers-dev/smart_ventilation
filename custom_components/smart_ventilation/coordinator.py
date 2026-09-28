@@ -1537,6 +1537,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 return
             self._snooze_until = None
             snooze_over = True  # "In 30 Min. erinnern" – Cooldown einmal überspringen
+            # Persistieren, sonst überlebt ein bereits abgelaufener (also ungültiger) Snooze-
+            # Zeitstempel einen Neustart kurz danach und löst beim nächsten Aufruf hier erneut
+            # unnötig "snooze_over" aus.
+            self.hass.async_create_task(self._save())
 
         cooldown_s = int(
             self.data.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)

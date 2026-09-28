@@ -132,10 +132,11 @@ class HistoryMixin:
             return
         if self.in_quiet_hours(now):
             return  # nach der Ruhezeit nachholen
+        previous_warned = self._mold_warned
         self._mold_warned = {"start": start.isoformat(), "on": now.date().isoformat()}
         await self._save()
         hours = [self.mold_log.get((now.date() - timedelta(days=i)).isoformat(), 0) / 60 for i in range(1, streak + 1)]
-        await self._send(
+        sent = await self._send(
             f"Schimmelgefahr: {self.data[CONF_NAME]}",
             (
                 f"Seit {streak} Tagen ist die Wand täglich rund {de(sum(hours) / len(hours), 0)} Stunden "
@@ -145,6 +146,11 @@ class HistoryMixin:
             f"smart_ventilation_{self.entry.entry_id}_mold",
             category=CAT_MOLD,
         )
+        if not sent:
+            # Kein Ziel erreichbar - nicht als "gewarnt" merken, sonst käme frühestens erst nach
+            # MOLD_REWARN_DAYS wieder eine Warnung, obwohl nie tatsächlich eine ankam.
+            self._mold_warned = previous_warned
+            await self._save()
 
     # ------------------------------------------------------------------
     # Monatsarchiv und -vergleich
@@ -248,7 +254,7 @@ class HistoryMixin:
         if not result:
             return
         minutes, avg = result
-        await self._send(
+        sent = await self._send(
             f"Ungewöhnlich viel Lüftungsbedarf: {self.data[CONF_NAME]}",
             (
                 f"Gestern wurde {de(minutes / 60, 1)} Stunden gelüftet – deutlich mehr als im "
@@ -259,6 +265,12 @@ class HistoryMixin:
             f"smart_ventilation_{self.entry.entry_id}_anomaly",
             category=CAT_WARNING,
         )
+        if not sent:
+            # Kein Ziel erreichbar - "gestern" nicht als geprüft verbuchen, sonst gibt es für
+            # diesen Tag nie wieder eine Chance auf die Warnung (der nächste Tick prüft bereits
+            # den nächsten Tag).
+            self._last_anomaly_check = None
+            await self._save()
 
     def month_comparison(self):
         """Letzter abgeschlossener Monat im Vergleich zum Vormonat und zum Vorjahr."""

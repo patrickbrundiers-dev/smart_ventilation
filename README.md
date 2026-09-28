@@ -143,6 +143,16 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.8.3
+
+- **Bugfix**: Bei der zusammengefassten Übersichts-Erinnerung konnte derselbe Doppel-Versand-Fehler wie bei den Einzelraum-Erinnerungen auftreten (Cooldown wird jetzt ebenfalls sofort reserviert statt erst nach dem Versand).
+- **Bugfix**: "In 30 Min. erinnern" und "Heute nicht mehr" für die Übersichts-Erinnerung gingen bei einem Neustart von Home Assistant verloren – werden jetzt wie bei den Einzelräumen gespeichert.
+- **Bugfix**: Der Übersichts-Monatsbericht zeigte bei exakt unverändertem Bedarf gegenüber dem Vormonat gar keinen Vergleich an, statt "Bedarf wie im Vormonat".
+- **Bugfix**: Schimmel- und Anomalie-Warnungen wurden als "verschickt" vermerkt, selbst wenn kein Benachrichtigungsziel erreichbar war – dadurch blieb die nächste Warnung bis zu 7 Tage bzw. dauerhaft aus, obwohl nie eine ankam.
+- **Bugfix**: Die Lüftungskosten- und Vorheiz-Ersparnis-Sensoren (laufender Monat) waren als "Total" markiert, wodurch der monatliche Rücksprung auf 0 die Langzeitstatistik von Home Assistant verfälschen konnte – jetzt korrekt als "Messwert" markiert.
+- **Bugfix**: Ein neuer Raum aus einer Vorlage übernahm deren Feuchte-Zielwert unverändert, auch wenn sich der Raumtyp unterschied (z. B. Vorlage "Bad" → neuer Raum "Schlafzimmer") – der zum gewählten Raumtyp passende Richtwert wird jetzt wie bei einem Raum ohne Vorlage automatisch gesetzt.
+- **Bugfix**: Wurden alle Räume und die Übersicht entfernt und danach ohne Neustart von Home Assistant ein neuer Raum hinzugefügt, blieb die Dashboard-Karte dauerhaft nicht verfügbar.
+
 ### Version 2.8.2
 
 - **Bugfix**: Bei fast gleichzeitig ausgelösten Erinnerungen (z. B. zwei schnell aufeinanderfolgende Aktualisierungen) konnte der Cooldown umgangen und die Erinnerung doppelt verschickt werden – das Zeitfenster wird jetzt sofort reserviert statt erst nach dem Versand.

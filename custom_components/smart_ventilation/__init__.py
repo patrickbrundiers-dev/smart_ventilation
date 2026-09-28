@@ -7,7 +7,7 @@ from homeassistant.helpers import config_validation as cv
 from .const import CONF_ENTRY_TYPE, DOMAIN, ENTRY_TYPE_OVERVIEW
 from .coordinator import SmartVentilationCoordinator
 from .assist import async_setup_assist
-from .card import async_register_card, async_remove_resource
+from .card import DATA_URL as CARD_DATA_URL, async_register_card, async_remove_resource
 from .export import async_setup_export
 from .overview import OverviewCoordinator
 
@@ -33,6 +33,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    # async_setup() (Domain-Ebene) läuft pro HA-Prozess nur einmal. Wurde die Karten-Ressource
+    # zwischenzeitlich beim Entfernen des letzten Eintrags ausgetragen (siehe async_remove_entry),
+    # würde sie ohne diesen erneuten (idempotenten) Aufruf hier für einen danach neu hinzugefügten
+    # Eintrag nie wieder registriert, solange Home Assistant nicht neu startet.
+    await async_register_card(hass)
     if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_OVERVIEW:
         coordinator = OverviewCoordinator(hass, entry)
     else:
@@ -62,3 +67,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     remaining = [e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id != entry.entry_id]
     if not remaining:
         await async_remove_resource(hass)
+        # Flag zurücksetzen, damit async_setup_entry() die Ressource für einen später neu
+        # hinzugefügten Eintrag wieder registriert (sonst bliebe sie bis zum HA-Neustart "schon
+        # registriert", obwohl die Datei/Ressource gerade gelöscht wurde).
+        hass.data.pop(CARD_DATA_URL, None)
