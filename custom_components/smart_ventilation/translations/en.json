@@ -73,7 +73,11 @@
               "weather_entity": "Weather forecast",
               "use_sun": "Consider sun position",
               "sun_entity": "Sun",
-              "min_sun_elevation": "Minimum sun elevation"
+              "min_sun_elevation": "Minimum sun elevation",
+              "solar_radiation_entity": "Solar radiation (optional)",
+              "thunderstorm_entity": "Thunderstorm expected (optional)",
+              "wind_gust_entity": "Wind gust forecast (optional)",
+              "frost_entity": "Frost expected (optional)"
             },
             "data_description": {
               "outdoor_absolute_humidity": "Absolute humidity outside (g/m³).",
@@ -85,7 +89,11 @@
               "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
               "sun_entity": "Usually “sun.sun”.",
               "min_sun_elevation": "Below this the sun does not count as shining directly.",
-              "outdoor_relative_humidity": "Real percentage sensor outdoors. If set, it is used directly instead of deriving relative humidity from absolute humidity."
+              "outdoor_relative_humidity": "Real percentage sensor outdoors. If set, it is used directly instead of deriving relative humidity from absolute humidity.",
+              "solar_radiation_entity": "Sensor for solar irradiance in W/m² (e.g. KachelmannWetter). Refines \"direct sun\" detection: no direct sun under overcast skies even with a matching sun angle.",
+              "thunderstorm_entity": "Binary or text sensor (e.g. \"certain\"/\"possible\"/\"unlikely\"). Blocks venting like rain.",
+              "wind_gust_entity": "Sensor with gust forecast in km/h. Warns when a window is open above 50 km/h.",
+              "frost_entity": "Binary or text sensor (e.g. \"normal\"/\"elevated\"). Warns when a window is open and frost is expected tonight."
             }
           },
           "behavior": {
@@ -292,7 +300,11 @@
               "weather_entity": "Weather forecast",
               "use_sun": "Consider sun position",
               "sun_entity": "Sun",
-              "min_sun_elevation": "Minimum sun elevation"
+              "min_sun_elevation": "Minimum sun elevation",
+              "solar_radiation_entity": "Solar radiation (optional)",
+              "thunderstorm_entity": "Thunderstorm expected (optional)",
+              "wind_gust_entity": "Wind gust forecast (optional)",
+              "frost_entity": "Frost expected (optional)"
             },
             "data_description": {
               "outdoor_absolute_humidity": "Absolute humidity outside (g/m³).",
@@ -304,7 +316,11 @@
               "use_sun": "If the sun shines directly on the window, the ventilation time is limited.",
               "sun_entity": "Usually “sun.sun”.",
               "min_sun_elevation": "Below this the sun does not count as shining directly.",
-              "outdoor_relative_humidity": "Real percentage sensor outdoors. If set, it is used directly instead of deriving relative humidity from absolute humidity."
+              "outdoor_relative_humidity": "Real percentage sensor outdoors. If set, it is used directly instead of deriving relative humidity from absolute humidity.",
+              "solar_radiation_entity": "Sensor for solar irradiance in W/m² (e.g. KachelmannWetter). Refines \"direct sun\" detection: no direct sun under overcast skies even with a matching sun angle.",
+              "thunderstorm_entity": "Binary or text sensor (e.g. \"certain\"/\"possible\"/\"unlikely\"). Blocks venting like rain.",
+              "wind_gust_entity": "Sensor with gust forecast in km/h. Warns when a window is open above 50 km/h.",
+              "frost_entity": "Binary or text sensor (e.g. \"normal\"/\"elevated\"). Warns when a window is open and frost is expected tonight."
             }
           },
           "behavior": {

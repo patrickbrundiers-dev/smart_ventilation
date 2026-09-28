@@ -172,7 +172,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.12.1"
+VERSION = "2.13.0"
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
@@ -214,6 +214,24 @@ DEHUM_MIN_RUNTIME_MINUTES = 15
 # würde genau das verhindern.
 CONF_SHUTTER = "shutter_entity"
 SHUTTER_MIN_RUNTIME_MINUTES = 15  # Mindest-Zu-Dauer, bevor bei kurz verschwundener Sonne wieder geöffnet wird
+
+# Zusätzliche optionale Wettersensoren (z. B. von KachelmannWetter oder ähnlichen Integrationen mit
+# vielen Einzel-Sensoren statt/zusätzlich zur normalen weather-Entity mit Vorhersage-Attribut).
+CONF_SOLAR_RADIATION = "solar_radiation_entity"
+# W/m² – unterhalb davon gilt "Sonne" trotz geometrisch passendem Winkel als nicht mehr relevant
+# (z. B. bedeckter Himmel) - Richtwert für spürbare direkte Einstrahlung, kein Absolutwert.
+SOLAR_RADIATION_MIN = 120.0
+
+CONF_THUNDERSTORM = "thunderstorm_entity"
+# Enum-Sensoren (z. B. KachelmannWetter "Gewitter erwartet") liefern Text statt on/off - diese
+# Werte gelten als "kein erhöhtes Risiko", alles andere (auch unbekannte Werte) vorsichtshalber
+# als Risiko.
+LOW_RISK_STATES = ("normal", "gering", "kein", "keine", "aus", "nein", "niedrig", "unwahrscheinlich")
+
+CONF_WIND_GUST = "wind_gust_entity"
+WIND_GUST_WARN_KMH = 50.0  # ab hier Warnung bei offenem Fenster (Kippfenster können beschädigt werden)
+
+CONF_FROST = "frost_entity"
 
 # Wochenbericht
 CONF_WEEKLY_REPORT = "weekly_report"

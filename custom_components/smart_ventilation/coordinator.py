@@ -46,6 +46,21 @@ def _is_raining(hass, entity_id):
     return value is not None and value > 0
 
 
+def _has_risk(hass, entity_id):
+    """Für Enum-/Text-Sensoren (z. B. "Gewitter erwartet": Sicher/Möglich/Unwahrscheinlich, oder
+    "Frost erwartet": Normal/Erhöht) statt eines einfachen on/off - LOW_RISK_STATES gilt als
+    unbedenklich, jeder andere Text (auch ein unbekannter) vorsichtshalber als Risiko. Ein
+    Binary-Sensor (on) zählt immer als Risiko."""
+    if not entity_id:
+        return False
+    if _is_on(hass, entity_id):
+        return True
+    state = hass.states.get(entity_id)
+    if state is None or state.state in ("unknown", "unavailable", ""):
+        return False
+    return str(state.state).strip().lower() not in LOW_RISK_STATES
+
+
 def _angle_diff(a, b):
     return abs((a - b + 180) % 360 - 180)
 
@@ -795,6 +810,33 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 )
                 await self._save()
 
+        # Windböen-Vorhersage: Kippfenster können bei starken Böen beschädigt werden oder
+        # aufschlagen - einmalig pro Sitzung warnen, sobald die Vorhersage die Schwelle
+        # überschreitet, statt es dem Zufall zu überlassen.
+        if not self.session.get("gust_warned"):
+            gust = _float_state(self.hass, self.data.get(CONF_WIND_GUST))
+            if gust is not None and gust >= WIND_GUST_WARN_KMH:
+                self.session["gust_warned"] = True
+                await self._send(
+                    f"Windböen erwartet: {name}",
+                    f"Bis zu {gust:.0f} km/h laut Vorhersage – Fenster besser sichern oder schließen.",
+                    tag,
+                    category=CAT_WARNING,
+                )
+                await self._save()
+
+        # Frost heute Nacht: offenes Fenster nicht vergessen, sonst frieren Rohre/Pflanzen am
+        # Fensterbrett - einmalig pro Sitzung.
+        if not self.session.get("frost_warned") and _has_risk(self.hass, self.data.get(CONF_FROST)):
+            self.session["frost_warned"] = True
+            await self._send(
+                f"Frost erwartet: {name}",
+                "Heute Nacht ist Frost angesagt – Fenster nicht offen vergessen.",
+                tag,
+                category=CAT_WARNING,
+            )
+            await self._save()
+
         if self.cooling_down and not self.session.get("cool_warned"):
             self.session["cool_warned"] = True
             temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
@@ -1480,6 +1522,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         )
 
         if angle <= 35:
+            # Geometrisch passt es (Winkel + Höhe), aber ohne echte Einstrahlung (z. B. bedeckter
+            # Himmel) bringt das Fenster trotzdem keine Wärme - falls ein Globalstrahlungssensor
+            # hinterlegt ist, hier zusätzlich prüfen statt blind der reinen Geometrie zu vertrauen.
+            radiation = _float_state(self.hass, self.data.get(CONF_SOLAR_RADIATION))
+            if radiation is not None and radiation < SOLAR_RADIATION_MIN:
+                return True, False, ""
             return True, True, (
                 f"Direkte Sonne am Fenster "
                 f"(Azimut {azimuth:.0f}°, Höhe {elevation:.0f}°)"
@@ -1788,6 +1836,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self.recommended_minutes = 0
             self.recommended_mode = "Geschlossen"
             self.block_reason = "Regen"
+            return
+
+        if _has_risk(self.hass, self.data.get(CONF_THUNDERSTORM)):
+            self.recommendation = "Nicht lüften – Gewitter erwartet"
+            self.recommended_minutes = 0
+            self.recommended_mode = "Geschlossen"
+            self.block_reason = "Gewitter erwartet"
             return
 
         temp_block, temp_reason = self._temperature_block()

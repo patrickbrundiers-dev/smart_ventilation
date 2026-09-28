@@ -450,6 +450,29 @@ async def test_shutter_not_recommended_in_winter_despite_direct_sun(
     assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is False
 
 
+async def test_solar_radiation_overrides_geometric_direct_sun(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Winkel und Höhe passen geometrisch (Azimut = Fensterausrichtung), aber ein hinterlegter
+    Globalstrahlungssensor meldet zu wenig echte Einstrahlung (bedeckter Himmel) -> keine
+    Rollo-Empfehlung trotz passender Sonnengeometrie. Erst ab genug W/m² wieder wie gewohnt."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    entry = await setup_room(
+        hass, use_sun=True, season_mode="summer", solar_radiation_entity="sensor.strahlung"
+    )
+    rec = eid(hass, "sensor", entry, "recommendation")
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # = Fensterausrichtung
+    )
+    hass.states.async_set("sensor.strahlung", 40)  # bedeckt, zu wenig für spürbare Sonne
+    await _tick(hass, freezer, 0.5)
+    assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is False
+
+    hass.states.async_set("sensor.strahlung", 300)  # jetzt klarer Himmel
+    await _tick(hass, freezer, 0.5)
+    assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is True
+
+
 async def test_shutter_closes_and_reopens_with_direct_sun(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:

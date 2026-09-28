@@ -73,7 +73,11 @@
               "weather_entity": "Wettervorhersage",
               "use_sun": "Sonnenstand berücksichtigen",
               "sun_entity": "Sonne",
-              "min_sun_elevation": "Mindest-Sonnenhöhe"
+              "min_sun_elevation": "Mindest-Sonnenhöhe",
+              "solar_radiation_entity": "Globalstrahlung (optional)",
+              "thunderstorm_entity": "Gewitter erwartet (optional)",
+              "wind_gust_entity": "Windböen-Vorhersage (optional)",
+              "frost_entity": "Frost erwartet (optional)"
             },
             "data_description": {
               "outdoor_absolute_humidity": "Absolute Feuchte draußen in g/m³.",
@@ -85,7 +89,11 @@
               "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
               "sun_entity": "Meist „sun.sun“.",
               "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend.",
-              "outdoor_relative_humidity": "Echter %-Sensor draußen. Falls angegeben, wird er direkt für die relative Feuchte genutzt statt sie aus der absoluten Feuchte zurückzurechnen."
+              "outdoor_relative_humidity": "Echter %-Sensor draußen. Falls angegeben, wird er direkt für die relative Feuchte genutzt statt sie aus der absoluten Feuchte zurückzurechnen.",
+              "solar_radiation_entity": "Sensor für Sonnenstrahlung in W/m² (z. B. KachelmannWetter). Verfeinert die \"Direkte Sonne\"-Erkennung: bei bedecktem Himmel trotz passendem Sonnenwinkel keine direkte Sonne mehr.",
+              "thunderstorm_entity": "Binär- oder Text-Sensor (z. B. \"Sicher\"/\"Möglich\"/\"Unwahrscheinlich\"). Blockiert das Lüften wie Regen.",
+              "wind_gust_entity": "Sensor mit Böen-Vorhersage in km/h. Ab 50 km/h Warnung bei offenem Fenster.",
+              "frost_entity": "Binär- oder Text-Sensor (z. B. \"Normal\"/\"Erhöht\"). Warnung bei offenem Fenster, wenn heute Nacht Frost erwartet wird."
             }
           },
           "behavior": {
@@ -292,7 +300,11 @@
               "weather_entity": "Wettervorhersage",
               "use_sun": "Sonnenstand berücksichtigen",
               "sun_entity": "Sonne",
-              "min_sun_elevation": "Mindest-Sonnenhöhe"
+              "min_sun_elevation": "Mindest-Sonnenhöhe",
+              "solar_radiation_entity": "Globalstrahlung (optional)",
+              "thunderstorm_entity": "Gewitter erwartet (optional)",
+              "wind_gust_entity": "Windböen-Vorhersage (optional)",
+              "frost_entity": "Frost erwartet (optional)"
             },
             "data_description": {
               "outdoor_absolute_humidity": "Absolute Feuchte draußen in g/m³.",
@@ -304,7 +316,11 @@
               "use_sun": "Scheint die Sonne direkt aufs Fenster, wird die Lüftungsdauer begrenzt.",
               "sun_entity": "Meist „sun.sun“.",
               "min_sun_elevation": "Darunter gilt die Sonne nicht als direkt einstrahlend.",
-              "outdoor_relative_humidity": "Echter %-Sensor draußen. Falls angegeben, wird er direkt für die relative Feuchte genutzt statt sie aus der absoluten Feuchte zurückzurechnen."
+              "outdoor_relative_humidity": "Echter %-Sensor draußen. Falls angegeben, wird er direkt für die relative Feuchte genutzt statt sie aus der absoluten Feuchte zurückzurechnen.",
+              "solar_radiation_entity": "Sensor für Sonnenstrahlung in W/m² (z. B. KachelmannWetter). Verfeinert die \"Direkte Sonne\"-Erkennung: bei bedecktem Himmel trotz passendem Sonnenwinkel keine direkte Sonne mehr.",
+              "thunderstorm_entity": "Binär- oder Text-Sensor (z. B. \"Sicher\"/\"Möglich\"/\"Unwahrscheinlich\"). Blockiert das Lüften wie Regen.",
+              "wind_gust_entity": "Sensor mit Böen-Vorhersage in km/h. Ab 50 km/h Warnung bei offenem Fenster.",
+              "frost_entity": "Binär- oder Text-Sensor (z. B. \"Normal\"/\"Erhöht\"). Warnung bei offenem Fenster, wenn heute Nacht Frost erwartet wird."
             }
           },
           "behavior": {

@@ -14,6 +14,7 @@ from .const import (
     DOMAIN, CONF_NAME, CONF_VOLUME, CONF_WINDOW_DIRECTION,
     CONF_INDOOR_HUMIDITY, CONF_OUTDOOR_HUMIDITY, CONF_INDOOR_RH, CONF_OUTDOOR_RH,
     CONF_INDOOR_TEMP, CONF_OUTDOOR_TEMP,
+    CONF_SOLAR_RADIATION, CONF_THUNDERSTORM, CONF_WIND_GUST, CONF_FROST,
     CONF_WIND_SPEED, CONF_WIND_DIRECTION, CONF_WIND_IS_FROM, CONF_RAIN, CONF_WINDOW,
     CONF_MAX_TEMP_DIFF, CONF_USE_SUN, CONF_MIN_SUN_ELEVATION, CONF_SUN_ENTITY,
     DEFAULT_MAX_TEMP_DIFF, DEFAULT_MIN_SUN_ELEVATION, DEFAULT_SUN_ENTITY,
@@ -48,7 +49,8 @@ OPTIONAL_EMPTY = {
     CONF_CO2: "", CONF_SHOWER: "", CONF_WEATHER: "", CONF_VACATION: "",
     CONF_VACATION_KEYWORD: "", CONF_NOTIFY_SERVICES: [], CONF_PERSONS: [],
     CONF_CLIMATES: [], CONF_DEHUMIDIFIER: "", CONF_INDOOR_RH: "", CONF_OUTDOOR_RH: "",
-    CONF_SHUTTER: "",
+    CONF_SHUTTER: "", CONF_SOLAR_RADIATION: "", CONF_THUNDERSTORM: "", CONF_WIND_GUST: "",
+    CONF_FROST: "",
 }
 
 
@@ -260,6 +262,10 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             vol.Required(
                 CONF_MIN_SUN_ELEVATION, default=g(CONF_MIN_SUN_ELEVATION, DEFAULT_MIN_SUN_ELEVATION)
             ): _number(0, 90, 1, "°"),
+            _opt(CONF_SOLAR_RADIATION, g(CONF_SOLAR_RADIATION)): sensor,
+            _opt(CONF_THUNDERSTORM, g(CONF_THUNDERSTORM)): _entity(["binary_sensor", "sensor"]),
+            _opt(CONF_WIND_GUST, g(CONF_WIND_GUST)): sensor,
+            _opt(CONF_FROST, g(CONF_FROST)): _entity(["binary_sensor", "sensor"]),
         }
 
     if name == "behavior":

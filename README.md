@@ -145,6 +145,17 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.13.0
+
+Vier neue optionale Wettersensoren (z. B. von KachelmannWetter oder ähnlichen Integrationen), alle im Bereich "Außen":
+
+- **Globalstrahlung**: Verfeinert die "Direkte Sonne am Fenster"-Erkennung (Rollo-Empfehlung, Lüftungsdauer-Kappung). Bisher rein geometrisch (Sonnenwinkel/-höhe) berechnet, ignorierte also bedeckten Himmel – ab jetzt zählt ein hinterlegter Globalstrahlungssensor unter ca. 120 W/m² trotz passender Geometrie nicht mehr als direkte Sonne.
+- **Gewitter erwartet**: Blockiert das Lüften genau wie der bestehende Regensensor. Versteht sowohl Binär-Sensoren (an/aus) als auch Text-Enum-Sensoren (z. B. "Sicher"/"Möglich"/"Unwahrscheinlich") – alles außer eindeutig unbedenklichen Werten gilt vorsichtshalber als Risiko.
+- **Windböen-Vorhersage**: Einmalige Warnung pro Lüftungsvorgang, wenn bei offenem Fenster Böen ab 50 km/h vorhergesagt werden – Kippfenster können dabei beschädigt werden oder aufschlagen.
+- **Frost erwartet**: Einmalige Erinnerung pro Lüftungsvorgang, das Fenster nicht offen zu vergessen, wenn für die Nacht Frost angesagt ist.
+
+Alle vier Felder sind optional und ändern ohne Konfiguration nichts am bisherigen Verhalten.
+
 ### Version 2.12.1
 
 - **Neu**: Sobald keine direkte Sonne mehr am Fenster anliegt, kommt jetzt auch beim Öffnen eine Push-Benachrichtigung – ohne hinterlegtes Rollo-Entity sofort als Bitte ("kann wieder geöffnet werden"), mit hinterlegter Entity erst als Bestätigung, sobald die Automatik es (nach der Mindestlaufzeit) tatsächlich wieder geöffnet hat.

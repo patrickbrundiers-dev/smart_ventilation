@@ -241,6 +241,60 @@ async def test_humid_outdoor_warning_when_window_opened_anyway(
     assert len(warnings) == 1
 
 
+async def test_thunderstorm_blocks_venting(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    """Ein Text-Enum-Sensor (z. B. KachelmannWetter "Gewitter erwartet") mit einem Wert außerhalb
+    von LOW_RISK_STATES (hier "Sicher") soll das Lüften genauso blockieren wie Regen."""
+    freezer.move_to("2026-09-27 10:00:00+02:00")
+    entry = await setup_room(
+        hass, season_mode="summer", thunderstorm_entity="sensor.gewitter"
+    )
+    rec = eid(hass, "sensor", entry, "recommendation")
+    hass.states.async_set("sensor.gewitter", "Unwahrscheinlich")
+    hass.states.async_set("sensor.innen_ah", 12.5)  # eigentlich klarer Lüftungsbedarf
+    await _tick(hass, freezer, 1)
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
+
+    hass.states.async_set("sensor.gewitter", "Sicher")
+    await _tick(hass, freezer, 1)
+    assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
+    assert hass.states.get(rec).state == "Nicht lüften – Gewitter erwartet"
+    assert hass.states.get(rec).attributes["karte"]["blockiert"] == "Gewitter erwartet"
+
+
+async def test_wind_gust_warning_when_window_open(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Windböen-Vorhersage über der Schwelle (50 km/h) und offenes Fenster -> einmalige Warnung,
+    das Kippfenster zu sichern/schließen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    await setup_room(hass, wind_gust_entity="sensor.boeen")
+    hass.states.async_set("sensor.boeen", 65)
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    await _tick(hass, freezer, 1)
+    warnings = [c for c in pushes if "Windböen" in c.data["title"]]
+    assert len(warnings) == 1
+
+
+async def test_frost_warning_when_window_open(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Frost-Sensor auf einem Risiko-Wert (nicht in LOW_RISK_STATES) und offenes Fenster ->
+    einmalige Erinnerung, es nicht offen zu vergessen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    await setup_room(hass, frost_entity="sensor.frost")
+    hass.states.async_set("sensor.frost", "Erhöht")
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    await _tick(hass, freezer, 1)
+    warnings = [c for c in pushes if "Frost" in c.data["title"]]
+    assert len(warnings) == 1
+
+
 async def test_reminder_has_buttons_and_quiet_hours(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     freezer.move_to("2026-12-05 23:00:00+01:00")
     pushes = async_mock_service(hass, "notify", "mobile_app_test")
