@@ -279,7 +279,7 @@ class SmartVentilationCard extends HTMLElement {
       const entityId = this._findEntity();
       const state = entityId ? hass.states?.[entityId] : undefined;
       const key = state
-        ? JSON.stringify([state.attributes?.karte, state.attributes?.raeume, state.attributes?.summe, state.state])
+        ? JSON.stringify([state.attributes?.karte, state.attributes?.raeume, state.attributes?.summe, state.attributes?.trend_tage, state.state])
         : "none";
       if (key === this._last) return;
       this._last = key;
@@ -430,13 +430,17 @@ class SmartVentilationCard extends HTMLElement {
     const year = this._config.show_year !== false && !compact ? yearChart(k.monatsverlauf) : "";
     const winList = !compact ? windowStatus(k.fenster_status) : "";
 
-    const heuteText = `${k.heute_anzahl}× heute · ${fmt(k.heute_min, 0)} Min.`;
+    const heuteText = `${fmt(k.heute_anzahl, 0)}× heute · ${fmt(k.heute_min, 0)} Min.`;
     const heuteTone = k.gelueftet && "good";
     const partyText = k.party_bis
       ? `Bis ${new Date(k.party_bis).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })} Uhr`
       : "Party-Modus";
+    // e.party_mode kann fehlen, obwohl der Party-Modus aktiv ist (z.B. direkt nach einem Neustart,
+    // solange die Button-Entität noch nicht in der Entity-Registry registriert ist) - dann keinen
+    // Tipp zeigen, der Interaktion verspricht, die der (dann als <span> gerenderte) Chip nicht bietet.
+    const partyTitle = e.party_mode ? "Antippen, um den Party-Modus vorzeitig zu beenden" : undefined;
     const chips = [
-      k.party_modus && [e.party_mode || null, "mdi:party-popper", partyText, "info", "Antippen, um den Party-Modus vorzeitig zu beenden", null, null, true],
+      k.party_modus && [e.party_mode || null, "mdi:party-popper", partyText, "info", partyTitle, null, null, true],
       k.bester_zeitpunkt && !compact && [e.bester, "mdi:clock-check-outline", k.bester_zeitpunkt],
       k.statistik && !compact
         ? [null, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", heuteText, heuteTone,

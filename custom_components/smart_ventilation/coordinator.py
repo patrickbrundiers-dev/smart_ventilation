@@ -295,6 +295,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self._last_session_end = dt_util.parse_datetime(stored["last_session_end"])
         if stored.get("party_until"):
             self._party_until = dt_util.parse_datetime(stored["party_until"])
+        if stored.get("snooze_until"):
+            # Ohne das würde ein Neustart während der "In 30 Min. erinnern"-Frist die bewusst
+            # gewählte Pause verwerfen und sofort wieder eine Erinnerung senden.
+            self._snooze_until = dt_util.parse_datetime(stored["snooze_until"])
         self._last_night_low = stored.get("last_night_low")
         self._extras_load(stored)
         self._history_load(stored)
@@ -350,6 +354,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "skip_date": self._skip_date.isoformat() if self._skip_date else None,
             "last_session_end": self._last_session_end.isoformat() if self._last_session_end else None,
             "party_until": self._party_until.isoformat() if self._party_until else None,
+            "snooze_until": self._snooze_until.isoformat() if self._snooze_until else None,
             "last_night_low": self._last_night_low,
             **self._extras_store(),
             **self._history_store(),
@@ -384,6 +389,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         action = event.data.get("action", "")
         if action == f"{ACTION_SNOOZE}{self.entry.entry_id}":
             self._snooze_until = dt_util.now() + timedelta(minutes=SNOOZE_MINUTES)
+            self.hass.async_create_task(self._save())
         elif action == f"{ACTION_SKIP}{self.entry.entry_id}":
             self._skip_date = dt_util.now().date()
             self.hass.async_create_task(self._save())
@@ -392,6 +398,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         """Erinnerung für SNOOZE_MINUTES aussetzen - gleiche Wirkung wie der Button in der
         Push-Nachricht, aber auch als eigene Button-Entität nutzbar (z. B. von der Karte aus)."""
         self._snooze_until = dt_util.now() + timedelta(minutes=SNOOZE_MINUTES)
+        await self._save()
         self._update_recommendation()
         self._notify_listeners()
 
@@ -442,8 +449,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 if open_now and not self.session:
                     self._start_session()
                 elif not open_now and self.session and new_state.state in OFF_STATES:
-                    # Lüftung endet erst, wenn ALLE Fenster zu sind
-                    self.hass.async_create_task(self._finish_session())
+                    # Lüftung endet erst, wenn ALLE Fenster zu sind. Die zu schließende Session wird
+                    # HIER (synchron) festgehalten und in den Task gereicht: würde stattdessen die
+                    # Coroutine erst später self.session neu auslesen, könnte ein schnelles
+                    # Wieder-Öffnen zwischen Planen und Ausführen des Tasks (_start_session läuft
+                    # synchron dazwischen) eine bereits neu gestartete Session kappen, statt die
+                    # ursprüngliche abzuschließen.
+                    self.hass.async_create_task(self._finish_session(session=self.session))
                 if self.session and len(open_now) >= 2 and not self.session.get("cross"):
                     self.session["cross"] = True
                     self.hass.async_create_task(self._save())
@@ -1116,13 +1128,20 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 p["short"] += 1
         self.stats["max_seconds"] = max(self.stats.get("max_seconds", 0.0), elapsed)
 
-    async def _finish_session(self, ended=None):
-        if not self.session:
+    async def _finish_session(self, ended=None, session=None):
+        # `session` erlaubt es dem Aufrufer, die zu schließende Session synchron festzuhalten,
+        # statt sich auf `self.session` zum (späteren) Ausführungszeitpunkt der Coroutine zu
+        # verlassen - siehe Kommentar am Aufruf in `_state_changed`.
+        if session is None:
+            session = self.session
+        if not session:
             return
-
-        session = self.session
-        self.session = None
-        self._session_start_diff = None
+        # Nur die eigene Session aus self.session entfernen, wenn zwischenzeitlich keine neue
+        # gestartet wurde (Fenster kurz wieder geöffnet, bevor dieser Task lief) - sonst würde
+        # hier die neue Session gekappt statt der alten abgeschlossen zu werden.
+        if self.session is session:
+            self.session = None
+            self._session_start_diff = None
 
         await self._restore_heating(session.get("heating"))
         self._trace_finish(session)
@@ -1139,9 +1158,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 # was schon vor dem Neustart als erreicht gespeichert war.
                 reached = False
             else:
+                # Zwischenzeitlich (z.B. während des obigen `await self._restore_heating(...)`)
+                # könnte bereits eine neue Session laufen - die muss danach wiederhergestellt
+                # werden, statt sie hier unbedingt auf None zu setzen.
+                current_session = self.session
                 self.session = session  # Startwerte für die Zielprüfung bereitstellen
                 reached, _ = self._target_reached_now()
-                self.session = None
+                self.session = current_session
             success = (
                 elapsed >= DEFAULT_MIN_SESSION
                 and (session["target_reached"] or reached)
@@ -1532,6 +1555,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         ):
             return
 
+        # Cooldown-Fenster sofort reservieren, bevor auf den (async) Versand gewartet wird -
+        # sonst können zwei fast gleichzeitig gestartete Aufrufe (z.B. zwei schnelle
+        # Coordinator-Updates, die beide einen eigenen Task erzeugen) den Cooldown-Check beide
+        # noch mit dem alten last_notification_at bestehen und doppelt senden.
+        self.last_notification_key = key
+        self.last_notification_at = now
+
         sent = await self._send(
             f"Lüften: {self.data[CONF_NAME]}",
             (
@@ -1551,9 +1581,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             ],
             category=CAT_REMINDER,
         )
-        if sent:
-            self.last_notification_key = key
-            self.last_notification_at = now
+        if not sent:
+            # Versand fehlgeschlagen (z.B. keine erreichbaren Ziele) - Cooldown nicht blockieren,
+            # damit der nächste Versuch nicht bis zum Ablauf des reservierten Fensters warten muss.
+            self.last_notification_at = None
+            self.last_notification_key = None
 
     def _humidity_need(self, indoor, diff):
         """Wegen Feuchte lüften nur, wenn es sich lohnt UND die Raumluft zu feucht ist.

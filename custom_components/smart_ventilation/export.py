@@ -6,6 +6,7 @@ import io
 
 from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 
 from .const import CONF_NAME, DOMAIN
@@ -59,9 +60,14 @@ def _write_csv(hass: HomeAssistant, rows: list[dict]):
 
     def _write():
         import os
-        os.makedirs(www_dir, exist_ok=True)
-        with open(f"{www_dir}/{filename}", "w", encoding="utf-8-sig", newline="") as f:
-            f.write(buffer.getvalue())
+        try:
+            os.makedirs(www_dir, exist_ok=True)
+            with open(f"{www_dir}/{filename}", "w", encoding="utf-8-sig", newline="") as f:
+                f.write(buffer.getvalue())
+        except OSError as err:
+            # Ohne das würde ein Schreibfehler (z. B. www/ nicht anlegbar, Platte voll) als
+            # unklarer interner Fehler im Log landen statt als verständliche Service-Fehlermeldung.
+            raise HomeAssistantError(f"Export konnte nicht geschrieben werden: {err}") from err
 
     return filename, _write
 

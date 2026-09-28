@@ -143,6 +143,16 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.8.2
+
+- **Bugfix**: Bei fast gleichzeitig ausgelösten Erinnerungen (z. B. zwei schnell aufeinanderfolgende Aktualisierungen) konnte der Cooldown umgangen und die Erinnerung doppelt verschickt werden – das Zeitfenster wird jetzt sofort reserviert statt erst nach dem Versand.
+- **Bugfix**: Wurde ein Fenster kurz nach dem Schließen wieder geöffnet, während die vorherige Lüftungs-Session noch im Hintergrund abgeschlossen wurde, konnte die neu gestartete Session dabei versehentlich gekappt werden.
+- **Bugfix**: Die "In 30 Min. erinnern"-Auswahl aus der Push-Nachricht ging bei einem Neustart von Home Assistant innerhalb dieser 30 Minuten verloren, wodurch sofort wieder eine Erinnerung kam – wird jetzt wie "Heute nicht mehr" gespeichert.
+- **Bugfix**: Die Übersichtskarte konnte eine veraltete Tagestrend-Sparklinie zeigen, wenn sich nur die Trenddaten änderten, aber keine der anderen Kartenwerte.
+- **Bugfix**: Der Party-Modus-Chip auf der Karte zeigte gelegentlich einen "Antippen, um zu beenden"-Hinweis an, obwohl er (z. B. kurz nach einem Neustart) noch nicht antippbar war.
+- **Bugfix**: Je-Benachrichtigungsart gespeicherte Zielauswahlen konnten nicht mehr existierende Ziele enthalten, wenn zwischenzeitlich weniger als zwei Benachrichtigungsziele konfiguriert waren – wird beim erneuten Öffnen der Einstellungen jetzt bereinigt.
+- **Bugfix**: Ein Schreibfehler beim CSV-Export (z. B. voller Speicher) landete bisher nur unklar im Log statt als verständliche Fehlermeldung.
+
 ### Version 2.8.1
 
 - **Bugfix**: Eine bewusst auf „niemand“ geleerte Ziel-Auswahl bei den Benachrichtigungsarten (z. B. „Schimmelgefahr an kein Gerät“) wurde bislang wie „nicht konfiguriert“ behandelt und ging trotzdem an alle Ziele – jetzt korrekt respektiert.

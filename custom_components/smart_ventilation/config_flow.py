@@ -132,7 +132,11 @@ def _category_fields(d: dict, current: list[str], categories=None) -> dict:
         # Bewusst geleerte Auswahl (Schlüssel vorhanden, aber []) respektieren statt sie beim
         # erneuten Öffnen der Einstellungen wieder mit "alle Ziele" vorzubelegen - siehe
         # targets_for_category() in notify_util.py für dieselbe Unterscheidung beim Versand.
-        default = d[key] if key in d else current
+        # Zusätzlich auf die aktuell gewählten Ziele einschränken: fielen die Ziele zwischenzeitlich
+        # unter zwei (Feld verschwand aus dem Formular) und wurden dann anders wieder aufgefüllt,
+        # könnte die gespeicherte Auswahl sonst Ziele enthalten, die gar nicht mehr zur Wahl stehen -
+        # als Default für den Selector ungültig, und irreführend beim erneuten Öffnen.
+        default = [t for t in d[key] if t in current] if key in d else current
         fields[vol.Optional(key, default=default)] = selector.SelectSelector(
             selector.SelectSelectorConfig(options=options, multiple=True, mode=selector.SelectSelectorMode.LIST)
         )
