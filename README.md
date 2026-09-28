@@ -144,6 +144,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.10.1
+
+- **Bugfix**: Der Luftentfeuchter sprang nicht an, wenn die Raumluft zwar zu feucht war (Zielwert/rel. Feuchte überschritten), die Außenluft aber gerade noch feuchter war als drinnen. Er war fälschlich an denselben Außenluft-Vergleich gekoppelt wie das Lüften – dabei braucht ein Entfeuchter keine trockenere Außenluft, er entzieht der Raumluft direkt Wasser. Genau in diesem Fall (Lüften blockiert, weil draußen nicht trockener) wird er jetzt am ehesten gebraucht und springt jetzt auch an.
+
 ### Version 2.10.0
 
 Optionale echte RH-Sensoren statt reiner Rückrechnung aus der absoluten Feuchte:

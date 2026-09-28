@@ -399,6 +399,26 @@ async def test_dehumidifier_runs_when_rain_blocks(hass: HomeAssistant, freezer: 
     assert len(off) == 1
 
 
+async def test_dehumidifier_runs_even_when_outdoor_air_is_more_humid(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Raum zu feucht (12,2 g/m³ > Zielwert 10,0, ~64 % rel. Feuchte), aber die Außenluft ist
+    gerade noch feuchter (13,6 g/m³) -> Lüften wird blockiert ("Außenluft nicht trockener").
+    Ein Luftentfeuchter braucht dafür aber keine trockenere Außenluft, er sollte trotzdem
+    anspringen - vorher verhinderte die (falsche) Kopplung an den Außenluft-Unterschied das."""
+    freezer.move_to("2026-09-27 10:00:00+02:00")
+    on = async_mock_service(hass, "switch", "turn_on")
+    hass.states.async_set("switch.entfeuchter", "off")
+    await setup_room(hass, dehumidifier_entity="switch.entfeuchter", season_mode="summer")
+    for eid_, val in (
+        ("sensor.innen_t", 21.7), ("sensor.aussen_t", 19.5),
+        ("sensor.innen_ah", 12.2), ("sensor.aussen_ah", 13.6),
+    ):
+        hass.states.async_set(eid_, val)
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 1
+
+
 async def test_weekly_report(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     freezer.move_to("2026-12-06 19:05:00+01:00")  # Sonntag
     pushes = async_mock_service(hass, "notify", "mobile_app_test")

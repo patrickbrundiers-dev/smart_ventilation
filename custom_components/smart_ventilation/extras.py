@@ -417,7 +417,14 @@ class RoomExtrasMixin:
         if state is None or state.state in ("unavailable", "unknown"):
             return
         rh = self.indoor_rh
-        need = self.humidity_difference is not None and self.humidity_difference > DEFAULT_TARGET_DIFF
+        # NICHT humidity_difference (Unterschied zur Außenluft) verwenden: Ein Luftentfeuchter
+        # entzieht der Raumluft Wasser unabhängig davon, wie feucht es draußen ist - anders als
+        # Lüften braucht er keine trockenere Außenluft. Mit dem Außenluft-Vergleich als Gate würde
+        # er ausgerechnet dann nicht anspringen, wenn die Außenluft feuchter als drinnen ist -
+        # genau der Fall, in dem Lüften nicht hilft und der Entfeuchter am meisten gebraucht wird.
+        # self._humidity_reasons_met (siehe _humidity_need) prüft stattdessen, ob die Raumluft für
+        # sich genommen zu feucht ist (Zielwert/rel. Feuchte/Schimmelrisiko), unabhängig von außen.
+        need = self._humidity_reasons_met
         cannot_vent = (
             bool(self.block_reason)
             or self.recommended_minutes == 0
