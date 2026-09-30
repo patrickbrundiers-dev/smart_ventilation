@@ -92,9 +92,16 @@ class OverviewCoordinator:
                 "feuchteunterschied": room.humidity_difference,
                 "schimmelrisiko": room.mold_risk,
                 "co2": room.co2,
+                "luft": room.air_quality,
                 "laeuft": room.session is not None,
                 "dringlichkeit": self.urgency(room),
                 "entity_id": room.own_entity("sensor", "recommendation"),
+                # Für die Entfeuchter-/Rollo-Symbole in der Raumzeile der Übersichtskarte - dieselben
+                # Werte wie auf der Einzelraum-Karte (card_data()), nur hier zusätzlich über alle
+                # Räume hinweg auf einen Blick statt erst jede Raumkarte einzeln öffnen zu müssen.
+                "entfeuchter": room.dehumidifier_active,
+                "rollo_empfehlung": room.shutter_recommended,
+                "rollo_geschlossen": room.shutter_closed,
                 # Für die umschaltbare Sortierung und die Aufschlüsselung des Netto-Chips auf der
                 # Übersichtskarte - dieselbe Rechnung wie in totals(), nur pro Raum statt aufsummiert.
                 "heute_kwh_netto": round(s["kwh"] - s["kwh_gespart"], 2),

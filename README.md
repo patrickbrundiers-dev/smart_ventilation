@@ -145,6 +145,15 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.14.0
+
+Übersichtskarte (alle Räume) erweitert, damit sich mehr auf einen Blick erkennen lässt, ohne erst jede Raumkarte einzeln zu öffnen:
+
+- **Sammel-Warnung** direkt unter dem Titel, sobald irgendwo Aufmerksamkeit nötig ist, z. B. "2 Schimmelrisiko · 1× CO₂ hoch · 1× Rollo schließen".
+- **Symbole pro Raumzeile** neben dem Namen: laufender Luftentfeuchter, empfohlenes (noch nicht geschlossenes) Rollo, und – neu – schlechte Luft (CO₂), zusätzlich zum bisherigen Schimmelrisiko-Symbol.
+
+Keine Konfiguration nötig – die Übersicht nutzt vorhandene Werte, die bisher nur auf der jeweiligen Einzelraum-Karte sichtbar waren.
+
 ### Version 2.13.2
 
 Zwei weitere Fehlerbehebungen:

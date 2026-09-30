@@ -148,6 +148,18 @@ function sortRooms(rooms, mode) {
   return rooms; // vom Backend bereits nach Dringlichkeit sortiert
 }
 
+/* ---------- Sammel-Warnung oben auf der Übersichtskarte ---------- */
+function overviewAlerts(rooms) {
+  const mold = rooms.filter((r) => (RISK[r.schimmelrisiko] || [])[0] !== "good" && RISK[r.schimmelrisiko]).length;
+  const air = rooms.filter((r) => r.luft === "schlecht").length;
+  const shutters = rooms.filter((r) => r.rollo_empfehlung && !r.rollo_geschlossen).length;
+  const parts = [];
+  if (mold) parts.push(`${mold} Schimmelrisiko`);
+  if (air) parts.push(`${air}× CO₂ hoch`);
+  if (shutters) parts.push(`${shutters}× Rollo schließen`);
+  return parts;
+}
+
 /* ---------- Aufschlüsselung des Übersicht-Netto-Chips nach Raum ---------- */
 function breakdownList(rooms) {
   const relevant = rooms.filter((r) => Math.abs(r.heute_eur_netto || 0) >= 0.01 || Math.abs(r.heute_kwh_netto || 0) >= 0.01);
@@ -638,7 +650,13 @@ class SmartVentilationCard extends HTMLElement {
            <ha-icon class="chip-caret" icon="${this._overviewExpanded ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
          </button>`
       : "";
-    const chips = chipHtml ? `<div class="chips">${chipHtml}</div>` : "";
+    // Sammel-Warnung: auf einen Blick, ohne erst jede Raumzeile einzeln lesen zu müssen, wie viele
+    // Räume gerade Aufmerksamkeit brauchen (Schimmelrisiko, schlechte Luft, Rollo-Empfehlung).
+    const alertParts = overviewAlerts(rooms);
+    const alertHtml = alertParts.length
+      ? `<span class="chip tone-warn"><ha-icon icon="mdi:alert-circle-outline"></ha-icon>${esc(alertParts.join(" · "))}</span>`
+      : "";
+    const chips = chipHtml || alertHtml ? `<div class="chips">${alertHtml}${chipHtml}</div>` : "";
     const breakdown = !compact && chip && this._overviewExpanded ? `<div class="breakdown">${breakdownList(rooms)}</div>` : "";
     const trend = this._config.show_trend !== false && !compact ? trendChart(trendTage) : "";
     const sortRow = !compact && rooms.length > 1
@@ -658,12 +676,27 @@ class SmartVentilationCard extends HTMLElement {
           : ["good", "mdi:check", "Kein Lüften nötig", ""];
         const riskTone = RISK[r.schimmelrisiko];
         const riskIcon = r.schimmelrisiko === "hoch" ? "mdi:alert-octagon-outline" : "mdi:shield-alert-outline";
-        const risk = riskTone && riskTone[0] !== "good"
-          ? `<ha-icon class="risk tone-${riskTone[0]}" icon="${riskIcon}" title="Schimmelrisiko ${esc(riskTone[1])}"></ha-icon>`
-          : "";
+        // Kleine Symbole neben dem Raumnamen für alles, was sonst erst auf der Einzelraum-Karte
+        // sichtbar wäre: Schimmelrisiko, laufender Entfeuchter, empfohlenes (noch offenes) Rollo.
+        const badges = [];
+        if (riskTone && riskTone[0] !== "good") {
+          badges.push([riskIcon, riskTone[0], `Schimmelrisiko ${riskTone[1]}`]);
+        }
+        if (r.luft === "schlecht") {
+          badges.push(["mdi:molecule-co2", "bad", "CO₂ hoch"]);
+        }
+        if (r.entfeuchter) {
+          badges.push(["mdi:air-humidifier", "info", "Entfeuchter läuft"]);
+        }
+        if (r.rollo_empfehlung && !r.rollo_geschlossen) {
+          badges.push(["mdi:roller-shade", "warn", "Rollo schließen empfohlen"]);
+        }
+        const badgeHtml = badges
+          .map(([icon, tone, title]) => `<ha-icon class="risk tone-${tone}" icon="${icon}" title="${esc(title)}"></ha-icon>`)
+          .join("");
         return `<button class="row" data-entity="${esc(r.entity_id || "")}" aria-label="${esc(r.raum)}: ${esc(t[2])}">
             <span class="badge small tone-${t[0]}"><ha-icon icon="${t[1]}"></ha-icon></span>
-            <span class="r-text"><b>${esc(r.raum)}${risk}</b><span>${esc(t[2])}</span></span>
+            <span class="r-text"><b>${esc(r.raum)}${badgeHtml}</b><span>${esc(t[2])}</span></span>
             ${t[3] ? `<span class="pill tone-${t[0]}"><i></i>${esc(t[3])}</span>` : ""}
           </button>`;
       })
