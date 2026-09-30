@@ -370,6 +370,7 @@ async def test_overview_room_list_includes_dehumidifier_shutter_and_air_quality(
     CO2-Luftqualität pro Raum liefern - sonst müsste man dafür jede Raumkarte einzeln öffnen,
     statt es auf der Übersicht auf einen Blick zu sehen."""
     freezer.move_to("2026-06-15 12:00:00+02:00")
+    async_mock_service(hass, "switch", "turn_on")  # sonst schlägt der Service-Call fehl (kein "switch" geladen)
     hass.states.async_set("switch.entfeuchter", "off")
     hass.states.async_set("sensor.co2", 1500)
     await setup_room(
