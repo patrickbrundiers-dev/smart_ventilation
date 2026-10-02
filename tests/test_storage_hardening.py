@@ -27,3 +27,58 @@ def test_restore_session_corrupt_value_is_ignored():
     assert not isinstance(saved, dict)
     if isinstance(saved, dict) and saved.get("started"):
         raise AssertionError("corrupt session must not be restored")
+
+
+def test_stored_models_filters_corrupt_bucket_data():
+    models = SmartVentilationCoordinator._stored_models(
+        {
+            "good": {
+                "ach": "8.5",
+                "samples": "5",
+                "history": ["8", "bad", 50],
+                "last_observed_ach": "9",
+            },
+            "broken": "not-a-model",
+        },
+        8.0,
+    )
+    assert set(models) == {"good"}
+    assert models["good"]["ach"] == 8.5
+    assert models["good"]["samples"] == 5
+    assert models["good"]["history"] == [8.0]
+    assert models["good"]["last_observed_ach"] == 9.0
+
+
+def test_stored_stats_normalizes_corrupt_period_data():
+    stats = SmartVentilationCoordinator._stored_stats(
+        {
+            "day": {
+                "key": "2026-10-02",
+                "count": "4",
+                "ok": "3",
+                "short": "bad",
+                "seconds": "120.5",
+                "kwh": "bad",
+                "need_minutes": 30,
+                "kwh_gespart": -5,
+                "mold_days": ["2026-10-02", 123],
+            },
+            "week": "broken",
+            "max_seconds": "bad",
+        }
+    )
+    assert stats["day"]["count"] == 4
+    assert stats["day"]["ok"] == 3
+    assert stats["day"]["short"] == 0
+    assert stats["day"]["seconds"] == 120.5
+    assert stats["day"]["kwh"] == 0.0
+    assert stats["day"]["need_minutes"] == 30.0
+    assert stats["day"]["kwh_gespart"] == 0.0
+    assert stats["day"]["mold_days"] == ["2026-10-02"]
+    assert stats["max_seconds"] == 0.0
+
+
+def test_stored_night_low_rejects_invalid_values():
+    assert SmartVentilationCoordinator._stored_float("4.5", None, -50, 60) == 4.5
+    assert SmartVentilationCoordinator._stored_float("bad", None, -50, 60) is None
+    assert SmartVentilationCoordinator._stored_float("99", None, -50, 60) is None
