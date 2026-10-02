@@ -480,10 +480,16 @@ class RoomExtrasMixin:
         # Aufhören wegen eines geöffneten Fensters.
         ran = (now - self._dehum_on_since) >= timedelta(minutes=DEHUM_MIN_RUNTIME_MINUTES)
         done = (
-            (indoor_ah is None or indoor_ah <= target_abs - DEHUM_AH_HYSTERESIS)
-            and (rh is None or rh <= DEHUM_OFF_RH - DEHUM_RH_HYSTERESIS)
-            and self.mold_risk not in ("erhöht", "hoch")
-        )
+            (
+                indoor_ah is not None
+                and indoor_ah <= target_abs - DEHUM_AH_HYSTERESIS
+            )
+            or (
+                indoor_ah is None
+                and rh is not None
+                and rh <= DEHUM_OFF_RH - DEHUM_RH_HYSTERESIS
+            )
+        ) and self.mold_risk not in ("erhöht", "hoch")
         if self.open_windows() or (ran and done):
             await self._call(domain, "turn_off", {"entity_id": entity_id})
             self._dehum_on_since = None
