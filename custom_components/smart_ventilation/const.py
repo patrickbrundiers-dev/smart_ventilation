@@ -57,10 +57,10 @@ ROOM_TYPE_KITCHEN = "kitchen"
 ROOM_TYPE_OTHER = "other"
 DEFAULT_ROOM_TYPE = ROOM_TYPE_OTHER
 ROOM_TYPE_TARGET_ABS = {
-    ROOM_TYPE_BEDROOM: 8.5,    # kühler, oft Außenwand -> niedriger halten (Schimmelvorbeugung)
-    ROOM_TYPE_BATHROOM: 11.5,  # kurzfristige Spitzen durchs Duschen normal
-    ROOM_TYPE_LIVING: 10.0,    # Wohnzimmer/Büro, normale Nutzung
-    ROOM_TYPE_KITCHEN: 10.5,   # etwas höher wegen Kochdunst
+    ROOM_TYPE_BEDROOM: 8.5,
+    ROOM_TYPE_BATHROOM: 11.5,
+    ROOM_TYPE_LIVING: 10.0,
+    ROOM_TYPE_KITCHEN: 10.5,
     ROOM_TYPE_OTHER: DEFAULT_TARGET_ABS,
 }
 
@@ -71,61 +71,43 @@ SEASON_AUTO = "auto"
 SEASON_SUMMER = "summer"
 SEASON_WINTER = "winter"
 DEFAULT_SEASON_MODE = SEASON_AUTO
-DEFAULT_SEASON_THRESHOLD = 15.0  # °C – Heizgrenztemperatur
-SEASON_HYSTERESIS = 1.0  # °C – verhindert ständiges Hin- und Herspringen
-# In den Übergangsmonaten muss die Außentemperatur so lange ununterbrochen jenseits der
-# Schwelle (± Hysterese) liegen, bevor der Automatik-Modus wirklich umschaltet – sonst würde
-# eine kalte Nacht gefolgt von einem warmen Nachmittag (oder umgekehrt) den Modus am selben
-# Tag mehrfach hin- und herspringen lassen.
+DEFAULT_SEASON_THRESHOLD = 15.0
+SEASON_HYSTERESIS = 1.0
 SEASON_CONFIRM_HOURS = 6
-# Zeigt die mehrtägige Wettervorhersage (falls konfiguriert) schon einen eindeutigen Trend -
-# Hoch UND Tief an mehreren Tagen am Stück klar auf einer Seite der Heizgrenze -, ist das ein
-# verlässlicheres Signal als ein paar Stunden lokale Messwerte und wird sofort übernommen,
-# ohne auf SEASON_CONFIRM_HOURS zu warten.
 SEASON_FORECAST_DAYS = 3
-# Meteorologische Jahreszeit: in diesen Monaten gilt Winter/Sommer fest, unabhängig von der
-# Außentemperatur (ein einzelner milder Wintertag oder kühler Sommertag soll den Modus nicht
-# umschalten). Nur in den Übergangsmonaten entscheidet weiter die Temperatur wie bisher.
 SEASON_FIXED_WINTER_MONTHS = (12, 1, 2)
 SEASON_FIXED_SUMMER_MONTHS = (6, 7, 8)
 
-# Benachrichtigungen: Liste von notify-Diensten (ersetzt das alte Textfeld)
+# Benachrichtigungen
 CONF_NOTIFY_SERVICES = "notify_services"
 
-# Bester Lüftungszeitpunkt (Wettervorhersage)
+# Bester Lüftungszeitpunkt
 CONF_WEATHER = "weather_entity"
 FORECAST_REFRESH_MINUTES = 30
 FORECAST_RETRY_MINUTES = 5
 FORECAST_HOURS = 24
-FORECAST_DAY_START = 7   # keine Empfehlungen vor 7 Uhr ...
-FORECAST_DAY_END = 22    # ... und nicht ab 22 Uhr
-FORECAST_MIN_GAIN = 1.0  # g/m³ – darunter lohnt sich Lüften kaum
+FORECAST_DAY_START = 7
+FORECAST_DAY_END = 22
+FORECAST_MIN_GAIN = 1.0
 FORECAST_MAX_RAIN_MM = 0.2
 FORECAST_MAX_RAIN_PROB = 50
-# Liefert die Vorhersage eine Windrichtung (wind_bearing), zählt eine Stunde als "günstig" für
-# Kühlen/Vorheizen nur, wenn der Wind nicht zu stark vom Fenster weg bläst (Faktor 0..1, siehe
-# _forecast_wind_factor). Ohne Richtungsangabe bleibt der Faktor 1 und diese Schwelle greift nicht.
 MIN_FORECAST_WIND_FACTOR = 0.3
-# Regen-Vorwarnung: droht laut Vorhersage bald Regen, wird die normale Lüft-Erinnerung
-# vorgezogen (kürzerer Cooldown) und in der Übersicht höher priorisiert.
 RAIN_SOON_COOLDOWN_MINUTES = 30
 RAIN_SOON_URGENCY_BOOST = 2.0
 
-# Party-Modus: vorübergehend aggressiver lüften (z. B. viel Besuch = mehr Feuchte/CO₂ als sonst).
-# Schaltet sich nach dieser Zeit von selbst wieder ab, falls nicht vorher erneut gedrückt.
+# Party-Modus
 PARTY_MODE_HOURS = 3
-PARTY_MODE_TARGET_REDUCTION = 1.5   # g/m³ – Tagesziel niedriger, löst Empfehlung früher aus
-PARTY_MODE_COOLDOWN_MINUTES = 20    # kürzerer Erinnerungsabstand statt der normalen Einstellung
+PARTY_MODE_TARGET_REDUCTION = 1.5
+PARTY_MODE_COOLDOWN_MINUTES = 20
 
 # Mehrere Fenster, Warnungen, Ruhezeiten, Heizung
 CONF_COOL_LIMIT = "cool_limit"
-DEFAULT_COOL_LIMIT = 18.0          # °C, 0 = aus
-WINTER_OVERTIME_MINUTES = 5        # Warnung, wenn Winter-Höchstdauer um so viel überschritten
+DEFAULT_COOL_LIMIT = 18.0
+WINTER_OVERTIME_MINUTES = 5
 CONF_QUIET_START = "quiet_start"
 CONF_QUIET_END = "quiet_end"
 DEFAULT_QUIET_START = "22:00:00"
 DEFAULT_QUIET_END = "07:00:00"
-# Abweichende Ruhezeit am Wochenende (Sa/So) - z. B. länger schlafen als unter der Woche
 CONF_QUIET_WEEKEND_DIFFERENT = "quiet_weekend_different"
 CONF_QUIET_START_WEEKEND = "quiet_start_weekend"
 CONF_QUIET_END_WEEKEND = "quiet_end_weekend"
@@ -133,28 +115,28 @@ SNOOZE_MINUTES = 30
 ACTION_SNOOZE = "SV_SNOOZE_"
 ACTION_SKIP = "SV_SKIP_"
 CONF_CLIMATES = "climate_entities"
-HEATING_DELAY_SECONDS = 60         # erst nach 1 Min. offen Heizung absenken
+HEATING_DELAY_SECONDS = 60
 ON_STATES = ("on", "open", "true", "1")
 OFF_STATES = ("off", "closed", "false", "0")
-TARGET_PROGRESS = 0.7              # Ziel auch erreicht, wenn 70 % des Feuchteunterschieds abgebaut
-TARGET_MIN_SECONDS = 60            # frühestens nach 1 Min. "Ziel erreicht"
-POST_VENT_PAUSE_MINUTES = 60       # nach dem Lüften 1 h keine neue Erinnerung (Basiswert/Fallback)
-POST_VENT_FORECAST_MAX_HOURS = 4   # so weit darf der Wetter-basierte Zeitpunkt in die Zukunft reichen
+TARGET_PROGRESS = 0.7
+TARGET_MIN_SECONDS = 60
+POST_VENT_PAUSE_MINUTES = 60
+POST_VENT_FORECAST_MAX_HOURS = 4
 
-# Schimmelrisiko an der Wand (DIN 4108-2: 80 % rel. Feuchte an der Oberfläche)
+# Schimmelrisiko
 CONF_BUILDING = "building_standard"
 DEFAULT_BUILDING = "average"
-U_VALUES = {           # W/(m²K) Außenwand
-    "old": 1.4,        # Altbau ungedämmt
-    "average": 1.0,    # 60er–90er Jahre
-    "insulated": 0.35, # gedämmt / ab ca. 2000
-    "passive": 0.15,   # Neubau / Passivhaus
+U_VALUES = {
+    "old": 1.4,
+    "average": 1.0,
+    "insulated": 0.35,
+    "passive": 0.15,
 }
-RSI_CORNER = 0.35      # m²K/W – Außenecke / hinter Möbeln (ungünstigste Stelle)
+RSI_CORNER = 0.35
 MOLD_RH_HIGH = 80.0
 MOLD_RH_ELEVATED = 70.0
 
-# CO₂ (optional)
+# CO₂
 CONF_CO2 = "co2_sensor"
 CO2_OUTDOOR = 420
 CO2_TARGET = 800
@@ -163,8 +145,8 @@ CO2_HIGH = 1400
 
 # Wärmeverlust / Kosten
 CONF_ENERGY_PRICE = "energy_price"
-DEFAULT_ENERGY_PRICE = 0.12            # €/kWh
-AIR_HEAT_CAPACITY_WH = 0.34            # Wh/(m³·K)
+DEFAULT_ENERGY_PRICE = 0.12
+AIR_HEAT_CAPACITY_WH = 0.34
 
 # Anwesenheit & Übersicht
 CONF_PERSONS = "persons"
@@ -172,7 +154,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.18.0"
+VERSION = "2.18.2"
 
 # Adaptive decision / learning
 ADAPTIVE_SCORE_MIN = 20
@@ -180,14 +162,14 @@ ADAPTIVE_SCORE_FULL_OPEN = 62
 LEARNING_HISTORY_MAX = 12
 GLOBAL_LEARNING_HISTORY_MAX = 24
 LEARNING_STALE_DAYS = 45
-ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
+ISSUE_AFTER_MINUTES = 10
 
 # Bad-Modus
 CONF_SHOWER = "shower_sensor"
 CONF_SHOWER_DETECT = "shower_detect"
-SHOWER_JUMP = 1.5                 # g/m³ Anstieg in ...
-SHOWER_WINDOW_MINUTES = 10        # ... so vielen Minuten = Duschen erkannt
-SHOWER_FOLLOWUP_MINUTES = 30      # danach nachfassen, wenn noch feucht
+SHOWER_JUMP = 1.5
+SHOWER_WINDOW_MINUTES = 10
+SHOWER_FOLLOWUP_MINUTES = 30
 
 # Urlaub
 CONF_VACATION = "vacation_entity"
@@ -196,104 +178,86 @@ CONF_VACATION_KEYWORD = "vacation_keyword"
 # Sommer: Kühlen per Lüften
 CONF_COMFORT_TEMP = "comfort_temperature"
 DEFAULT_COMFORT_TEMP = 23.0
-COOL_MIN_DIFF = 2.0               # draußen mind. 2 °C kühler
-COOL_MAX_EXTRA_HUMIDITY = 1.0     # g/m³ – nicht kühlen, wenn draußen viel feuchter
+COOL_MIN_DIFF = 2.0
+COOL_MAX_EXTRA_HUMIDITY = 1.0
 
-# Vorheizen per Lüften (nach einer kalten Nacht tagsüber wärmere Außenluft nutzen, um das
-# Heizen hinauszuzögern bzw. den Raum warm zu halten) - bewusst unabhängig vom Sommer/
-# Winter-Modus, siehe preheat_minutes() in extras.py
+# Vorheizen per Lüften
 CONF_PREHEAT_TEMP = "preheat_temperature"
-DEFAULT_PREHEAT_TEMP = 19.0       # °C – unter dieser Innentemperatur "braucht" der Raum Wärme
-PREHEAT_MIN_WARMER = 2.0          # draußen mind. so viel wärmer als drinnen
-NIGHT_LOW_START_HOUR = 22         # Nacht-Tiefsttemperatur wird zwischen 22 und 9 Uhr verfolgt
+DEFAULT_PREHEAT_TEMP = 19.0
+PREHEAT_MIN_WARMER = 2.0
+NIGHT_LOW_START_HOUR = 22
 NIGHT_LOW_END_HOUR = 9
-PREHEAT_RAIN_LOOKAHEAD_HOURS = 2  # Vorheizen nicht empfehlen, wenn es laut Vorhersage bald regnet
-PREHEAT_MAX_EXTRA_HUMIDITY = 1.0  # g/m³ – nicht vorheizen, wenn draußen viel feuchter als drinnen
+PREHEAT_RAIN_LOOKAHEAD_HOURS = 2
+PREHEAT_MAX_EXTRA_HUMIDITY = 1.0
 
 # Luftentfeuchter
 CONF_DEHUMIDIFIER = "dehumidifier_entity"
 DEHUM_ON_RH = 60.0
 DEHUM_OFF_RH = 55.0
-DEHUM_AH_HYSTERESIS = 0.3   # g/m³ – Abstand um den absoluten Feuchte-Zielwert
-DEHUM_RH_HYSTERESIS = 2.0   # %-Punkte – zusätzlicher Puffer für die RH-Abschaltung
+DEHUM_AH_HYSTERESIS = 0.3
+DEHUM_RH_HYSTERESIS = 2.0
 DEHUM_MIN_RUNTIME_MINUTES = 15
 DEHUM_RESTART_COOLDOWN_MINUTES = 10
 
-# Rollo/Jalousie – Empfehlung (und optional automatische Steuerung) bei direkter Sonne im Sommer.
-# Im Winter nie, da die Sonnenwärme dort erwünscht ist (siehe Vorheizen) – ein geschlossenes Rollo
-# würde genau das verhindern.
+# Rollo/Jalousie
 CONF_SHUTTER = "shutter_entity"
-SHUTTER_MIN_RUNTIME_MINUTES = 15  # Mindest-Zu-Dauer, bevor bei kurz verschwundener Sonne wieder geöffnet wird
+SHUTTER_MIN_RUNTIME_MINUTES = 15
 
-# Zusätzliche optionale Wettersensoren (z. B. von KachelmannWetter oder ähnlichen Integrationen mit
-# vielen Einzel-Sensoren statt/zusätzlich zur normalen weather-Entity mit Vorhersage-Attribut).
+# Zusätzliche optionale Wettersensoren
 CONF_SOLAR_RADIATION = "solar_radiation_entity"
-# W/m² – unterhalb davon gilt "Sonne" trotz geometrisch passendem Winkel als nicht mehr relevant
-# (z. B. bedeckter Himmel) - Richtwert für spürbare direkte Einstrahlung, kein Absolutwert.
 SOLAR_RADIATION_MIN = 120.0
 CLOUD_COVER_BLOCK = 80.0
 CLOUD_COVER_RADIATION_CHECK = 45.0
 CLOUD_COVER_RADIATION_MIN = 180.0
 CLOUDY_WEATHER_STATES = ("cloudy", "overcast", "rainy", "pouring", "snowy", "snowy-rainy", "fog")
-SOLAR_RADIATION_RELEASE = 160.0  # W/m² – Hysterese zum Wiederöffnen eines automatisch geschlossenen Rollos
+SOLAR_RADIATION_RELEASE = 160.0
 
 CONF_THUNDERSTORM = "thunderstorm_entity"
-# Enum-Sensoren (z. B. KachelmannWetter "Gewitter erwartet") liefern Text statt on/off - diese
-# Werte gelten als "kein erhöhtes Risiko", alles andere (auch unbekannte Werte) vorsichtshalber
-# als Risiko.
 LOW_RISK_STATES = ("normal", "gering", "kein", "keine", "aus", "nein", "niedrig", "unwahrscheinlich")
 
 CONF_WIND_GUST = "wind_gust_entity"
-WIND_GUST_WARN_KMH = 50.0  # ab hier Warnung bei offenem Fenster (Kippfenster können beschädigt werden)
+WIND_GUST_WARN_KMH = 50.0
 
 CONF_FROST = "frost_entity"
 
 # Wochenbericht
 CONF_WEEKLY_REPORT = "weekly_report"
-REPORT_WEEKDAY = 6                # Sonntag
+REPORT_WEEKDAY = 6
 REPORT_HOUR = 19
 
 # Verlauf
-TRACE_MAX_POINTS = 240            # 2 h bei 30 s
+TRACE_MAX_POINTS = 240
 TRACE_CARD_POINTS = 60
 
-# Schimmel-Frühwarnung über mehrere Tage
-MOLD_CRITICAL_MINUTES = 360       # ≥ 6 h Wandfeuchte ≥ 80 % = kritischer Tag
-MOLD_STREAK_WARN = 3              # Warnung ab 3 kritischen Tagen in Folge
-MOLD_REWARN_DAYS = 7              # bei anhaltender Lage erneut nach einer Woche
+# Schimmel-Frühwarnung
+MOLD_CRITICAL_MINUTES = 360
+MOLD_STREAK_WARN = 3
+MOLD_REWARN_DAYS = 7
 MOLD_LOG_DAYS = 62
 
 # Monats-/Jahresvergleich
 CONF_MONTHLY_REPORT = "monthly_report"
-MONTHLY_REPORT_HOUR = 9           # am 1. des Monats ab 9 Uhr
+MONTHLY_REPORT_HOUR = 9
 
-# Tagesarchiv für den 7-Tage-Trend auf der Dashboard-Karte
+# Tagesarchiv
 DAY_LOG_DAYS = 14
 
-# Anomalie-Erkennung: deutlich mehr Lüftungsminuten an einem Tag als im Schnitt der letzten
-# Tage davor -> Warnung (z. B. vergessenes offenes Fenster, defekter Sensor).
-ANOMALY_MIN_MINUTES = 60           # unterhalb lohnt sich der Vergleich nicht (zu viel Rauschen)
-ANOMALY_BASELINE_DAYS = 14         # Vergleichszeitraum davor (siehe DAY_LOG_DAYS)
-ANOMALY_MIN_SAMPLE_DAYS = 5        # erst ab so vielen Tagen Historie überhaupt vergleichen
-ANOMALY_FACTOR = 2.5               # ab dem Wievielfachen des Schnitts gilt es als Anomalie
+# Anomalie-Erkennung
+ANOMALY_MIN_MINUTES = 60
+ANOMALY_BASELINE_DAYS = 14
+ANOMALY_MIN_SAMPLE_DAYS = 5
+ANOMALY_FACTOR = 2.5
 
-# Ab wie vielen Lüftungs-Sitzungen ein Wind/Winkel/Temperatur-Bucket (siehe coordinator.py::
-# _bucket()) als "gelernt" gilt und sein eigener Wert statt des globalen Durchschnitts genutzt
-# wird. Solange weniger Sitzungen vorliegen, wird gleichgewichtet gemittelt statt exponentiell
-# geglättet (siehe _finish_session()) - sonst würde eine einzelne verrauschte erste Messung mit
-# 80 % Gewicht sofort als "gelernter" Wert übernommen und dort für lange Zeit hängen bleiben.
 BUCKET_TRUST_SAMPLES = 5
 
-# Je Benachrichtigungsart eigene Empfänger wählbar (z. B. Handy alles, Alexa nur Erinnerung + Fertig).
-# Fehlt eine Kategorie in den Einstellungen (noch nicht konfiguriert oder alter Eintrag), bekommen
-# weiterhin alle gewählten Ziele diese Kategorie - das Verhalten ändert sich ohne Konfiguration nicht.
-CAT_REMINDER = "reminder"    # Erinnerung ans Lüften
-CAT_FINISHED = "finished"    # Lüftung/Lüftungsziel erreicht bzw. abgeschlossen
-CAT_WARNING = "warning"      # Auskühlen, Fenster offen (weg/Sonne)
-CAT_SHOWER = "shower"        # Nach dem Duschen
-CAT_MOLD = "mold"            # Schimmelgefahr
-CAT_WELCOME = "welcome"      # Willkommen-zu-Hause-Hinweis
-CAT_REPORT = "report"        # Wochen-/Monatsbericht
+# Benachrichtigungsziele
+CAT_REMINDER = "reminder"
+CAT_FINISHED = "finished"
+CAT_WARNING = "warning"
+CAT_SHOWER = "shower"
+CAT_MOLD = "mold"
+CAT_WELCOME = "welcome"
+CAT_REPORT = "report"
 NOTIFY_CATEGORIES = (CAT_REMINDER, CAT_FINISHED, CAT_WARNING, CAT_SHOWER, CAT_MOLD, CAT_WELCOME, CAT_REPORT)
 
 CONF_NOTIFY_TARGETS_REMINDER = "notify_targets_reminder"
