@@ -1458,11 +1458,26 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                     cloud_cover = None
 
             radiation = _float_state(self.hass, self.data.get(CONF_SOLAR_RADIATION))
-            if radiation is not None and radiation < SOLAR_RADIATION_MIN:
-                return True, False, ""
+
+            # Wolken und echte Einstrahlung gemeinsam bewerten. Die Wetter-Entität allein
+            # ist oft zu grob; Globalstrahlung kann dagegen kurze sonnige Durchbrüche trotz
+            # hoher Bewölkung erkennen.
+            if radiation is not None:
+                if radiation < SOLAR_RADIATION_MIN:
+                    return True, False, ""
+                if cloud_cover is not None:
+                    if cloud_cover >= CLOUD_COVER_BLOCK:
+                        return True, False, ""
+                    if cloud_cover >= CLOUD_COVER_RADIATION_CHECK and radiation < CLOUD_COVER_RADIATION_MIN:
+                        return True, False, ""
+                return True, True, (
+                    f"Direkte Sonne am Fenster "
+                    f"(Azimut {azimuth:.0f}°, Höhe {elevation:.0f}°)"
+                )
+
             if cloud_cover is not None and cloud_cover >= CLOUD_COVER_BLOCK:
                 return True, False, ""
-            if weather_condition in CLOUDY_WEATHER_STATES and radiation is None:
+            if weather_condition in CLOUDY_WEATHER_STATES:
                 return True, False, ""
             return True, True, (
                 f"Direkte Sonne am Fenster "
