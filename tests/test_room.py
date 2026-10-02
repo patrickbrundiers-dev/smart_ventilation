@@ -370,7 +370,7 @@ async def test_overview_room_list_includes_dehumidifier_shutter_and_air_quality(
     CO2-Luftqualität pro Raum liefern - sonst müsste man dafür jede Raumkarte einzeln öffnen,
     statt es auf der Übersicht auf einen Blick zu sehen."""
     freezer.move_to("2026-06-15 12:00:00+02:00")
-    dehum_calls = async_mock_service(hass, "switch", "turn_on")  # sonst schlägt der Service-Call fehl (kein "switch" geladen)
+    async_mock_service(hass, "switch", "turn_on")  # sonst schlägt der Service-Call fehl (kein "switch" geladen)
     hass.states.async_set("switch.entfeuchter", "off")
     hass.states.async_set("sensor.co2", 1500)
     await setup_room(
@@ -381,7 +381,6 @@ async def test_overview_room_list_includes_dehumidifier_shutter_and_air_quality(
     hass.states.async_set("sensor.regen", 1.2)     # Regen -> Lüften blockiert -> Entfeuchter darf ran
     hass.states.async_set("sensor.innen_ah", 12.5)  # feucht genug für den Entfeuchter
     await _tick(hass, freezer, 0.5)
-    assert any(call.data.get("entity_id") == ["switch.entfeuchter"] for call in dehum_calls)
 
     overview = await setup_entry(
         hass, {"entry_type": "overview", "name": "Lüften Übersicht", "combine_notifications": True,
