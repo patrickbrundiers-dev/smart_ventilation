@@ -145,6 +145,20 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.18.2
+
+Release-/Versionspflege nach 2.18.1:
+- Integrationsversion auf 2.18.2 angehoben.
+- Manifest und interne Versionskennung synchronisiert.
+- Release-Basis nach der Koordinations-Härtung aus 2.18.1 geprüft.
+
+### Version 2.18.1
+
+Koordinations-Härtung zwischen Lüftung und Zusatzfunktionen:
+- Zentrale Prioritätslogik verhindert, dass der Luftentfeuchter während einer aktiven Lüftungssitzung unnötig gestartet wird.
+- Lüftung hat bei der Entfeuchter-Koordination Vorrang; Regen, Gewitter, Ruhezeit, Urlaub und Abwesenheit bleiben Sicherheits-/Betriebsbedingungen.
+- Regressionstest für die Koordination ergänzt.
+
 ### Version 2.17.0
 
 Adaptive Intelligence erweitert die Lüftungsentscheidung und das Lernen:
