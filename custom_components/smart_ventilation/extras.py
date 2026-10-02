@@ -484,7 +484,7 @@ class RoomExtrasMixin:
             and (rh is None or rh <= DEHUM_OFF_RH - DEHUM_RH_HYSTERESIS)
             and self.mold_risk not in ("erhöht", "hoch")
         )
-        if self.open_windows() or (ran and (done or not need)):
+        if self.open_windows() or (ran and done):
             await self._call(domain, "turn_off", {"entity_id": entity_id})
             self._dehum_on_since = None
             await self._save()
