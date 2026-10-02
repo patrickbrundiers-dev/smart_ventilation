@@ -483,6 +483,7 @@ class RoomExtrasMixin:
                 and cannot_vent
                 and not ventilation_available
                 and not self.open_windows()
+                and not self.session
                 and (self._dehum_off_until is None or now >= self._dehum_off_until or mold_high)
                 and state.state == "off"
             ):
