@@ -20,12 +20,13 @@ from .const import (
     DEHUM_OFF_RH, DEHUM_ON_RH, SHUTTER_MIN_RUNTIME_MINUTES, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
     SEASON_SUMMER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
-    CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER, PREHEAT_MAX_EXTRA_HUMIDITY,
+    CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER, PREHEAT_MAX_EXTRA_HUMIDITY, CONF_RAIN,
     CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD,
     CONF_SEASON_MODE, DEFAULT_SEASON_MODE,
     FORECAST_MAX_RAIN_MM, FORECAST_MAX_RAIN_PROB, MIN_FORECAST_WIND_FACTOR,
 )
 from . import notify_util
+from .sensor_utils import _is_raining
 
 
 def _num_state(hass, entity_id):
@@ -441,7 +442,7 @@ class RoomExtrasMixin:
             rh is not None and rh >= DEHUM_ON_RH
         ) or self.mold_risk in ("erhöht", "hoch")
         cannot_vent = (
-            _is_raining(self.hass, self.data["rain"])
+            _is_raining(self.hass, self.data.get(CONF_RAIN))
             or self.in_quiet_hours(now)
             or self.on_vacation
             or (self.persons and not self.anyone_home)
