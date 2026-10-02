@@ -499,3 +499,195 @@ def _heating_setup(hass, bt_window=False, cgh_window=False):
 
 
 async def _open_window(hass, freezer):
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 2)
+
+
+async def test_heating_switches_better_thermostat_on_top(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    """Gruppe oder einzelnes Thermostat gewählt -> geschaltet wird das Better Thermostat darüber."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    hvac = async_mock_service(hass, "climate", "set_hvac_mode")
+    _heating_setup(hass)
+    await setup_room(hass, climate_entities=["climate.gr_bad", "climate.trv_1"])
+    await _open_window(hass, freezer)
+    assert [(c.data["entity_id"], c.data["hvac_mode"]) for c in hvac] == [("climate.bad_bt", "off")]
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    await hass.async_block_till_done()
+    assert [(c.data["entity_id"], c.data["hvac_mode"]) for c in hvac][-1] == ("climate.bad_bt", "heat")
+
+
+async def test_heating_left_to_better_thermostat_window(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    hvac = async_mock_service(hass, "climate", "set_hvac_mode")
+    _heating_setup(hass, bt_window=True)
+    entry = await setup_room(hass, climate_entities=["climate.bad_bt"])
+    await _open_window(hass, freezer)
+    await _tick(hass, freezer, 1)
+    assert not hvac
+    running = hass.states.get(eid(hass, "sensor", entry, "ventilation_running"))
+    assert running.attributes["heizung_selbst_geregelt"] == {"climate.bad_bt": "Better Thermostat"}
+
+
+async def test_heating_left_to_climate_group_helper_window(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    hvac = async_mock_service(hass, "climate", "set_hvac_mode")
+    _heating_setup(hass, cgh_window=True)
+    entry = await setup_room(hass, climate_entities=["climate.bad_bt"])
+    await _open_window(hass, freezer)
+    await _tick(hass, freezer, 1)
+    assert not hvac
+    running = hass.states.get(eid(hass, "sensor", entry, "ventilation_running"))
+    assert running.attributes["heizung_selbst_geregelt"] == {"climate.bad_bt": "Climate Group Helper"}
+
+
+async def test_card_shows_pause_after_ventilation(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    """Nach dem Lüften: Karte zeigt „Pausiert“ statt erneut „Lüften“ – wie bei den Benachrichtigungen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass)
+    rec = eid(hass, "sensor", entry, "recommendation")
+    assert hass.states.get(rec).attributes["karte"]["pausiert"] is None
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 3)
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    # Feuchte nach dem Lüften realistisch gesunken, aber Schimmelrisiko noch nicht "niedrig"
+    # (bleibt "erhöht", nicht "hoch") – die Pause soll normal gelten, siehe Extrem-Test unten.
+    hass.states.async_set("sensor.innen_ah", 9.0)
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["minuten"] > 0
+    assert karte["schimmel"] == "erhöht"
+    assert karte["pausiert"].startswith("Pause nach dem Lüften bis 11:0")
+    await _tick(hass, freezer, 61)
+    assert hass.states.get(rec).attributes["karte"]["pausiert"] is None
+
+
+async def test_card_shows_heating_lowered(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    """Die Karte zeigt, wenn beim Lüften die Heizung abgesenkt wird."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    hass.states.async_set(
+        "climate.wz", "heat",
+        {"hvac_modes": ["heat", "off"], "temperature": 21, "friendly_name": "Wohnzimmer Heizung"},
+    )
+    async_mock_service(hass, "climate", "set_hvac_mode")
+    entry = await setup_room(hass, climate_entities=["climate.wz"])
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 2)
+    karte = hass.states.get(eid(hass, "sensor", entry, "recommendation")).attributes["karte"]
+    assert karte["heizung_ab"] == ["Wohnzimmer Heizung"]
+    assert karte["heizung_extern"] == []
+
+
+async def test_humidity_recommendation_has_hysteresis(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Die Feuchte-Empfehlung darf nicht bei jeder kleinen Sensorschwankung um die Schwelle
+    kippen (siehe Logbuch: ständiger Wechsel „Kippfenster …“ / „Keine Lüftung erforderlich“
+    im Minutentakt). Direkt an/knapp unter der Einstiegsschwelle muss die Empfehlung im
+    Hysterese-Puffer aktiv bleiben, erst deutlich darunter darf sie ausgehen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass)
+    rec = eid(hass, "sensor", entry, "recommendation")
+
+    # Ausgangslage (Standard-Fixture): Feuchteunterschied deutlich über der Schwelle -> aktiv
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
+
+    # Knapp unter der reinen Einstiegsschwelle (diff <= START_DIFF = 1,0), aber noch im
+    # Hysterese-Puffer (> START_DIFF - HUMID_HYSTERESIS = 0,9) -> darf NICHT sofort ausgehen.
+    # Genau dieser knappe Bereich hat vorher zum Flackern im Logbuch geführt.
+    hass.states.async_set("sensor.aussen_ah", 9.55)  # diff = 10,5 - 9,55 = 0,95
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["minuten"] > 0, "Empfehlung sollte im Hysterese-Puffer aktiv bleiben"
+
+    # Jetzt klar unter dem Puffer (diff <= 0,9) -> darf jetzt ausgehen.
+    hass.states.async_set("sensor.aussen_ah", 9.9)  # diff = 0,6
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["minuten"] == 0
+    # Innen (10,5) liegt weiter über dem Zielwert (10,0) - nur die Außenluft ist nicht trocken
+    # genug, damit sich Lüften lohnt. Die Statusmeldung soll das jetzt widerspiegeln statt
+    # pauschal "in Ordnung" zu melden.
+    assert hass.states.get(rec).state == "Raumluft feucht – Außenluft aktuell nicht trockener"
+
+    # Bleibt aus bei minimaler Schwankung knapp darunter - kein erneutes Flackern, da für einen
+    # Neueinstieg wieder diff > START_DIFF (1,0) nötig wäre.
+    hass.states.async_set("sensor.aussen_ah", 9.85)  # diff = 0,65
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
+
+
+async def test_humidity_hysteresis_is_configurable(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Der Feuchte-Puffer (humidity_hysteresis) ist kein fester Wert im Code, sondern pro Raum
+    einstellbar - Standard 0,1 g/m³, hier auf 0 gestellt (kein Puffer, wie vor 2.3.12)."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass, humidity_hysteresis=0.0)
+    rec = eid(hass, "sensor", entry, "recommendation")
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
+
+    # Mit Puffer 0 schaltet die Empfehlung schon bei diff <= START_DIFF (1,0) sofort ab -
+    # ohne den in test_humidity_recommendation_has_hysteresis geprüften Nachlauf.
+    hass.states.async_set("sensor.aussen_ah", 9.55)  # diff = 0,95, sonst (Standardpuffer) noch aktiv
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
+
+
+async def test_post_vent_pause_uses_forecast_and_extreme_override(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Pause nach dem Lüften: nutzt den nächsten günstigen Zeitpunkt statt fix 60 Minuten,
+    aber nicht mehr als 4 Std. voraus, und bei Schimmelalarm gilt sie gar nicht."""
+    freezer.move_to("2026-12-05 08:00:00+01:00")
+    now = dt_util.now().replace(minute=0, second=0, microsecond=0)
+    forecast = [
+        {"datetime": (now + timedelta(hours=h)).isoformat(), "temperature": 5, "humidity": rh,
+         "precipitation": 0, "precipitation_probability": 0, "wind_speed": 10}
+        for h, rh in [(2, 20), (7, 60)]           # günstigster Punkt (trockenste Luft): in 2 Std.
+    ]
+    async_mock_service(
+        hass, "weather", "get_forecasts",
+        response={"weather.home": {"forecast": forecast}},
+        supports_response=SupportsResponse.ONLY,
+    )
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    entry = await setup_room(hass, weather_entity="weather.home")
+    rec = eid(hass, "sensor", entry, "recommendation")
+    await _tick(hass, freezer, 0.5)                # Vorhersage laden
+
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 3)
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    # Feuchte nach dem Lüften gesunken, aber noch nicht "niedrig" (erhöht, nicht hoch) –
+    # sonst würde die neue Extrem-Ausnahme schon hier statt erst unten greifen.
+    hass.states.async_set("sensor.innen_ah", 9.0)
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["schimmel"] == "erhöht"
+    assert "nächster günstiger Zeitpunkt" in karte["pausiert"]
+    assert karte["pausiert"].startswith("Pause nach dem Lüften bis 10:0")   # in ca. 2 Std., nicht 60 Min.
+
+    # nach 61 Minuten wäre die alte feste Pause vorbei, die Wetter-Pause aber noch nicht
+    before = len([c for c in pushes if c.data["title"].startswith("Lüften:")])
+    await _tick(hass, freezer, 61)
+    assert hass.states.get(rec).attributes["karte"]["pausiert"] is not None
+    assert len([c for c in pushes if c.data["title"].startswith("Lüften:")]) == before
+
+    # jetzt wird es extrem (Schimmelrisiko hoch) -> Pause gilt nicht mehr, auch wenn die Zeit noch nicht da ist
+    hass.states.async_set("sensor.innen_ah", 13.0)
+    hass.states.async_set("sensor.aussen_ah", 4.0)
+    await _tick(hass, freezer, 1)
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["schimmel"] == "hoch"
+    assert karte["pausiert"] is None
