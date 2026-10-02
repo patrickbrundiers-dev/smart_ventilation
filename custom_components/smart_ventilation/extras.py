@@ -17,13 +17,14 @@ from .const import (
     CONF_NAME, CONF_OUTDOOR_HUMIDITY, CONF_OUTDOOR_TEMP, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_WEEKLY_REPORT, COOL_MAX_EXTRA_HUMIDITY,
     COOL_MIN_DIFF, DEFAULT_COMFORT_TEMP, DEFAULT_TARGET_DIFF, DEHUM_MIN_RUNTIME_MINUTES,
-    DEHUM_OFF_RH, DEHUM_ON_RH, SHUTTER_MIN_RUNTIME_MINUTES, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
+    DEHUM_AH_HYSTERESIS, DEHUM_OFF_RH, DEHUM_ON_RH, DEHUM_RH_HYSTERESIS, DEHUM_RESTART_COOLDOWN_MINUTES, SHUTTER_MIN_RUNTIME_MINUTES, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
     SEASON_SUMMER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
     CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER, PREHEAT_MAX_EXTRA_HUMIDITY, CONF_RAIN,
     CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD,
     CONF_SEASON_MODE, DEFAULT_SEASON_MODE,
     FORECAST_MAX_RAIN_MM, FORECAST_MAX_RAIN_PROB, MIN_FORECAST_WIND_FACTOR,
+    CONF_SOLAR_RADIATION, SOLAR_RADIATION_MIN, SOLAR_RADIATION_RELEASE,
 )
 from . import notify_util
 from .sensor_utils import _is_raining
@@ -59,6 +60,7 @@ class RoomExtrasMixin:
         self._last_shower_detect = None
         self._vacation_warned = None        # Datum der letzten Urlaubs-Schimmelwarnung
         self._dehum_on_since = None         # nur gesetzt, wenn WIR eingeschaltet haben
+        self._dehum_off_until = None        # Neustart-/Pingpong-Schutz nach dem Ausschalten
         self._shutter_closed_since = None   # nur gesetzt, wenn WIR das Rollo geschlossen haben
         self._shutter_notified = False      # einmalig pro Sonnen-Expositionsfenster benachrichtigt
         self._last_report = None            # Kalenderwoche des letzten Wochenberichts
@@ -73,6 +75,7 @@ class RoomExtrasMixin:
             "last_report": self._last_report,
             "vacation_warned": self._vacation_warned,
             "dehum_on_since": self._dehum_on_since.isoformat() if self._dehum_on_since else None,
+            "dehum_off_until": self._dehum_off_until.isoformat() if self._dehum_off_until else None,
             "shutter_closed_since": self._shutter_closed_since.isoformat() if self._shutter_closed_since else None,
             "shutter_notified": self._shutter_notified,
             "last_trace": self.last_trace,
@@ -83,6 +86,8 @@ class RoomExtrasMixin:
         self._vacation_warned = stored.get("vacation_warned")
         if stored.get("dehum_on_since"):
             self._dehum_on_since = dt_util.parse_datetime(stored["dehum_on_since"])
+        if stored.get("dehum_off_until"):
+            self._dehum_off_until = dt_util.parse_datetime(stored["dehum_off_until"])
         if stored.get("shutter_closed_since"):
             self._shutter_closed_since = dt_util.parse_datetime(stored["shutter_closed_since"])
         self._shutter_notified = bool(stored.get("shutter_notified", False))
@@ -424,44 +429,46 @@ class RoomExtrasMixin:
         state = self.hass.states.get(entity_id)
         if state is None or state.state in ("unavailable", "unknown"):
             return
+
         rh = self.indoor_rh
-        # NICHT humidity_difference (Unterschied zur Außenluft) verwenden: Ein Luftentfeuchter
-        # entzieht der Raumluft Wasser unabhängig davon, wie feucht es draußen ist - anders als
-        # Lüften braucht er keine trockenere Außenluft. Mit dem Außenluft-Vergleich als Gate würde
-        # er ausgerechnet dann nicht anspringen, wenn die Außenluft feuchter als drinnen ist -
-        # genau der Fall, in dem Lüften nicht hilft und der Entfeuchter am meisten gebraucht wird.
-        # Nicht self._humidity_reasons_met verwenden: _extras_tick() läuft vor
-        # _update_recommendation(), daher kann dieser Zwischenstatus noch vom vorherigen
-        # Sensorwert stammen. Der Entfeuchter muss immer mit den aktuell gemessenen Werten
-        # entscheiden und braucht keinen Vergleich mit der Außenluft.
         indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
+        ah_start = target_abs + DEHUM_AH_HYSTERESIS
+        ah_stop = target_abs - DEHUM_AH_HYSTERESIS
+        rh_start = DEHUM_ON_RH
+        rh_stop = DEHUM_OFF_RH - DEHUM_RH_HYSTERESIS
+        mold_high = self.mold_risk == "hoch"
         need = (
-            indoor_ah is not None and indoor_ah > target_abs
-        ) or (
-            rh is not None and rh >= DEHUM_ON_RH
-        ) or self.mold_risk in ("erhöht", "hoch")
+            (indoor_ah is not None and indoor_ah > ah_start)
+            or (rh is not None and rh >= rh_start)
+            or self.mold_risk in ("erhöht", "hoch")
+        )
+
         humidity_difference = self.humidity_difference
+        ventilation_available = (
+            self.recommended_minutes > 0
+            and self.block_reason not in ("Regen", "Gewitter erwartet", "Außenluft nicht trockener")
+            and not self.in_quiet_hours(now)
+            and not self.on_vacation
+            and not (self.persons and not self.anyone_home)
+            and not self.open_windows()
+        )
         cannot_vent = (
             _is_raining(self.hass, self.data.get(CONF_RAIN))
-            or (
-                humidity_difference is not None
-                and humidity_difference <= 1.0
-            )
+            or (humidity_difference is not None and humidity_difference <= 1.0)
             or self.in_quiet_hours(now)
             or self.on_vacation
             or (self.persons and not self.anyone_home)
+            or not ventilation_available
         )
 
         if self._dehum_on_since is None:
-            # Einschalten: feucht, Lüften geht gerade nicht, Fenster zu
             if (
-                need and cannot_vent and not self.open_windows()
-                and (
-                    (rh is not None and rh >= DEHUM_ON_RH)
-                    or _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
-                    >= float(self.data.get("target_absolute_humidity", 11.5))
-                )
+                need
+                and cannot_vent
+                and not ventilation_available
+                and not self.open_windows()
+                and (self._dehum_off_until is None or now >= self._dehum_off_until or mold_high)
                 and state.state == "off"
             ):
                 self._dehum_on_since = now
@@ -469,25 +476,23 @@ class RoomExtrasMixin:
                     await self._save()
                 else:
                     self._dehum_on_since = None
+            elif state.state == "on":
+                self._dehum_on_since = now
+                await self._save()
             return
 
-        # Ausschalten: sobald ein Fenster geöffnet wird (dann übernimmt das Lüften, und
-        # Entfeuchten + offenes Fenster wäre nur verschwendete Energie) - die Mindestlaufzeit
-        # gilt nur für den zweiten Fall unten (trocken genug/nicht mehr nötig), nicht fürs
-        # Aufhören wegen eines geöffneten Fensters.
         ran = (now - self._dehum_on_since) >= timedelta(minutes=DEHUM_MIN_RUNTIME_MINUTES)
-        done = rh is not None and rh <= DEHUM_OFF_RH
-        if self.open_windows() or (ran and (done or not need)):
+        done_ah = indoor_ah is not None and indoor_ah <= ah_stop
+        done_rh = rh is not None and rh <= rh_stop
+        done = done_ah or (indoor_ah is None and done_rh)
+        stop_for_ventilation = self.open_windows() or ventilation_available
+
+        if stop_for_ventilation or (ran and (done or not need)):
             await self._call(domain, "turn_off", {"entity_id": entity_id})
             self._dehum_on_since = None
+            self._dehum_off_until = now + timedelta(minutes=DEHUM_RESTART_COOLDOWN_MINUTES)
             await self._save()
         elif state.state == "off":
-            # Wir gehen eigentlich davon aus, dass er noch läuft (sonst wäre der Zweig oben
-            # genommen worden), aber das Gerät selbst meldet "aus" - der Einschalt-Befehl kam nie
-            # an, jemand hat es von Hand wieder ausgeschaltet, oder ein Neustart hat den echten
-            # Gerätezustand nicht mitbekommen. Zustand korrigieren, damit die Einschalt-Logik oben
-            # beim nächsten Durchlauf erneut greifen kann, statt für immer in diesem "wir denken
-            # er läuft" hängen zu bleiben (die Feuchte sinkt ja nie, wenn er in Wahrheit aus ist).
             self._dehum_on_since = None
             await self._save()
 
@@ -547,6 +552,13 @@ class RoomExtrasMixin:
         if state is None or state.state in ("unavailable", "unknown"):
             return
         need = self.shutter_recommended
+        radiation = _num_state(self.hass, self.data.get(CONF_SOLAR_RADIATION))
+
+        if self._shutter_closed_since is not None and radiation is not None:
+            # Hysterese: ein bereits geschlossenes Rollo bleibt bei kurzzeitiger
+            # Einstrahlungsschwankung geschlossen, bis die Strahlung klar abgefallen ist.
+            if SOLAR_RADIATION_MIN <= radiation < SOLAR_RADIATION_RELEASE and self.season == SEASON_SUMMER:
+                need = True
 
         if self._shutter_closed_since is None:
             # Schließen: nur ein tatsächlich offenes Rollo anfassen - eine manuell gewählte

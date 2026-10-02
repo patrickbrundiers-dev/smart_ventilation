@@ -607,6 +607,9 @@
       },
       "energy_total": {
         "name": "Lüftungsenergie gesamt"
+      },
+      "decision_reason": {
+        "name": "Entscheidungsgrund"
       }
     },
     "binary_sensor": {

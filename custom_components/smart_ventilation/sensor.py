@@ -24,6 +24,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         return
     async_add_entities([
         RecommendationSensor(coordinator),
+        DecisionReasonSensor(coordinator),
         MinutesSensor(coordinator),
         HumidityDifferenceSensor(coordinator),
         TemperatureDifferenceSensor(coordinator),
@@ -114,6 +115,28 @@ class RecommendationSensor(BaseSensor):
             **super().extra_state_attributes,
             "grund": self.coordinator.recommend_reason,
             "karte": self.coordinator.card_data(),
+        }
+
+
+class DecisionReasonSensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, c):
+        super().__init__(c, "decision_reason", "Entscheidungsgrund")
+
+    @property
+    def native_value(self):
+        return self.coordinator.adaptive_reason
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            **super().extra_state_attributes,
+            "score": self.coordinator.adaptive_score,
+            "empfohlener_modus": self.coordinator.recommended_mode,
+            "empfohlene_minuten": self.coordinator.recommended_minutes,
+            "rest_minuten": self.coordinator.remaining_minutes,
+            "blockiert_durch": self.coordinator.block_reason or None,
         }
 
 

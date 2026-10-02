@@ -145,6 +145,9 @@
       },
       "need_month": {
         "default": "mdi:chart-timeline-variant"
+      },
+      "decision_reason": {
+        "default": "mdi:help-circle-outline"
       }
     },
     "binary_sensor": {

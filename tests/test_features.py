@@ -488,7 +488,11 @@ async def test_solar_radiation_overrides_geometric_direct_sun(
     Rollo-Empfehlung trotz passender Sonnengeometrie. Erst ab genug W/m² wieder wie gewohnt."""
     freezer.move_to("2026-06-15 12:00:00+02:00")
     entry = await setup_room(
-        hass, use_sun=True, season_mode="summer", solar_radiation_entity="sensor.strahlung"
+        hass,
+        use_sun=True,
+        season_mode="summer",
+        solar_radiation_entity="sensor.strahlung",
+        weather_entity="weather.test",
     )
     rec = eid(hass, "sensor", entry, "recommendation")
     hass.states.async_set(
@@ -694,3 +698,98 @@ async def test_humidity_airing_not_contradicted_by_warm_warning(hass: HomeAssist
     hass.states.async_set("sensor.aussen_t", 24.0)          # > 3 °C wärmer -> jetzt schließen
     await _tick(hass, freezer, 1)
     assert any(t.startswith("Fenster schließen") for t in _titles(pushes))
+
+
+async def test_dehumidifier_uses_absolute_humidity_hysteresis(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Der Entfeuchter schaltet nicht an der Zielwertkante ständig um."""
+    freezer.move_to("2026-09-27 10:00:00+02:00")
+    on = async_mock_service(hass, "switch", "turn_on")
+    off = async_mock_service(hass, "switch", "turn_off")
+    hass.states.async_set("switch.entfeuchter", "off")
+    await setup_room(hass, dehumidifier_entity="switch.entfeuchter", season_mode="summer")
+
+    hass.states.async_set("sensor.regen", 1.2)
+    hass.states.async_set("sensor.innen_ah", 10.4)
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 1
+    hass.states.async_set("switch.entfeuchter", "on")
+
+    # Noch oberhalb des Zielwerts, aber innerhalb des Hysteresebands -> weiter an.
+    hass.states.async_set("sensor.innen_ah", 10.2)
+    await _tick(hass, freezer, 16)
+    assert len(off) == 0
+
+    # Erst deutlich unter dem Zielwert wird nach der Mindestlaufzeit ausgeschaltet.
+    hass.states.async_set("sensor.innen_ah", 8.0)
+    await _tick(hass, freezer, 0.5)
+    assert len(off) == 1
+
+
+async def test_shutter_cloud_cover_and_radiation_are_combined(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Mittlere Bewölkung reicht ohne ausreichend echte Einstrahlung nicht für die Rollo-Aktion."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    entry = await setup_room(
+        hass,
+        use_sun=True,
+        season_mode="summer",
+        solar_radiation_entity="sensor.strahlung",
+        weather_entity="weather.test",
+    )
+    rec = eid(hass, "sensor", entry, "recommendation")
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}
+    )
+    hass.states.async_set(
+        "weather.test", "partlycloudy", {"cloud_coverage": 55}
+    )
+    hass.states.async_set("sensor.strahlung", 150)
+    await _tick(hass, freezer, 0.5)
+    assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is False
+
+    hass.states.async_set("sensor.strahlung", 220)
+    await _tick(hass, freezer, 0.5)
+    assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is True
+
+
+
+async def test_dehumidifier_stops_on_absolute_humidity_before_rh_floor(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    on = async_mock_service(hass, "switch", "turn_on")
+    off = async_mock_service(hass, "switch", "turn_off")
+    hass.states.async_set("switch.entfeuchter", "off")
+    await setup_room(
+        hass,
+        dehumidifier_entity="switch.entfeuchter",
+        indoor_relative_humidity="sensor.innen_rh",
+    )
+    hass.states.async_set("sensor.regen", 1.2)
+    hass.states.async_set("sensor.innen_ah", 10.5)
+    hass.states.async_set("sensor.innen_rh", 65)
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 1
+    hass.states.async_set("switch.entfeuchter", "on")
+    hass.states.async_set("sensor.innen_ah", 9.0)
+    hass.states.async_set("sensor.innen_rh", 58)
+    await _tick(hass, freezer, 16)
+    assert len(off) == 1
+
+
+async def test_decision_reason_sensor_explains_current_choice(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass)
+    hass.states.async_set("sensor.innen_ah", 13.0)
+    hass.states.async_set("sensor.aussen_ah", 8.0)
+    await _tick(hass, freezer, 1)
+    reason = hass.states.get(eid(hass, "sensor", entry, "decision_reason"))
+    assert reason is not None
+    assert reason.state
+    assert isinstance(reason.attributes["score"], int)
+    assert reason.attributes["empfohlene_minuten"] > 0

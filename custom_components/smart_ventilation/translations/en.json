@@ -607,6 +607,9 @@
       },
       "energy_total": {
         "name": "Total ventilation energy"
+      },
+      "decision_reason": {
+        "name": "Decision reason"
       }
     },
     "binary_sensor": {
