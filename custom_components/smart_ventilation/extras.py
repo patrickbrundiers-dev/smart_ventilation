@@ -464,9 +464,11 @@ class RoomExtrasMixin:
                 )
                 and state.state == "off"
             ):
+                self._dehum_on_since = now
                 if await self._call(domain, "turn_on", {"entity_id": entity_id}):
-                    self._dehum_on_since = now
                     await self._save()
+                else:
+                    self._dehum_on_since = None
             return
 
         # Ausschalten: sobald ein Fenster geöffnet wird (dann übernimmt das Lüften, und
