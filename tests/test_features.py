@@ -711,18 +711,18 @@ async def test_dehumidifier_uses_absolute_humidity_hysteresis(
     await setup_room(hass, dehumidifier_entity="switch.entfeuchter", season_mode="summer")
 
     hass.states.async_set("sensor.regen", 1.2)
-    hass.states.async_set("sensor.innen_ah", 11.9)
+    hass.states.async_set("sensor.innen_ah", 10.4)
     await _tick(hass, freezer, 0.5)
     assert len(on) == 1
     hass.states.async_set("switch.entfeuchter", "on")
 
     # Noch oberhalb des Zielwerts, aber innerhalb des Hysteresebands -> weiter an.
-    hass.states.async_set("sensor.innen_ah", 11.6)
+    hass.states.async_set("sensor.innen_ah", 10.2)
     await _tick(hass, freezer, 16)
     assert len(off) == 0
 
     # Erst deutlich unter dem Zielwert wird nach der Mindestlaufzeit ausgeschaltet.
-    hass.states.async_set("sensor.innen_ah", 11.1)
+    hass.states.async_set("sensor.innen_ah", 9.6)
     await _tick(hass, freezer, 0.5)
     assert len(off) == 1
 
