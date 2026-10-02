@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
@@ -109,11 +109,11 @@ async def test_history_load_sanitizes_corrupt_state_and_measurement_edges(hass: 
     assert room._last_anomaly_check is None
 
     now = __import__("homeassistant.util.dt", fromlist=["now"]).now()
-    room.wall_rh = 85
-    room.recommended_minutes = 10
-    room._last_measure = None
-    room._measure(now)
-    assert room.mold_log["2026-12-05"] == 0.5
+    with patch("custom_components.smart_ventilation.coordinator.SmartVentilationCoordinator.wall_rh", new_callable=PropertyMock, return_value=85):
+        room.recommended_minutes = 10
+        room._last_measure = None
+        room._measure(now)
+        assert room.mold_log["2026-12-05"] == 0.5
 
     room._measure(now - timedelta(minutes=1))
     assert room.mold_log["2026-12-05"] == 0.5
@@ -125,17 +125,17 @@ async def test_history_day_archive_and_anomaly_notification(hass: HomeAssistant,
     entry = await setup_room(hass)
     room = hass.data[DOMAIN][entry.entry_id]
 
-    room.energy_price = 0.4
-    room._archive_day({
+    with patch("custom_components.smart_ventilation.coordinator.SmartVentilationCoordinator.energy_price", new_callable=PropertyMock, return_value=0.4):
+        room._archive_day({
         "key": "2026-12-09",
         "ok": 3,
         "seconds": 7200,
         "kwh": 2.0,
-        "kwh_gespart": 0.5,
-    })
-    assert room.day_log["2026-12-09"]["kosten"] == 0.8
-    assert room.day_log["2026-12-09"]["kwh_netto"] == 1.5
-    assert room.day_log["2026-12-09"]["kosten_netto"] == 0.6
+            "kwh_gespart": 0.5,
+        })
+        assert room.day_log["2026-12-09"]["kosten"] == 0.8
+        assert room.day_log["2026-12-09"]["kwh_netto"] == 1.5
+        assert room.day_log["2026-12-09"]["kosten_netto"] == 0.6
 
     for i in range(1, 8):
         room.day_log[(__import__("datetime").date(2026, 12, 10) - timedelta(days=i)).isoformat()] = {"minuten": 10}
