@@ -395,6 +395,43 @@ async def test_overview_room_list_includes_dehumidifier_shutter_and_air_quality(
     assert room["luft"] == "schlecht"
 
 
+async def test_shutter_recommendation_ignores_heavy_clouds(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Bei bedecktem Himmel darf ein passender Sonnenwinkel allein kein Rollo-Schließen auslösen."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    entry = await setup_room(hass, use_sun=True, season_mode="summer", weather_entity="weather.home")
+    hass.states.async_set(
+        "weather.home", "cloudy", {"cloud_coverage": 90, "temperature": 22}
+    )
+    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106})
+    await hass.async_block_till_done()
+
+    room = hass.data[DOMAIN][entry.entry_id]
+    assert room.shutter_recommended is False
+
+
+async def test_shutter_recommendation_reacts_to_weather_entity_changes(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Ein Wechsel der Wetterlage muss die Rollo-Empfehlung sofort neu berechnen."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    entry = await setup_room(hass, use_sun=True, season_mode="summer", weather_entity="weather.home")
+    hass.states.async_set(
+        "weather.home", "sunny", {"cloud_coverage": 5, "temperature": 24}
+    )
+    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106})
+    await hass.async_block_till_done()
+    room = hass.data[DOMAIN][entry.entry_id]
+    assert room.shutter_recommended is True
+
+    hass.states.async_set(
+        "weather.home", "overcast", {"cloud_coverage": 95, "temperature": 22}
+    )
+    await hass.async_block_till_done()
+    assert room.shutter_recommended is False
+
+
 async def test_unload(hass: HomeAssistant, berlin) -> None:
     entry = await setup_room(hass)
     assert await hass.config_entries.async_unload(entry.entry_id)
