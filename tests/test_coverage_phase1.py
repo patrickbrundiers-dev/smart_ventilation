@@ -405,3 +405,69 @@ async def test_overview_monthly_report_with_comparison(hass: HomeAssistant):
 
     await coordinator._send_monthly_report()
     assert coordinator._last_month_report == "2026-09"
+
+
+async def test_card_registers_static_path_and_local_url(hass: HomeAssistant, tmp_path: Path):
+    hass.data.pop(card.DATA_URL, None)
+    hass.state = "running"
+    http = MagicMock()
+    http.async_register_static_paths = AsyncMock()
+    hass.http = http
+    with patch.object(card, "CARD_FILE", tmp_path / "card.js"), patch.object(
+        card, "_copy_to_www", return_value=True
+    ), patch.object(card, "_local_file", return_value=tmp_path / "www" / "card.js"), patch.object(
+        card, "_local_served", return_value=True
+    ), patch.object(card, "_add_extra_module", return_value=True), patch.object(
+        card, "_async_register_resource", new=AsyncMock(return_value=True)
+    ):
+        (tmp_path / "card.js").write_text("x", encoding="utf-8")
+        await card.async_register_card(hass)
+
+    assert hass.data[card.DATA_URL] == card.LOCAL_URL_VERSIONED
+    http.async_register_static_paths.assert_awaited_once()
+
+
+async def test_card_registers_fallback_and_retry_when_not_running(hass: HomeAssistant, tmp_path: Path):
+    hass.data.pop(card.DATA_URL, None)
+    hass.state = "not_running"
+    http = MagicMock()
+    http.async_register_static_paths = AsyncMock()
+    hass.http = http
+
+    retry_listener = MagicMock()
+    with patch.object(card, "CARD_FILE", tmp_path / "card.js"), patch.object(
+        card, "_copy_to_www", return_value=False
+    ), patch.object(card, "_local_served", return_value=False), patch.object(
+        card, "_add_extra_module", return_value=False
+    ), patch.object(card, "_async_register_resource", new=AsyncMock(return_value=False)), patch.object(
+        hass.bus, "async_listen_once", return_value=retry_listener
+    ):
+        (tmp_path / "card.js").write_text("x", encoding="utf-8")
+        await card.async_register_card(hass)
+
+    assert hass.data[card.DATA_URL] == card.CARD_URL_VERSIONED
+    hass.bus.async_listen_once.assert_called_once()
+
+
+async def test_card_register_static_path_failure_does_not_mark_ready(hass: HomeAssistant, tmp_path: Path):
+    hass.data.pop(card.DATA_URL, None)
+    http = MagicMock()
+    http.async_register_static_paths = AsyncMock(side_effect=RuntimeError("boom"))
+    hass.http = http
+
+    with patch.object(card, "CARD_FILE", tmp_path / "card.js"):
+        (tmp_path / "card.js").write_text("x", encoding="utf-8")
+        await card.async_register_card(hass)
+
+    assert card.DATA_URL not in hass.data
+
+
+async def test_card_remove_resource_tolerates_resource_failure(hass: HomeAssistant):
+    resources = MagicMock()
+    resources.async_get_info = AsyncMock(side_effect=RuntimeError("boom"))
+    resources.async_items.return_value = []
+    with patch.object(card, "_lovelace_resources", return_value=resources), patch.object(
+        hass, "async_add_executor_job", new=AsyncMock()
+    ) as executor:
+        await card.async_remove_resource(hass)
+        executor.assert_awaited_once()
