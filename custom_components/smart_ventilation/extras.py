@@ -13,7 +13,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CAT_MOLD, CAT_REPORT, CAT_SHOWER, CAT_WARNING,
     CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF,
-    CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_SHUTTER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP,
+    CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_SHUTTER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP, CONF_TARGET_ABS,
     CONF_NAME, CONF_OUTDOOR_HUMIDITY, CONF_OUTDOOR_TEMP, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_WEEKLY_REPORT, COOL_MAX_EXTRA_HUMIDITY,
     COOL_MIN_DIFF, DEFAULT_COMFORT_TEMP, DEFAULT_TARGET_DIFF, DEHUM_MIN_RUNTIME_MINUTES,
@@ -429,9 +429,17 @@ class RoomExtrasMixin:
         # Lüften braucht er keine trockenere Außenluft. Mit dem Außenluft-Vergleich als Gate würde
         # er ausgerechnet dann nicht anspringen, wenn die Außenluft feuchter als drinnen ist -
         # genau der Fall, in dem Lüften nicht hilft und der Entfeuchter am meisten gebraucht wird.
-        # self._humidity_reasons_met (siehe _humidity_need) prüft stattdessen, ob die Raumluft für
-        # sich genommen zu feucht ist (Zielwert/rel. Feuchte/Schimmelrisiko), unabhängig von außen.
-        need = self._humidity_reasons_met
+        # Nicht self._humidity_reasons_met verwenden: _extras_tick() läuft vor
+        # _update_recommendation(), daher kann dieser Zwischenstatus noch vom vorherigen
+        # Sensorwert stammen. Der Entfeuchter muss immer mit den aktuell gemessenen Werten
+        # entscheiden und braucht keinen Vergleich mit der Außenluft.
+        indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
+        need = (
+            indoor_ah is not None and indoor_ah > target_abs
+        ) or (
+            rh is not None and rh >= DEHUM_ON_RH
+        ) or self.mold_risk in ("erhöht", "hoch")
         cannot_vent = (
             bool(self.block_reason)
             or self.recommended_minutes == 0
