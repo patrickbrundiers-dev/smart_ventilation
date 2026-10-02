@@ -85,11 +85,11 @@ class RoomExtrasMixin:
         self._last_report = stored.get("last_report")
         self._vacation_warned = stored.get("vacation_warned")
         if stored.get("dehum_on_since"):
-            self._dehum_on_since = dt_util.parse_datetime(stored["dehum_on_since"])
+            self._dehum_on_since = self._stored_datetime(stored["dehum_on_since"])
         if stored.get("dehum_off_until"):
-            self._dehum_off_until = dt_util.parse_datetime(stored["dehum_off_until"])
+            self._dehum_off_until = self._stored_datetime(stored["dehum_off_until"])
         if stored.get("shutter_closed_since"):
-            self._shutter_closed_since = dt_util.parse_datetime(stored["shutter_closed_since"])
+            self._shutter_closed_since = self._stored_datetime(stored["shutter_closed_since"])
         self._shutter_notified = bool(stored.get("shutter_notified", False))
         self.last_trace = stored.get("last_trace")
 
