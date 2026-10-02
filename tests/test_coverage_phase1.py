@@ -10,7 +10,16 @@ import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.smart_ventilation.const import ACTION_SKIP, ACTION_SNOOZE, CONF_NAME, DOMAIN, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP
+from custom_components.smart_ventilation.const import (
+    ACTION_SKIP,
+    ACTION_SNOOZE,
+    CAT_WARNING,
+    CONF_INDOOR_HUMIDITY,
+    CONF_INDOOR_TEMP,
+    CONF_NAME,
+    CONF_NOTIFY_TARGETS_WARNING,
+    DOMAIN,
+)
 from custom_components.smart_ventilation.export import _rows, _rooms, _write_csv, async_setup_export
 from custom_components.smart_ventilation.overview import OverviewCoordinator
 from custom_components.smart_ventilation import card, notify_util
@@ -488,8 +497,8 @@ def test_notify_time_category_and_presence_filters(hass: HomeAssistant):
 
     targets = ["notify.mobile_app_p", "notify.mobile_app_j"]
     assert notify_util.targets_for_category({}, "unknown", targets) == targets
-    assert notify_util.targets_for_category({"warning_targets": []}, "warning", targets) == []
-    assert notify_util.targets_for_category({"warning_targets": ["notify.mobile_app_p"]}, "warning", targets) == [
+    assert notify_util.targets_for_category({CONF_NOTIFY_TARGETS_WARNING: []}, CAT_WARNING, targets) == []
+    assert notify_util.targets_for_category({CONF_NOTIFY_TARGETS_WARNING: ["notify.mobile_app_p"]}, CAT_WARNING, targets) == [
         "notify.mobile_app_p"
     ]
 
@@ -522,8 +531,13 @@ async def test_notify_send_voice_normal_and_failed_services(hass: HomeAssistant)
     )
     assert normal is True
 
-    with patch.object(hass.services, "has_service", side_effect=lambda domain, service: service == "broken"), \
-         patch.object(hass.services, "async_call", new=AsyncMock(side_effect=RuntimeError("offline"))):
+    with patch(
+        "homeassistant.core.ServiceRegistry.has_service",
+        side_effect=lambda _self, domain, service: service == "broken",
+    ), patch(
+        "homeassistant.core.ServiceRegistry.async_call",
+        new=AsyncMock(side_effect=RuntimeError("offline")),
+    ):
         assert await notify_util.send(hass, ["notify.broken"], "Titel", "Text", "tag") is False
 
 
@@ -546,7 +560,8 @@ def test_extras_helpers_and_trace(hass: HomeAssistant):
     RoomExtrasMixin._init_extras(room)
     RoomExtrasMixin._trace_add(room)
     assert room.session["trace"]
+    room.session = None
     room.last_trace = {"ende": "now", "punkte": [[i, 10, 20] for i in range(70)]}
     card_data = RoomExtrasMixin.trace_for_card(room)
-    assert card_data["laeuft"] is True
+    assert card_data["laeuft"] is False
     assert len(card_data["punkte"]) == 61
