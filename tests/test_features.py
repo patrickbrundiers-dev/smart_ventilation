@@ -753,3 +753,43 @@ async def test_shutter_cloud_cover_and_radiation_are_combined(
     hass.states.async_set("sensor.strahlung", 220)
     await _tick(hass, freezer, 0.5)
     assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is True
+
+
+
+async def test_dehumidifier_stops_on_absolute_humidity_before_rh_floor(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    on = async_mock_service(hass, "switch", "turn_on")
+    off = async_mock_service(hass, "switch", "turn_off")
+    hass.states.async_set("switch.entfeuchter", "off")
+    await setup_room(
+        hass,
+        dehumidifier_entity="switch.entfeuchter",
+        indoor_relative_humidity="sensor.innen_rh",
+    )
+    hass.states.async_set("sensor.regen", 1.2)
+    hass.states.async_set("sensor.innen_ah", 10.5)
+    hass.states.async_set("sensor.innen_rh", 65)
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 1
+    hass.states.async_set("switch.entfeuchter", "on")
+    hass.states.async_set("sensor.innen_ah", 9.0)
+    hass.states.async_set("sensor.innen_rh", 58)
+    await _tick(hass, freezer, 16)
+    assert len(off) == 1
+
+
+async def test_decision_reason_sensor_explains_current_choice(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room()
+    hass.states.async_set("sensor.innen_ah", 13.0)
+    hass.states.async_set("sensor.aussen_ah", 8.0)
+    await _tick(hass, freezer, 1)
+    reason = hass.states.get(eid(hass, "sensor", entry, "decision_reason"))
+    assert reason is not None
+    assert reason.state
+    assert isinstance(reason.attributes["score"], int)
+    assert reason.attributes["empfohlene_minuten"] > 0
