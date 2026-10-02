@@ -11,8 +11,8 @@
   ],
   "config_flow": true,
   "documentation": "https://github.com/patrickbrundiers-dev/smart_ventilation",
-  "issue_tracker": "https://github.com/patrickbrundiers-dev/smart_ventilation/issues",
   "integration_type": "device",
+  "issue_tracker": "https://github.com/patrickbrundiers-dev/smart_ventilation/issues",
   "iot_class": "calculated",
   "requirements": [],
   "version": "2.18.2"
