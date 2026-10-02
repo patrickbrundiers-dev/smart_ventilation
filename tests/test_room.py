@@ -714,7 +714,8 @@ async def test_missing_rain_sensor_is_a_hard_safety_block(
 async def test_missing_thunderstorm_sensor_is_a_hard_safety_block(
     hass: HomeAssistant, berlin
 ) -> None:
-    """Ein konfigurierter, aber ausgefallener Gewittersensor darf nicht als kein Gewitter gelten."""
+    """Ein konfigurierter, aber ausgefallener Gewittersensor muss sicher blockieren und sauber recovern."""
+    hass.states.async_set("binary_sensor.gewitter_erwartet", "unavailable")
     entry = await setup_room(
         hass, thunderstorm_entity="binary_sensor.gewitter_erwartet"
     )
@@ -724,6 +725,15 @@ async def test_missing_thunderstorm_sensor_is_a_hard_safety_block(
     assert state.state == "Nicht lüften – Gewittersensor nicht verfügbar"
     assert state.attributes["karte"]["minuten"] == 0
     assert state.attributes["karte"]["blockiert"] == "Gewittersensor nicht verfügbar"
+
+    hass.states.async_set("binary_sensor.gewitter_erwartet", "off")
+    await hass.async_block_till_done()
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
+
+    hass.states.async_set("binary_sensor.gewitter_erwartet", "unavailable")
+    await hass.async_block_till_done()
+    assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
+    assert hass.states.get(rec).attributes["karte"]["blockiert"] == "Gewittersensor nicht verfügbar"
 
     hass.states.async_set("binary_sensor.gewitter_erwartet", "off")
     await hass.async_block_till_done()
