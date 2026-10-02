@@ -97,6 +97,24 @@ async def test_season_does_not_flap_within_a_single_day(
     assert hass.states.get(season).state == "winter"  # nie wirklich auf Sommer gesprungen
 
 
+async def test_forecast_missing_rain_data_is_conservative(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    freezer.move_to("2026-09-27 10:00:00+02:00")
+    async def _handle_get_forecasts(call):
+        return {"weather.home": {"forecast": [
+            {"datetime": (dt_util.now() + timedelta(hours=2)).isoformat(),
+             "temperature": 12.0, "humidity": 70.0, "wind_speed": 10.0}
+        ]}}
+    hass.services.async_register("weather", "get_forecasts", _handle_get_forecasts,
+                                supports_response=SupportsResponse.ONLY)
+    entry = await setup_room(hass, season_mode="auto", weather_entity="weather.home")
+    room = hass.data[DOMAIN][entry.entry_id]
+    await room._update_forecast()
+    assert room.best_time is not None
+    assert room.best_info["regen_daten_verfügbar"] is False
+
+
 async def test_season_uses_daily_forecast_trend_without_waiting(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
