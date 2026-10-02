@@ -17,7 +17,7 @@ from .const import (
     CONF_NAME, CONF_OUTDOOR_HUMIDITY, CONF_OUTDOOR_TEMP, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_WEEKLY_REPORT, COOL_MAX_EXTRA_HUMIDITY,
     COOL_MIN_DIFF, DEFAULT_COMFORT_TEMP, DEFAULT_TARGET_DIFF, DEHUM_MIN_RUNTIME_MINUTES,
-    DEHUM_OFF_RH, DEHUM_ON_RH, SHUTTER_MIN_RUNTIME_MINUTES, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
+    DEHUM_AH_HYSTERESIS, DEHUM_OFF_RH, DEHUM_ON_RH, DEHUM_RH_HYSTERESIS, SHUTTER_MIN_RUNTIME_MINUTES, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
     SEASON_SUMMER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
     CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER, PREHEAT_MAX_EXTRA_HUMIDITY, CONF_RAIN,
@@ -437,7 +437,7 @@ class RoomExtrasMixin:
         indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
         need = (
-            indoor_ah is not None and indoor_ah > target_abs
+            indoor_ah is not None and indoor_ah > target_abs + DEHUM_AH_HYSTERESIS
         ) or (
             rh is not None and rh >= DEHUM_ON_RH
         ) or self.mold_risk in ("erhöht", "hoch")
@@ -459,8 +459,11 @@ class RoomExtrasMixin:
                 need and cannot_vent and not self.open_windows()
                 and (
                     (rh is not None and rh >= DEHUM_ON_RH)
-                    or _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
-                    >= float(self.data.get("target_absolute_humidity", 11.5))
+                    or (
+                        indoor_ah is not None
+                        and indoor_ah > target_abs + DEHUM_AH_HYSTERESIS
+                    )
+                    or self.mold_risk in ("erhöht", "hoch")
                 )
                 and state.state == "off"
             ):
@@ -476,7 +479,11 @@ class RoomExtrasMixin:
         # gilt nur für den zweiten Fall unten (trocken genug/nicht mehr nötig), nicht fürs
         # Aufhören wegen eines geöffneten Fensters.
         ran = (now - self._dehum_on_since) >= timedelta(minutes=DEHUM_MIN_RUNTIME_MINUTES)
-        done = rh is not None and rh <= DEHUM_OFF_RH
+        done = (
+            (indoor_ah is None or indoor_ah <= target_abs - DEHUM_AH_HYSTERESIS)
+            and (rh is None or rh <= DEHUM_OFF_RH - DEHUM_RH_HYSTERESIS)
+            and self.mold_risk not in ("erhöht", "hoch")
+        )
         if self.open_windows() or (ran and (done or not need)):
             await self._call(domain, "turn_off", {"entity_id": entity_id})
             self._dehum_on_since = None
