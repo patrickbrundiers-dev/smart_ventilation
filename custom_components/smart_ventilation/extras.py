@@ -91,7 +91,22 @@ class RoomExtrasMixin:
         if stored.get("shutter_closed_since"):
             self._shutter_closed_since = self._stored_datetime(stored["shutter_closed_since"])
         self._shutter_notified = bool(stored.get("shutter_notified", False))
-        self.last_trace = stored.get("last_trace")
+        trace = stored.get("last_trace")
+        if isinstance(trace, dict):
+            points = trace.get("punkte")
+            if isinstance(points, list):
+                valid_points = [
+                    point for point in points
+                    if isinstance(point, list) and len(point) == 3
+                ]
+                self.last_trace = {
+                    "ende": trace.get("ende"),
+                    "punkte": valid_points[-TRACE_MAX_POINTS:],
+                } if valid_points else None
+            else:
+                self.last_trace = None
+        else:
+            self.last_trace = None
 
     def _extras_entities(self):
         return [e for e in (self.data.get(CONF_SHOWER), self.data.get(CONF_VACATION)) if e]
