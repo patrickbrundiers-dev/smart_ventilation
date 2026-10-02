@@ -208,7 +208,7 @@ CONF_DEHUMIDIFIER = "dehumidifier_entity"
 DEHUM_ON_RH = 60.0
 DEHUM_OFF_RH = 55.0
 DEHUM_AH_HYSTERESIS = 0.3   # g/m³ – Abstand um den absoluten Feuchte-Zielwert
-DEHUM_RH_HYSTERESIS = 2.0   # %-Punkte – zusätzlicher Puffer für die RH-Abschaltung
+DEHUM_RH_HYSTERESIS = 0.0   # %-Punkte – zusätzlicher Puffer für die RH-Abschaltung
 DEHUM_MIN_RUNTIME_MINUTES = 15
 
 # Rollo/Jalousie – Empfehlung (und optional automatische Steuerung) bei direkter Sonne im Sommer.
