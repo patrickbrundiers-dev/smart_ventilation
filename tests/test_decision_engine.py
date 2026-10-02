@@ -91,6 +91,12 @@ def test_recent_bucket_is_not_changed_by_staleness():
     assert stale_adjusted_ach(model, 8, now=now) == 20
 
 
+def test_invalid_timestamp_is_treated_conservatively():
+    model = {"ach": 20, "last_updated": "not-a-date"}
+    value = stale_adjusted_ach(model, 8)
+    assert 8 < value < 20
+
+
 def test_global_learning_rejects_outlier():
     history, mean = robust_global_update([7, 8, 8, 9, 8, 8], 35)
     assert 35 not in history
