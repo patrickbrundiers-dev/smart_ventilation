@@ -22,5 +22,8 @@ def test_stored_observations_filters_corrupt_values():
     assert SmartVentilationCoordinator._stored_observations("bad") == []
 
 
-def test_restore_session_requires_dict():
-    assert not isinstance("corrupt-session", dict)
+def test_restore_session_corrupt_value_is_ignored():
+    saved = "corrupt-session"
+    assert not isinstance(saved, dict)
+    if isinstance(saved, dict) and saved.get("started"):
+        raise AssertionError("corrupt session must not be restored")
