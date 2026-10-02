@@ -198,6 +198,33 @@ async def test_ventilation_session(hass: HomeAssistant, freezer: FrozenDateTimeF
     assert hass.states.get(eid(hass, "binary_sensor", entry, "ventilated_today")).state == "on"
 
 
+async def test_learning_is_blocked_after_humidity_sensor_gap(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass)
+    room = hass.data[DOMAIN][entry.entry_id]
+
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+
+    # Eine Messlücke während der Session darf später nicht als echter Luftwechsel gelernt werden.
+    hass.states.async_set("sensor.innen_ah", "unavailable")
+    await _tick(hass, freezer, 1)
+    assert room.session["learning_blocked"] is True
+
+    # Sensor kommt zurück: Session darf normal weiterlaufen, Lernen bleibt aber gesperrt.
+    hass.states.async_set("sensor.innen_ah", 5.5)
+    await _tick(hass, freezer, 1)
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    await hass.async_block_till_done()
+
+    assert room.samples == 0
+    assert room.models == {}
+    assert room.ach_observations == []
+
+
 async def test_cooling_warning(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
     freezer.move_to("2026-12-05 10:00:00+01:00")
     pushes = async_mock_service(hass, "notify", "mobile_app_test")
