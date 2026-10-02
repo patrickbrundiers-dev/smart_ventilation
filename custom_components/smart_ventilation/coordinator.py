@@ -1786,10 +1786,14 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
 
         self.block_reason = ""
+        # Diagnostics must always describe the current decision, never a previous cycle.
+        self.adaptive_score = 0
+        self.adaptive_reason = "Keine aktuelle Lüftungsentscheidung"
 
         if indoor is None or outdoor is None:
             self.recommendation = "Sensordaten fehlen"
             self.recommended_minutes = 0
+            self.adaptive_reason = "Sensordaten fehlen"
             return
 
         diff = indoor - outdoor
@@ -1818,10 +1822,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 self.recommended_minutes = 0
                 self.recommended_mode = "Keine Lüftung"
                 self.block_reason = "Außenluft nicht trockener"
+                self.adaptive_reason = "Außenluft nicht trockener"
                 return
             self.recommendation = "Keine Lüftung erforderlich"
             self.recommended_minutes = 0
             self.recommended_mode = "Keine Lüftung"
+            self.adaptive_reason = "Keine Lüftung erforderlich"
             return
 
         if _is_raining(self.hass, self.data[CONF_RAIN]):
@@ -1829,6 +1835,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self.recommended_minutes = 0
             self.recommended_mode = "Geschlossen"
             self.block_reason = "Regen"
+            self.adaptive_reason = "Regen blockiert"
             return
 
         if _has_risk(self.hass, self.data.get(CONF_THUNDERSTORM)):
@@ -1836,6 +1843,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self.recommended_minutes = 0
             self.recommended_mode = "Geschlossen"
             self.block_reason = "Gewitter erwartet"
+            self.adaptive_reason = "Gewitter erwartet – Lüftung blockiert"
             return
 
         temp_block, temp_reason = self._temperature_block()
@@ -1849,6 +1857,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self.recommended_minutes = 0
             self.recommended_mode = "Geschlossen"
             self.block_reason = temp_reason
+            self.adaptive_reason = temp_reason
             return
 
         sun_active, direct_sun, sun_reason = self._sun_effect()
