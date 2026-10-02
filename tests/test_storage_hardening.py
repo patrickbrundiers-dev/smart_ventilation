@@ -20,3 +20,7 @@ def test_stored_int_and_datetime_are_defensive():
 def test_stored_observations_filters_corrupt_values():
     assert SmartVentilationCoordinator._stored_observations(["1.2", "bad", 50, 0.1, 8]) == [1.2, 8.0]
     assert SmartVentilationCoordinator._stored_observations("bad") == []
+
+
+def test_restore_session_requires_dict():
+    assert not isinstance("corrupt-session", dict)
