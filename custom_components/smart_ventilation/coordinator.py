@@ -319,8 +319,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         # Laufende Lüftung aus der Zeit vor dem Neustart übernehmen
         saved = stored.get("session")
-        if saved and saved.get("started"):
-            started = dt_util.parse_datetime(saved["started"])
+        if isinstance(saved, dict) and saved.get("started"):
+            started = self._stored_datetime(saved["started"])
             if started is not None:
                 self.session = {**saved, "started": started, "restored": True}
                 self._target_notified = bool(saved.get("notified"))
