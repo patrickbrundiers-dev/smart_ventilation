@@ -29,7 +29,7 @@ jobs:
       - name: Home Assistant + Testumgebung installieren
         run: |
           python -m pip install --upgrade pip
-          pip install ${{ matrix.pre }} pytest-homeassistant-custom-component pytest-github-actions-annotate-failures
+          pip install ${{ matrix.pre }} pytest-homeassistant-custom-component pytest-github-actions-annotate-failures pytest-cov
           if [ "${{ matrix.dev }}" = "true" ]; then
             # Entwicklungsversion von HA über die stabile Testumgebung legen (z. B. für den Wechsel auf probatio)
             git clone -q --depth 1 -b dev https://github.com/home-assistant/core /tmp/core
@@ -40,7 +40,7 @@ jobs:
       - name: Tests
         run: |
           set -o pipefail
-          pytest -v -rf --tb=short 2>&1 | tee pytest.log
+          pytest -v -rf --tb=short --cov=custom_components/smart_ventilation --cov-report=term-missing --cov-report=xml:coverage.xml 2>&1 | tee pytest.log
       - name: Ergebnis
         if: always()
         run: |
