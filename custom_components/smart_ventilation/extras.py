@@ -436,6 +436,20 @@ class RoomExtrasMixin:
     # ------------------------------------------------------------------
     # Luftentfeuchter
     # ------------------------------------------------------------------
+    def _ventilation_priority_active(self, now=None):
+        """True, wenn Lüften gegenüber dem Entfeuchter Vorrang hat."""
+        if self.session or self.open_windows():
+            return True
+        if self.recommended_minutes <= 0:
+            return False
+        if self.block_reason in ("Regen", "Gewitter erwartet", "Außenluft nicht trockener"):
+            return False
+        if now is not None and self.in_quiet_hours(now):
+            return False
+        if self.on_vacation or (self.persons and not self.anyone_home):
+            return False
+        return True
+
     async def _dehumidifier_control(self, now):
         entity_id = self.data.get(CONF_DEHUMIDIFIER)
         if not entity_id:
@@ -460,14 +474,7 @@ class RoomExtrasMixin:
         )
 
         humidity_difference = self.humidity_difference
-        ventilation_available = (
-            self.recommended_minutes > 0
-            and self.block_reason not in ("Regen", "Gewitter erwartet", "Außenluft nicht trockener")
-            and not self.in_quiet_hours(now)
-            and not self.on_vacation
-            and not (self.persons and not self.anyone_home)
-            and not self.open_windows()
-        )
+        ventilation_available = self._ventilation_priority_active(now) and not self.open_windows()
         cannot_vent = (
             _is_raining(self.hass, self.data.get(CONF_RAIN))
             or (humidity_difference is not None and humidity_difference <= 1.0)
