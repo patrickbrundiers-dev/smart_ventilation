@@ -670,6 +670,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             # gelernter Luftwechsel würde systematisch zu niedrig ausfallen. Deshalb hier merken
             # und in _finish_session() vom Lernen ausnehmen (die Lüftung selbst läuft normal weiter).
             "after_shower": self.after_shower,
+            "learning_blocked": False,
             "trace": [[0, indoor, _float_state(self.hass, self.data[CONF_INDOOR_TEMP])]],
         }
         self._warm_warned = False
@@ -747,6 +748,18 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._update_recommendation()
         if not self.session:
             return
+        learning_indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        learning_outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
+        if learning_indoor is None or learning_outdoor is None:
+            # Eine Unterbrechung der Feuchtemessung macht den späteren ACH-Wert unbrauchbar:
+            # der aktuelle Endwert würde dann eine unbekannte Messlücke als Luftwechsel
+            # interpretieren. Die Session darf weiterlaufen, aber sie darf daraus nicht lernen.
+            self.session["learning_blocked"] = True
+
+        if self._sensor_unavailable(self.data.get(CONF_RAIN)) or self._sensor_unavailable(self.data.get(CONF_THUNDERSTORM)):
+            # Auch ein temporär ausgefallenes Safety-Signal darf keine Lernprobe erzeugen.
+            self.session["learning_blocked"] = True
+
         if _is_raining(self.hass, self.data[CONF_RAIN]):
             # Für _finish_session() merken: hat es IRGENDWANN während der Sitzung geregnet (nicht
             # nur exakt im Moment des Fensterschließens), soll daraus nichts gelernt werden - Regen
@@ -1419,7 +1432,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             category=CAT_FINISHED,
         )
 
-        if session.get("rained") or _is_raining(self.hass, self.data[CONF_RAIN]):
+        if session.get("learning_blocked") or session.get("rained") or _is_raining(self.hass, self.data[CONF_RAIN]):
             return
         if session.get("after_shower"):
             # Siehe Kommentar in _start_session(): anhaltende Verdunstung nach dem Duschen würde

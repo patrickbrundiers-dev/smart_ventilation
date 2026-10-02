@@ -110,8 +110,17 @@ def robust_ach_update(
         return model or {}, False
 
     current = dict(model or {})
-    history = [float(v) for v in current.get("history", []) if 0.2 <= float(v) <= 40]
-    if len(history) >= 5:
+    raw_history = current.get("history", [])
+    history: list[float] = []
+    if isinstance(raw_history, (list, tuple)):
+        for value in raw_history:
+            try:
+                parsed = float(value)
+            except (TypeError, ValueError):
+                continue
+            if 0.2 <= parsed <= 40:
+                history.append(parsed)
+    if len(history) >= trust_samples:
         med = median(history)
         deviations = [abs(v - med) for v in history]
         mad = median(deviations) if deviations else 0.0
@@ -119,8 +128,14 @@ def robust_ach_update(
         if abs(ach - med) > tolerance:
             return current, False
 
-    old_ach = float(current.get("ach", ach))
-    count = int(current.get("samples", len(history)))
+    try:
+        old_ach = float(current.get("ach", ach))
+    except (TypeError, ValueError):
+        old_ach = ach
+    try:
+        count = max(0, int(current.get("samples", len(history))))
+    except (TypeError, ValueError):
+        count = len(history)
     if count < trust_samples:
         new_ach = (old_ach * count + ach) / (count + 1)
     else:
@@ -168,13 +183,26 @@ def stale_adjusted_ach(
 
 def robust_global_update(history: list[float], ach: float, *, max_history: int = 24) -> tuple[list[float], float]:
     """Maintain a bounded global observation history and robust mean."""
-    values = [float(v) for v in history if 0.2 <= float(v) <= 40]
+    values: list[float] = []
+    for value in history:
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            continue
+        if 0.2 <= parsed <= 40:
+            values.append(parsed)
+    try:
+        candidate = float(ach)
+    except (TypeError, ValueError):
+        return values[-max_history:], sum(values) / len(values) if values else 8.0
+    if not 0.2 <= candidate <= 40:
+        return values[-max_history:], sum(values) / len(values) if values else 8.0
     if len(values) >= 5:
         med = median(values)
         mad = median(abs(v - med) for v in values)
-        if abs(ach - med) > max(2.0, med * 0.35, mad * 4.0):
+        if abs(candidate - med) > max(2.0, med * 0.35, mad * 4.0):
             return values[-max_history:], sum(values) / len(values)
-    values.append(float(ach))
+    values.append(candidate)
     values = values[-max_history:]
     ordered = sorted(values)
     trim = 1 if len(ordered) >= 7 else 0

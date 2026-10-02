@@ -106,3 +106,29 @@ def test_global_learning_rejects_outlier():
 def test_global_learning_history_is_bounded():
     history, _ = robust_global_update(list(range(1, 25)), 10)
     assert len(history) == 24
+
+
+def test_robust_bucket_ignores_malformed_history_values():
+    model = {"ach": 8, "samples": 5, "history": [8, "bad", None, 9]}
+    updated, accepted = robust_ach_update(model, 10)
+    assert accepted
+    assert updated["samples"] == 6
+    assert all(0.2 <= value <= 40 for value in updated["history"])
+
+
+def test_robust_bucket_uses_configured_trust_threshold():
+    model = {"ach": 8, "samples": 4, "history": [7, 8, 8, 9]}
+    updated, accepted = robust_ach_update(model, 10, trust_samples=4)
+    assert accepted
+    assert updated["samples"] == 5
+
+
+def test_global_learning_ignores_malformed_values_and_candidates():
+    history, mean = robust_global_update([7, "bad", None, 8, 9], 10)
+    assert history[-1] == 10
+    assert all(0.2 <= value <= 40 for value in history)
+    assert mean > 0
+
+    unchanged, fallback = robust_global_update([7, "bad"], "invalid")
+    assert unchanged == [7.0]
+    assert fallback == 7.0
