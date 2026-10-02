@@ -27,6 +27,12 @@ from .sensor_utils import (
     _wind_kmh,
 )
 from .history import HistoryMixin, month_name
+from .decision_engine import (
+    adaptive_ventilation_score,
+    robust_ach_update,
+    robust_global_update,
+    stale_adjusted_ach,
+)
 
 
 class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
@@ -48,6 +54,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.learned_ach = 8.0
         self.samples = 0
         self.models = {}
+        self.ach_observations = []
         self.session = None
 
         self.recommendation = "Keine Lüftung erforderlich"
@@ -55,6 +62,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.recommended_mode = "Keine Lüftung"
         self.recommend_reason = ""
         self.block_reason = ""
+        self.adaptive_score = 0
+        self.adaptive_reason = "Noch keine Entscheidung"
         self.last_notification_key = None
         self.last_notification_at = None
         self._listeners = []
@@ -190,6 +199,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.learned_ach = 8.0
         self.samples = 0
         self.models = {}
+        self.ach_observations = []
         await self._save()
         self._update_recommendation()
         self._notify_listeners()
@@ -214,6 +224,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.learned_ach = float(stored.get("learned_ach", 8.0))
         self.samples = int(stored.get("samples", 0))
         self.models = stored.get("models", {})
+        self.ach_observations = [float(v) for v in stored.get("ach_observations", []) if 0.2 <= float(v) <= 40]
         self.stats = stored.get("stats", {})
         self._roll_periods()
 
@@ -282,6 +293,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "learned_ach": self.learned_ach,
             "samples": self.samples,
             "models": self.models,
+            "ach_observations": self.ach_observations,
             "stats": self.stats,
             "session": self._serialize_session(),
             "skip_date": self._skip_date.isoformat() if self._skip_date else None,
@@ -489,7 +501,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         key = self._bucket(wind, angle, temp_diff, cross)
         model = self.models.get(key)
         if model and model.get("samples", 0) >= BUCKET_TRUST_SAMPLES:
-            return max(0.5, float(model["ach"])), key
+            return max(0.5, stale_adjusted_ach(model, self.learned_ach)), key
 
         ach = self.learned_ach
         if wind is not None:
@@ -1260,7 +1272,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         if not 0.2 <= ach <= 40:
             return
 
-        self.learned_ach = self.learned_ach * 0.8 + ach * 0.2
         self.samples += 1
 
         key = self._bucket(
@@ -1817,6 +1828,28 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         # (siehe _model_ach) - hier nicht zusätzlich anwenden, sonst würde derselbe Effekt doppelt
         # gezählt.
         effective_ach, bucket = self._model_ach(wind, angle, temp_diff, cross)
+        cloud_cover = None
+        radiation = _float_state(self.hass, self.data.get(CONF_SOLAR_RADIATION))
+        weather_entity = self.data.get(CONF_WEATHER)
+        weather_state = self.hass.states.get(weather_entity) if weather_entity else None
+        if weather_state is not None:
+            try:
+                cloud_cover = float(weather_state.attributes.get("cloud_coverage"))
+            except (TypeError, ValueError):
+                cloud_cover = None
+        adaptive_score, adaptive_reason = adaptive_ventilation_score(
+            humidity_gain=diff,
+            wind=wind,
+            wind_factor=1.0,
+            temperature_delta=temp_diff,
+            cloud_cover=cloud_cover,
+            solar_radiation=radiation,
+            rain=_is_raining(self.hass, self.data[CONF_RAIN]),
+            co2=co2,
+            mold_risk=self.mold_risk,
+        )
+        self.adaptive_score = adaptive_score
+        self.adaptive_reason = adaptive_reason
 
         minutes = 0.0
         if need_humidity:
@@ -1842,7 +1875,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             minutes = min(minutes, 5)
             mode = "Kurz komplett öffnen"
             self.block_reason = sun_reason
-        elif minutes <= 12 and (wind is None or wind >= 5):
+        elif adaptive_score >= ADAPTIVE_SCORE_FULL_OPEN or (minutes <= 12 and (wind is None or wind >= 5)):
             mode = "Komplett öffnen"
         else:
             mode = "Kippfenster"
@@ -1905,6 +1938,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "minuten": self.recommended_minutes,
             "grund": self.recommend_reason,
             "blockiert": self.block_reason,
+            "entscheidungsgrund": self.adaptive_reason,
+            "entscheidungs_score": self.adaptive_score,
             "laeuft": self.session is not None,
             "dauer_s": self.current_duration_seconds,
             "fortschritt": self.progress,
@@ -1961,6 +1996,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "fenster_anzahl": len(self.windows),
             "party_modus": self.party_active,
             "party_bis": self._party_until.isoformat() if self.party_active else None,
+            "rest_minuten": self.remaining_minutes,
             "regen_bald": self._rain_soon,
             "fenster_status": self._windows_status(),
             "entitaeten": {
