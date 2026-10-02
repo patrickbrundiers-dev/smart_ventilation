@@ -1108,7 +1108,28 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 continue
 
             wind = _num(item.get("wind_speed")) or 0.0
-            score = gain + min(wind, 30) / 60 * self._forecast_wind_factor(item)
+            wind_factor = self._forecast_wind_factor(item)
+            cloud = _num(item.get("cloud_coverage"))
+            radiation = _num(item.get("solar_radiation")) or _num(item.get("global_radiation"))
+            score = gain + min(wind, 30) / 60 * wind_factor
+
+            # Bewölkung und reale Einstrahlung gemeinsam bewerten. Mittlere Bewölkung
+            # zählt nur dann als sonniges Fenster, wenn die Vorhersage echte Strahlung
+            # meldet; starke Bewölkung wird klar abgewertet.
+            if cloud is not None:
+                if cloud >= CLOUD_COVER_BLOCK:
+                    score -= 1.0
+                elif cloud >= CLOUD_COVER_RADIATION_CHECK:
+                    if radiation is not None and radiation >= CLOUD_COVER_RADIATION_MIN:
+                        score += 0.6
+                    elif radiation is not None:
+                        score -= 0.6
+                    else:
+                        score -= 0.3
+
+            if radiation is not None:
+                score += min(0.8, max(0.0, radiation - SOLAR_RADIATION_MIN) / 400)
+
             if season == SEASON_WINTER:
                 score += 0.15 * temp  # wärmere Stunde = weniger Wärmeverlust
             elif indoor_t is not None:
