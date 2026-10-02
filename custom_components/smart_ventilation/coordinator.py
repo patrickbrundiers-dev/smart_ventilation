@@ -159,6 +159,54 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 result.append(parsed)
         return result
 
+    @classmethod
+    def _stored_models(cls, value, fallback):
+        """Bereinigt gelernte Buckets, damit beschädigte Daten keinen Neustart verhindern."""
+        if not isinstance(value, dict):
+            return {}
+        result = {}
+        for key, model in value.items():
+            if not isinstance(key, str) or not isinstance(model, dict):
+                continue
+            samples = cls._stored_int(model.get("samples", 0), 0, 0)
+            ach = cls._stored_float(model.get("ach", fallback), fallback, 0.2, 40)
+            history = cls._stored_observations(model.get("history", []))
+            clean = dict(model)
+            clean["ach"] = ach
+            clean["samples"] = samples
+            clean["history"] = history
+            if "last_observed_ach" in model:
+                clean["last_observed_ach"] = cls._stored_float(
+                    model.get("last_observed_ach"), ach, 0.2, 40
+                )
+            result[key] = clean
+        return result
+
+    @classmethod
+    def _stored_stats(cls, value):
+        """Normalisiert persistierte Statistik-Daten auf sichere Grundtypen."""
+        if not isinstance(value, dict):
+            return {}
+        result = {}
+        for period in ("day", "week", "month", "total"):
+            source = value.get(period)
+            if not isinstance(source, dict):
+                continue
+            clean = dict(source)
+            clean["key"] = source.get("key")
+            for field in ("count", "ok", "short"):
+                clean[field] = cls._stored_int(source.get(field, 0), 0, 0)
+            for field in ("seconds", "kwh", "need_minutes", "kwh_gespart"):
+                clean[field] = cls._stored_float(source.get(field, 0.0), 0.0, 0)
+            mold_days = source.get("mold_days", [])
+            clean["mold_days"] = (
+                [item for item in mold_days if isinstance(item, str)]
+                if isinstance(mold_days, list) else []
+            )
+            result[period] = clean
+        result["max_seconds"] = cls._stored_float(value.get("max_seconds", 0.0), 0.0, 0)
+        return result
+
     def _roll_periods(self):
         """Setzt Tag/Woche/Monat zurück, wenn ein neuer Zeitraum begonnen hat."""
         changed = False
@@ -295,9 +343,9 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         self.learned_ach = self._stored_float(stored.get("learned_ach", 8.0), 8.0, 0.2, 40)
         self.samples = self._stored_int(stored.get("samples", 0), 0, 0)
-        self.models = stored.get("models", {}) if isinstance(stored.get("models", {}), dict) else {}
+        self.models = self._stored_models(stored.get("models", {}), self.learned_ach)
         self.ach_observations = self._stored_observations(stored.get("ach_observations", []))
-        self.stats = stored.get("stats", {}) if isinstance(stored.get("stats", {}), dict) else {}
+        self.stats = self._stored_stats(stored.get("stats", {}))
         self._roll_periods()
 
         if stored.get("skip_date"):
@@ -313,7 +361,9 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             # Ohne das würde ein Neustart während der "In 30 Min. erinnern"-Frist die bewusst
             # gewählte Pause verwerfen und sofort wieder eine Erinnerung senden.
             self._snooze_until = self._stored_datetime(stored["snooze_until"])
-        self._last_night_low = stored.get("last_night_low")
+        self._last_night_low = self._stored_float(
+            stored.get("last_night_low"), None, -50, 60
+        )
         self._extras_load(stored)
         self._history_load(stored)
 
