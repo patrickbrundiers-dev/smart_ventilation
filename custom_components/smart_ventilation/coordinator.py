@@ -14,114 +14,19 @@ from homeassistant.util import dt as dt_util
 from .const import *
 from . import notify_util
 from .extras import RoomExtrasMixin
+from .sensor_utils import (
+    _absolute_humidity,
+    _angle_diff,
+    _dew_point,
+    _float_state,
+    _has_risk,
+    _is_on,
+    _is_raining,
+    _num,
+    _relative_humidity_from_absolute,
+    _wind_kmh,
+)
 from .history import HistoryMixin, month_name
-
-
-def _float_state(hass, entity_id):
-    # Neuere HA-Versionen werfen in hass.states.get() eine AttributeError, sobald entity_id None
-    # ist (statt einfach None zurückzugeben) - alle optionalen, nicht konfigurierten Sensoren
-    # rufen diese Funktion aber genau mit None auf (z. B. self.data.get(CONF_SOLAR_RADIATION)),
-    # daher hier vorab abfangen.
-    if not entity_id:
-        return None
-    state = hass.states.get(entity_id)
-    if state is None:
-        return None
-    try:
-        value = float(state.state)
-        if math.isfinite(value):
-            return value
-    except (TypeError, ValueError):
-        pass
-    return None
-
-
-def _is_on(hass, entity_id):
-    if not entity_id:
-        return False
-    state = hass.states.get(entity_id)
-    return state is not None and state.state in ON_STATES
-
-
-
-
-
-def _is_raining(hass, entity_id):
-    """Binary-Sensor (on) ODER numerischer Regensensor (z. B. mm/h > 0)."""
-    if _is_on(hass, entity_id):
-        return True
-    value = _float_state(hass, entity_id)
-    return value is not None and value > 0
-
-
-def _has_risk(hass, entity_id):
-    """Für Enum-/Text-Sensoren (z. B. "Gewitter erwartet": Sicher/Möglich/Unwahrscheinlich, oder
-    "Frost erwartet": Normal/Erhöht) statt eines einfachen on/off - LOW_RISK_STATES gilt als
-    unbedenklich, jeder andere Text (auch ein unbekannter) vorsichtshalber als Risiko. Ein
-    Binary-Sensor (on) zählt immer als Risiko."""
-    if not entity_id:
-        return False
-    if _is_on(hass, entity_id):
-        return True
-    state = hass.states.get(entity_id)
-    if state is None or state.state in ("unknown", "unavailable", ""):
-        return False
-    return str(state.state).strip().lower() not in LOW_RISK_STATES
-
-
-def _angle_diff(a, b):
-    return abs((a - b + 180) % 360 - 180)
-
-
-def _wind_kmh(hass, entity_id):
-    if not entity_id:
-        return None
-    state = hass.states.get(entity_id)
-    value = _float_state(hass, entity_id)
-    if value is None:
-        return None
-    unit = state.attributes.get("unit_of_measurement", "") if state else ""
-    return value * 3.6 if unit in ("m/s", "mps") else value
-
-
-def _relative_humidity_from_absolute(absolute_humidity, temperature_c):
-    """Approximate RH from absolute humidity in g/m³ and temperature in °C."""
-    if absolute_humidity is None or temperature_c is None:
-        return None
-    tk = temperature_c + 273.15
-    vapor_pressure = absolute_humidity * tk / 216.7
-    saturation = 6.112 * math.exp((17.62 * temperature_c) / (243.12 + temperature_c))
-    if saturation <= 0:
-        return None
-    return max(0.0, min(100.0, 100.0 * vapor_pressure / saturation))
-
-
-def _absolute_humidity(temperature_c, rh=None, dew_point=None):
-    """Absolute Feuchte in g/m³ aus Taupunkt (bevorzugt) oder Temperatur + rel. Feuchte."""
-    if temperature_c is None:
-        return None
-    if dew_point is not None:
-        vapor = 6.112 * math.exp((17.62 * dew_point) / (243.12 + dew_point))
-    elif rh is not None:
-        vapor = rh / 100.0 * 6.112 * math.exp((17.62 * temperature_c) / (243.12 + temperature_c))
-    else:
-        return None
-    return 216.7 * vapor / (273.15 + temperature_c)
-
-
-def _num(value):
-    try:
-        v = float(value)
-        return v if math.isfinite(v) else None
-    except (TypeError, ValueError):
-        return None
-
-
-def _dew_point(temperature_c, rh):
-    if temperature_c is None or rh is None or rh <= 0:
-        return None
-    gamma = math.log(rh / 100.0) + (17.62 * temperature_c) / (243.12 + temperature_c)
-    return (243.12 * gamma) / (17.62 - gamma)
 
 
 class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
