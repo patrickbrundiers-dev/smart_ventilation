@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
@@ -88,3 +90,78 @@ async def test_month_archive_and_report(hass: HomeAssistant, freezer: FrozenDate
 
     need = hass.states.get(eid(hass, "sensor", entry, "need_month"))
     assert need.attributes["letzter_monat"]["monat"] == "Oktober 2026"
+
+
+async def test_history_load_sanitizes_corrupt_state_and_measurement_edges(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass)
+    room = hass.data[DOMAIN][entry.entry_id]
+
+    room._history_load({
+        "mold_log": {"2026-12-01": 20},
+        "history": {"2026-11": {"bedarf_h": 1}},
+        "day_log": {"2026-12-04": {"minuten": 10}},
+        "mold_warned": "corrupt",
+        "last_anomaly_check": "not-a-date",
+    })
+    assert room.mold_log["2026-12-01"] == 20
+    assert room._mold_warned is None
+    assert room._last_anomaly_check is None
+
+    now = __import__("homeassistant.util.dt", fromlist=["now"]).now()
+    room.wall_rh = 85
+    room.recommended_minutes = 10
+    room._last_measure = None
+    room._measure(now)
+    assert room.mold_log["2026-12-05"] == 0.5
+
+    room._measure(now - timedelta(minutes=1))
+    assert room.mold_log["2026-12-05"] == 0.5
+
+
+async def test_history_day_archive_and_anomaly_notification(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
+    freezer.move_to("2026-12-10 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    entry = await setup_room(hass)
+    room = hass.data[DOMAIN][entry.entry_id]
+
+    room.energy_price = 0.4
+    room._archive_day({
+        "key": "2026-12-09",
+        "ok": 3,
+        "seconds": 7200,
+        "kwh": 2.0,
+        "kwh_gespart": 0.5,
+    })
+    assert room.day_log["2026-12-09"]["kosten"] == 0.8
+    assert room.day_log["2026-12-09"]["kwh_netto"] == 1.5
+    assert room.day_log["2026-12-09"]["kosten_netto"] == 0.6
+
+    for i in range(1, 8):
+        room.day_log[(__import__("datetime").date(2026, 12, 10) - timedelta(days=i)).isoformat()] = {"minuten": 10}
+    room.day_log["2026-12-09"]["minuten"] = 120
+    await room._anomaly_check(__import__("homeassistant.util.dt", fromlist=["now"]).now())
+    assert any(c.data["title"].startswith("Ungewöhnlich viel Lüftungsbedarf") for c in pushes)
+    assert room._last_anomaly_check is not None
+
+
+async def test_history_mold_warning_retry_and_monthly_overview_suppression(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass, monthly_report=True)
+    room = hass.data[DOMAIN][entry.entry_id]
+    room.mold_log.update({"2026-12-02": 500, "2026-12-03": 500, "2026-12-04": 500})
+    room._save = AsyncMock()
+    room._send = AsyncMock(return_value=False)
+    await room._mold_early_warning(__import__("homeassistant.util.dt", fromlist=["now"]).now())
+    assert room._mold_warned is None
+
+    room.history["2026-11"] = {
+        "lueftungen": 2, "erfolgreich": 2, "minuten": 60, "bedarf_h": 1.0,
+        "kwh": 1.0, "kosten": 0.4, "schimmeltage": 0,
+    }
+    room._last_month_report = None
+    room.hass.data[DOMAIN]["overview"] = SimpleNamespace(is_overview=True, monthly_report=True)
+    await room._monthly_report(__import__("homeassistant.util.dt", fromlist=["now"]).now().replace(day=1, hour=9))
+    assert room._last_month_report == "2026-11"
