@@ -215,8 +215,9 @@ CONF_DEHUMIDIFIER = "dehumidifier_entity"
 DEHUM_ON_RH = 60.0
 DEHUM_OFF_RH = 55.0
 DEHUM_AH_HYSTERESIS = 0.3   # g/m³ – Abstand um den absoluten Feuchte-Zielwert
-DEHUM_RH_HYSTERESIS = 0.0   # %-Punkte – zusätzlicher Puffer für die RH-Abschaltung
+DEHUM_RH_HYSTERESIS = 2.0   # %-Punkte – zusätzlicher Puffer für die RH-Abschaltung
 DEHUM_MIN_RUNTIME_MINUTES = 15
+DEHUM_RESTART_COOLDOWN_MINUTES = 10
 
 # Rollo/Jalousie – Empfehlung (und optional automatische Steuerung) bei direkter Sonne im Sommer.
 # Im Winter nie, da die Sonnenwärme dort erwünscht ist (siehe Vorheizen) – ein geschlossenes Rollo
@@ -234,6 +235,7 @@ CLOUD_COVER_BLOCK = 80.0
 CLOUD_COVER_RADIATION_CHECK = 45.0
 CLOUD_COVER_RADIATION_MIN = 180.0
 CLOUDY_WEATHER_STATES = ("cloudy", "overcast", "rainy", "pouring", "snowy", "snowy-rainy", "fog")
+SOLAR_RADIATION_RELEASE = 160.0  # W/m² – Hysterese zum Wiederöffnen eines automatisch geschlossenen Rollos
 
 CONF_THUNDERSTORM = "thunderstorm_entity"
 # Enum-Sensoren (z. B. KachelmannWetter "Gewitter erwartet") liefern Text statt on/off - diese
