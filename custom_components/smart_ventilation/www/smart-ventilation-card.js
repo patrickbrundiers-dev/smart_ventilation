@@ -15,7 +15,7 @@ const LOCALE = "de-DE";
 /* ---------- Hilfen ---------- */
 const esc = (v) =>
   String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const has = (v) => v !== null && v !== undefined && v !== "";
+const has = (v) => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v));
 const fmt = (v, digits = 1) =>
   has(v) ? Number(v).toLocaleString(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: digits }) : "–";
 const dur = (s) => {
@@ -91,14 +91,27 @@ function trendChart(days) {
   const max = Math.max(1, ...days.map((d) => d.anzahl || 0));
   const bars = days
     .map((d, i) => {
-      const pct = d.anzahl > 0 ? Math.max(10, Math.round((d.anzahl / max) * 100)) : 0;
+      const count = Number(d.anzahl) || 0;
+      const minutes = Number(d.minuten) || 0;
+      const pct = count > 0 ? Math.max(10, Math.round((count / max) * 100)) : 0;
       const isToday = i === days.length - 1;
-      const wd = new Date(`${d.datum}T00:00:00`).toLocaleDateString(LOCALE, { weekday: "short" });
-      const title = `${wd}: ${d.anzahl}× heute${has(d.kwh) ? ` · ${fmt(d.kwh, 2)} kWh` : ""}`;
-      return `<span class="trend-bar${isToday ? " is-today" : ""}" style="--h:${pct}%" title="${esc(title)}"></span>`;
+      const date = new Date(`${d.datum}T00:00:00`);
+      const wd = date.toLocaleDateString(LOCALE, { weekday: "short" });
+      const day = date.toLocaleDateString(LOCALE, { day: "2-digit", month: "2-digit" });
+      const title = `${wd}, ${day}: ${count}× · ${minutes} Min.${has(d.kwh) ? ` · ${fmt(d.kwh, 2)} kWh` : ""}`;
+      return `
+        <span class="trend-day${isToday ? " is-today" : ""}" title="${esc(title)}" aria-label="${esc(title)}">
+          <span class="trend-bar" style="--h:${pct}%"></span>
+          <span class="trend-count">${count}×</span>
+          <span class="trend-min">${minutes} Min.</span>
+        </span>`;
     })
     .join("");
-  return `<div class="trend"><span class="trend-label">Letzte 7 Tage</span><div class="trend-bars">${bars}</div></div>`;
+  return `
+    <div class="trend trend-detailed">
+      <span class="trend-label">Letzte 7 Tage</span>
+      <div class="trend-bars" role="list" aria-label="Lüftungen und Minuten der letzten 7 Tage">${bars}</div>
+    </div>`;
 }
 
 /* ---------- Jahresvergleich (Balkendiagramm über die letzten Monate) ---------- */
@@ -454,7 +467,14 @@ class SmartVentilationCard extends HTMLElement {
     const partyTitle = e.party_mode ? "Antippen, um den Party-Modus vorzeitig zu beenden" : undefined;
     const chips = [
       k.party_modus && [e.party_mode || null, "mdi:party-popper", partyText, "info", partyTitle, null, null, true],
-      k.bester_zeitpunkt && !compact && [e.bester, "mdi:clock-check-outline", k.bester_zeitpunkt],
+      k.bester_zeitpunkt && !compact && [
+        e.bester,
+        "mdi:clock-check-outline",
+        String(k.bester_zeitpunkt).includes("Wetterdaten nicht verfügbar")
+          ? "Vorhersage nicht verfügbar"
+          : k.bester_zeitpunkt,
+        String(k.bester_zeitpunkt).includes("Wetterdaten nicht verfügbar") ? "warn" : undefined,
+      ],
       k.statistik && !compact
         ? [null, k.gelueftet ? "mdi:check-circle-outline" : "mdi:calendar-today", heuteText, heuteTone,
             "Woche, Monat und Gesamt anzeigen", "stats", this._roomStatsExpanded]
@@ -803,8 +823,9 @@ const STYLE = `
 
   /* Verlauf */
   .chart { display: flex; flex-direction: column; gap: 4px; }
-  .c-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .c-title { font-size: 13px; font-weight: 600; } .c-meta { font-size: 12px; color: var(--sv-text-2); }
+  .c-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+  .c-title { font-size: 13px; font-weight: 600; min-width: 0; }
+  .c-meta { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sv-text-2); white-space: nowrap; flex: none; }
   .c-legend { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--sv-text-2); }
   .c-legend .lg { display: inline-block; width: 10px; height: 2px; border-radius: 1px; margin-left: 8px; }
   .c-legend .lg:first-child { margin-left: 0; }
@@ -845,12 +866,23 @@ const STYLE = `
   .chip-caret { --mdc-icon-size: 14px !important; opacity: .6; margin-left: -1px; }
 
   /* 7-Tage-Trend (Sparkline) */
-  .trend { display: flex; align-items: center; gap: 8px; }
-  .trend-label { font-size: 11px; color: var(--sv-text-2); white-space: nowrap; }
-  .trend-bars { flex: 1; display: flex; align-items: flex-end; gap: 4px; height: 24px; }
-  .trend-bar { flex: 1; height: var(--h, 0%); min-height: 2px; border-radius: 2px 2px 0 0;
+  .trend { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .trend-label { font-size: 11px; color: var(--sv-text-2); white-space: nowrap; flex: none; }
+  .trend-bars { flex: 1; display: flex; align-items: flex-end; gap: 4px; height: 48px; min-width: 0; }
+  .trend-day { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    gap: 1px; color: var(--sv-text-2); font-size: 9px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .trend-day.is-today { color: var(--sv-text); font-weight: 600; }
+  .trend-bar { width: 100%; height: var(--h, 0%); min-height: 2px; border-radius: 2px 2px 0 0;
     background: color-mix(in srgb, var(--sv-info) 35%, transparent); }
-  .trend-bar.is-today { background: var(--sv-info); }
+  .trend-day.is-today .trend-bar { background: var(--sv-info); }
+  .trend-count, .trend-min { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .trend-count { font-weight: 600; color: var(--sv-text); }
+  .trend-min { opacity: .8; }
+  @container (max-width: 400px) {
+    .trend { gap: 6px; }
+    .trend-bars { gap: 2px; height: 44px; }
+    .trend-count, .trend-min { font-size: 8px; }
+  }
   .trend-bar.year-bar { background: color-mix(in srgb, var(--sv-neutral) 40%, transparent); }
   .trend-bar.year-bar.is-today { background: var(--sv-neutral); }
 
