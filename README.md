@@ -145,6 +145,12 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.15.0
+
+- Stabilitäts-/Architekturrelease: Sensor-State-, Feuchte- und Berechnungshelfer in eigenes Modul ausgelagert.
+- Bestehende Imports aus `coordinator.py` bleiben kompatibel.
+- Neue Unit-Tests für optionale Sensoren, finite Werte, absolute Feuchte und Taupunkt.
+
 ### Version 2.14.0
 
 Übersichtskarte (alle Räume) erweitert, damit sich mehr auf einen Blick erkennen lässt, ohne erst jede Raumkarte einzeln zu öffnen:
