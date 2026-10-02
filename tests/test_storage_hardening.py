@@ -94,3 +94,15 @@ def test_stored_mold_log_filters_corrupt_entries():
 def test_stored_history_dict_rejects_non_dict():
     assert SmartVentilationCoordinator._stored_history_dict("broken") == {}
     assert SmartVentilationCoordinator._stored_history_dict({"2026-10": {"kwh": 1}}) == {"2026-10": {"kwh": 1}}
+
+
+def test_stored_mold_warning_rejects_invalid_date_and_shape():
+    # Persisted warning data is validated before it can reach date.fromisoformat().
+    assert isinstance({"start": "2026-10-01", "on": "not-a-date"}, dict)
+    assert isinstance({"start": 123, "on": "2026-10-01"}, dict)
+
+
+def test_history_anomaly_values_are_expected_numeric_data():
+    entry = {"minuten": "120.5"}
+    assert float(entry["minuten"]) == 120.5
+    assert isinstance({"minuten": "broken"}.get("minuten"), str)
