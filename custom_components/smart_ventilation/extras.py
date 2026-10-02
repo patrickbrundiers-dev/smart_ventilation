@@ -13,19 +13,20 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CAT_MOLD, CAT_REPORT, CAT_SHOWER, CAT_WARNING,
     CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF,
-    CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_SHUTTER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP,
+    CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_SHUTTER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP, CONF_TARGET_ABS,
     CONF_NAME, CONF_OUTDOOR_HUMIDITY, CONF_OUTDOOR_TEMP, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_WEEKLY_REPORT, COOL_MAX_EXTRA_HUMIDITY,
     COOL_MIN_DIFF, DEFAULT_COMFORT_TEMP, DEFAULT_TARGET_DIFF, DEHUM_MIN_RUNTIME_MINUTES,
     DEHUM_OFF_RH, DEHUM_ON_RH, SHUTTER_MIN_RUNTIME_MINUTES, DOMAIN, OFF_STATES, ON_STATES, REPORT_HOUR, REPORT_WEEKDAY,
     SEASON_SUMMER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
-    CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER, PREHEAT_MAX_EXTRA_HUMIDITY,
+    CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER, PREHEAT_MAX_EXTRA_HUMIDITY, CONF_RAIN,
     CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD,
     CONF_SEASON_MODE, DEFAULT_SEASON_MODE,
     FORECAST_MAX_RAIN_MM, FORECAST_MAX_RAIN_PROB, MIN_FORECAST_WIND_FACTOR,
 )
 from . import notify_util
+from .sensor_utils import _is_raining
 
 
 def _num_state(hass, entity_id):
@@ -429,26 +430,45 @@ class RoomExtrasMixin:
         # Lüften braucht er keine trockenere Außenluft. Mit dem Außenluft-Vergleich als Gate würde
         # er ausgerechnet dann nicht anspringen, wenn die Außenluft feuchter als drinnen ist -
         # genau der Fall, in dem Lüften nicht hilft und der Entfeuchter am meisten gebraucht wird.
-        # self._humidity_reasons_met (siehe _humidity_need) prüft stattdessen, ob die Raumluft für
-        # sich genommen zu feucht ist (Zielwert/rel. Feuchte/Schimmelrisiko), unabhängig von außen.
-        need = self._humidity_reasons_met
+        # Nicht self._humidity_reasons_met verwenden: _extras_tick() läuft vor
+        # _update_recommendation(), daher kann dieser Zwischenstatus noch vom vorherigen
+        # Sensorwert stammen. Der Entfeuchter muss immer mit den aktuell gemessenen Werten
+        # entscheiden und braucht keinen Vergleich mit der Außenluft.
+        indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
+        need = (
+            indoor_ah is not None and indoor_ah > target_abs
+        ) or (
+            rh is not None and rh >= DEHUM_ON_RH
+        ) or self.mold_risk in ("erhöht", "hoch")
+        humidity_difference = self.humidity_difference
         cannot_vent = (
-            bool(self.block_reason)
-            or self.recommended_minutes == 0
+            _is_raining(self.hass, self.data.get(CONF_RAIN))
+            or (
+                humidity_difference is not None
+                and humidity_difference <= 1.0
+            )
             or self.in_quiet_hours(now)
             or self.on_vacation
-            or not self.anyone_home
+            or (self.persons and not self.anyone_home)
         )
 
         if self._dehum_on_since is None:
             # Einschalten: feucht, Lüften geht gerade nicht, Fenster zu
             if (
                 need and cannot_vent and not self.open_windows()
-                and rh is not None and rh >= DEHUM_ON_RH and state.state == "off"
+                and (
+                    (rh is not None and rh >= DEHUM_ON_RH)
+                    or _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+                    >= float(self.data.get("target_absolute_humidity", 11.5))
+                )
+                and state.state == "off"
             ):
+                self._dehum_on_since = now
                 if await self._call(domain, "turn_on", {"entity_id": entity_id}):
-                    self._dehum_on_since = now
                     await self._save()
+                else:
+                    self._dehum_on_since = None
             return
 
         # Ausschalten: sobald ein Fenster geöffnet wird (dann übernimmt das Lüften, und
@@ -473,7 +493,47 @@ class RoomExtrasMixin:
 
     @property
     def dehumidifier_active(self):
-        return self._dehum_on_since is not None
+        """True, wenn der Entfeuchter läuft oder die Automatik ihn aktuell anfordert.
+        
+        Der Status darf nicht davon abhängen, ob der nächste 30-s-Steuertakt bereits
+        gelaufen ist. So bleibt die Raumübersicht auch direkt nach einer relevanten
+        Sensoränderung konsistent.
+        """
+        if self._dehum_on_since is not None:
+            return True
+
+        entity_id = self.data.get(CONF_DEHUMIDIFIER)
+        state = self.hass.states.get(entity_id) if entity_id else None
+        if state is None or state.state in ("unavailable", "unknown"):
+            return False
+        if state.state == "on":
+            return True
+
+        indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
+        rh = self.indoor_rh
+        need = (
+            indoor_ah is not None and indoor_ah > target_abs
+        ) or (
+            rh is not None and rh >= DEHUM_ON_RH
+        ) or self.mold_risk in ("erhöht", "hoch")
+        humidity_difference = self.humidity_difference
+        cannot_vent = (
+            _is_raining(self.hass, self.data.get(CONF_RAIN))
+            or (
+                humidity_difference is not None
+                and humidity_difference <= 1.0
+            )
+            or self.in_quiet_hours()
+            or self.on_vacation
+            or (self.persons and not self.anyone_home)
+        )
+        return bool(
+            state.state == "off"
+            and need
+            and cannot_vent
+            and not self.open_windows()
+        )
 
     # ------------------------------------------------------------------
     # Rollo/Jalousie
