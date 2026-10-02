@@ -453,6 +453,12 @@ class RoomExtrasMixin:
             or (self.persons and not self.anyone_home)
         )
 
+        # Nach Neustart oder externem Einschalten kann das Gerät bereits "on" melden,
+        # während unser gespeicherter Startzeitpunkt fehlt. Internen Zustand dann
+        # synchronisieren, damit die Hysterese und Mindestlaufzeit trotzdem greifen.
+        if self._dehum_on_since is None and state.state == "on":
+            self._dehum_on_since = now
+
         if self._dehum_on_since is None:
             # Einschalten: feucht, Lüften geht gerade nicht, Fenster zu
             if (
