@@ -520,7 +520,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         key = self._bucket(wind, angle, temp_diff, cross)
         model = self.models.get(key)
         if model and model.get("samples", 0) >= BUCKET_TRUST_SAMPLES:
-            return max(0.5, stale_adjusted_ach(model, self.learned_ach)), key
+            return max(0.5, stale_adjusted_ach(model, self.learned_ach, stale_days=LEARNING_STALE_DAYS)), key
 
         ach = self.learned_ach
         if wind is not None:
@@ -1318,7 +1318,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         )
         old = self.models.get(key, {"ach": self.learned_ach, "samples": 0})
         updated_model, accepted = robust_ach_update(
-            old, ach, now=dt_util.now(), trust_samples=BUCKET_TRUST_SAMPLES,
+            old, ach, now=dt_util.now(), trust_samples=BUCKET_TRUST_SAMPLES, max_history=LEARNING_HISTORY_MAX,
         )
         if not accepted:
             return
