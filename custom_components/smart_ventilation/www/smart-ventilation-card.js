@@ -15,7 +15,7 @@ const LOCALE = "de-DE";
 /* ---------- Hilfen ---------- */
 const esc = (v) =>
   String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const has = (v) => v !== null && v !== undefined && v !== "";
+const has = (v) => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v));
 const fmt = (v, digits = 1) =>
   has(v) ? Number(v).toLocaleString(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: digits }) : "–";
 const dur = (s) => {
@@ -100,7 +100,7 @@ function trendChart(days) {
       const day = date.toLocaleDateString(LOCALE, { day: "2-digit", month: "2-digit" });
       const title = `${wd}, ${day}: ${count}× · ${minutes} Min.${has(d.kwh) ? ` · ${fmt(d.kwh, 2)} kWh` : ""}`;
       return `
-        <span class="trend-day${isToday ? " is-today" : ""}" title="${esc(title)}">
+        <span class="trend-day${isToday ? " is-today" : ""}" title="${esc(title)}" aria-label="${esc(title)}">
           <span class="trend-bar" style="--h:${pct}%"></span>
           <span class="trend-count">${count}×</span>
           <span class="trend-min">${minutes} Min.</span>
@@ -110,7 +110,7 @@ function trendChart(days) {
   return `
     <div class="trend trend-detailed">
       <span class="trend-label">Letzte 7 Tage</span>
-      <div class="trend-bars" aria-label="Lüftungen und Minuten der letzten 7 Tage">${bars}</div>
+      <div class="trend-bars" role="list" aria-label="Lüftungen und Minuten der letzten 7 Tage">${bars}</div>
     </div>`;
 }
 
@@ -876,6 +876,13 @@ const STYLE = `
     background: color-mix(in srgb, var(--sv-info) 35%, transparent); }
   .trend-day.is-today .trend-bar { background: var(--sv-info); }
   .trend-count, .trend-min { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .trend-count { font-weight: 600; color: var(--sv-text); }
+  .trend-min { opacity: .8; }
+  @container (max-width: 400px) {
+    .trend { gap: 6px; }
+    .trend-bars { gap: 2px; height: 44px; }
+    .trend-count, .trend-min { font-size: 8px; }
+  }
   .trend-bar.year-bar { background: color-mix(in srgb, var(--sv-neutral) 40%, transparent); }
   .trend-bar.year-bar.is-today { background: var(--sv-neutral); }
 
