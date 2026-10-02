@@ -493,7 +493,47 @@ class RoomExtrasMixin:
 
     @property
     def dehumidifier_active(self):
-        return self._dehum_on_since is not None
+        """True, wenn der Entfeuchter läuft oder die Automatik ihn aktuell anfordert.
+        
+        Der Status darf nicht davon abhängen, ob der nächste 30-s-Steuertakt bereits
+        gelaufen ist. So bleibt die Raumübersicht auch direkt nach einer relevanten
+        Sensoränderung konsistent.
+        """
+        if self._dehum_on_since is not None:
+            return True
+
+        entity_id = self.data.get(CONF_DEHUMIDIFIER)
+        state = self.hass.states.get(entity_id) if entity_id else None
+        if state is None or state.state in ("unavailable", "unknown"):
+            return False
+        if state.state == "on":
+            return True
+
+        indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
+        rh = self.indoor_rh
+        need = (
+            indoor_ah is not None and indoor_ah > target_abs
+        ) or (
+            rh is not None and rh >= DEHUM_ON_RH
+        ) or self.mold_risk in ("erhöht", "hoch")
+        humidity_difference = self.humidity_difference
+        cannot_vent = (
+            _is_raining(self.hass, self.data.get(CONF_RAIN))
+            or (
+                humidity_difference is not None
+                and humidity_difference <= 1.0
+            )
+            or self.in_quiet_hours()
+            or self.on_vacation
+            or (self.persons and not self.anyone_home)
+        )
+        return bool(
+            state.state == "off"
+            and need
+            and cannot_vent
+            and not self.open_windows()
+        )
 
     # ------------------------------------------------------------------
     # Rollo/Jalousie
