@@ -394,6 +394,18 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                     self.hass.async_create_task(self._save())
 
         self._update_recommendation()
+        if entity_id in {
+            self.data.get(CONF_INDOOR_HUMIDITY),
+            self.data.get(CONF_INDOOR_TEMP),
+            self.data.get(CONF_OUTDOOR_HUMIDITY),
+            self.data.get(CONF_OUTDOOR_TEMP),
+            self.data.get(CONF_RAIN),
+            self.data.get(CONF_VACATION),
+        } or entity_id in self.windows:
+            # Entfeuchter nicht erst auf den nächsten 30-s-Tick warten lassen: Nach einer
+            # relevanten Sensoränderung liegt die aktuelle Empfehlung bereits vor und die
+            # Zusatzsteuerung kann sofort darauf reagieren.
+            self.hass.async_create_task(self._dehumidifier_control(dt_util.now()))
         self._notify_listeners()
 
     def _context(self):
