@@ -714,6 +714,7 @@ async def test_dehumidifier_uses_absolute_humidity_hysteresis(
     hass.states.async_set("sensor.innen_ah", 11.9)
     await _tick(hass, freezer, 0.5)
     assert len(on) == 1
+    hass.states.async_set("switch.entfeuchter", "on")
 
     # Noch oberhalb des Zielwerts, aber innerhalb des Hysteresebands -> weiter an.
     hass.states.async_set("sensor.innen_ah", 11.6)
@@ -732,7 +733,11 @@ async def test_shutter_cloud_cover_and_radiation_are_combined(
     """Mittlere Bewölkung reicht ohne ausreichend echte Einstrahlung nicht für die Rollo-Aktion."""
     freezer.move_to("2026-06-15 12:00:00+02:00")
     entry = await setup_room(
-        hass, use_sun=True, season_mode="summer", solar_radiation_entity="sensor.strahlung"
+        hass,
+        use_sun=True,
+        season_mode="summer",
+        solar_radiation_entity="sensor.strahlung",
+        weather_entity="weather.test",
     )
     rec = eid(hass, "sensor", entry, "recommendation")
     hass.states.async_set(
