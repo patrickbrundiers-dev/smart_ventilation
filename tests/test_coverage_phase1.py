@@ -10,10 +10,11 @@ import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.smart_ventilation.const import ACTION_SKIP, ACTION_SNOOZE, CONF_NAME, DOMAIN
+from custom_components.smart_ventilation.const import ACTION_SKIP, ACTION_SNOOZE, CONF_NAME, DOMAIN, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP
 from custom_components.smart_ventilation.export import _rows, _rooms, _write_csv, async_setup_export
 from custom_components.smart_ventilation.overview import OverviewCoordinator
-from custom_components.smart_ventilation import card
+from custom_components.smart_ventilation import card, notify_util
+from custom_components.smart_ventilation.extras import de_num, _num_state, _week_key
 
 
 def _room(name="Wohnzimmer", *, overview=False):
@@ -467,3 +468,85 @@ async def test_card_remove_resource_tolerates_resource_failure(hass: HomeAssista
     ) as executor:
         await card.async_remove_resource(hass)
         executor.assert_awaited_once()
+
+
+def test_notify_time_category_and_presence_filters(hass: HomeAssistant):
+    from datetime import datetime, timezone
+
+    saturday = datetime(2026, 10, 3, 23, 30, tzinfo=timezone.utc)
+    data = {
+        "quiet_weekend_different": True,
+        "quiet_start_weekend": "22:00",
+        "quiet_end_weekend": "07:00",
+        "quiet_start": "23:00",
+        "quiet_end": "06:00",
+    }
+    assert notify_util.parse_time("22:30:00", "00:00") == 1350
+    assert notify_util.parse_time("invalid", "01:30") == 90
+    assert notify_util.in_quiet_hours(saturday, data, "23:00", "06:00")
+    assert notify_util.quiet_hours_range(saturday, data) == ("22:00", "07:00")
+
+    targets = ["notify.mobile_app_p", "notify.mobile_app_j"]
+    assert notify_util.targets_for_category({}, "unknown", targets) == targets
+    assert notify_util.targets_for_category({"warning_targets": []}, "warning", targets) == []
+    assert notify_util.targets_for_category({"warning_targets": ["notify.mobile_app_p"]}, "warning", targets) == [
+        "notify.mobile_app_p"
+    ]
+
+    hass.states.async_set("person.patrick", "home", {"device_trackers": ["device_tracker.p"]})
+    hass.states.async_set("person.jenny", "not_home", {"device_trackers": ["device_tracker.j"]})
+    assert notify_util.anyone_home(hass, ["person.patrick", "person.jenny"])
+    assert notify_util.filter_targets(hass, targets, ["person.patrick", "person.jenny"]) == [
+        "notify.mobile_app_p"
+    ]
+    assert notify_util.filter_targets(hass, targets, ["person.patrick"], only_home=False) == targets
+    assert notify_util.filter_targets(hass, targets, ["person.patrick"], only_person="person.patrick") == [
+        "notify.mobile_app_p"
+    ]
+    assert notify_util.filter_targets(hass, targets, [], only_person="person.patrick") == []
+    assert notify_util.owner_map(hass, ["person.unknown"]) == {}
+
+
+async def test_notify_send_voice_normal_and_failed_services(hass: HomeAssistant):
+    from pytest_homeassistant_custom_component.common import async_mock_service
+
+    async_mock_service(hass, "notify", "mobile_app_test")
+    async_mock_service(hass, "notify", "alexa_media_test")
+    normal = await notify_util.send(
+        hass,
+        ["notify.mobile_app_test", "notify.alexa_media_test"],
+        "Lüften fertig: Bad",
+        "4.2 °C, 10 %",
+        "tag",
+        actions=[{"action": "SV_SNOOZE"}],
+    )
+    assert normal is True
+
+    with patch.object(hass.services, "has_service", side_effect=lambda domain, service: service == "broken"), \
+         patch.object(hass.services, "async_call", new=AsyncMock(side_effect=RuntimeError("offline"))):
+        assert await notify_util.send(hass, ["notify.broken"], "Titel", "Text", "tag") is False
+
+
+def test_extras_helpers_and_trace(hass: HomeAssistant):
+    assert de_num(1.25, 2) == "1,25"
+    assert _week_key(__import__("datetime").datetime(2026, 10, 2)) == "2026-W40"
+
+    hass.states.async_set("sensor.test", "12.5")
+    assert _num_state(hass, "sensor.test") == 12.5
+    hass.states.async_set("sensor.test", "not-a-number")
+    assert _num_state(hass, "sensor.test") is None
+    hass.states.async_set("sensor.test", "nan")
+    assert _num_state(hass, "sensor.test") is None
+
+    from custom_components.smart_ventilation.extras import RoomExtrasMixin
+    room = SimpleNamespace(hass=hass, data={CONF_INDOOR_HUMIDITY: "sensor.test", CONF_INDOOR_TEMP: "sensor.temp"},
+                           session={"trace": []}, current_duration_seconds=30, last_trace=None)
+    hass.states.async_set("sensor.test", "10")
+    hass.states.async_set("sensor.temp", "20")
+    RoomExtrasMixin._init_extras(room)
+    RoomExtrasMixin._trace_add(room)
+    assert room.session["trace"]
+    room.last_trace = {"ende": "now", "punkte": [[i, 10, 20] for i in range(70)]}
+    card_data = RoomExtrasMixin.trace_for_card(room)
+    assert card_data["laeuft"] is True
+    assert len(card_data["punkte"]) == 61
