@@ -150,6 +150,25 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return self.stats["day"]["ok"] > 0
 
     @property
+    def remaining_minutes(self):
+        """Dynamically estimated remaining ventilation time for the active session."""
+        if not self.session:
+            return 0
+        indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
+        if indoor is None or outdoor is None:
+            return self.recommended_minutes
+        diff = indoor - outdoor
+        if diff <= DEFAULT_TARGET_DIFF:
+            return 0
+        wind, angle, temp_diff = self._context()
+        ach, _ = self._model_ach(wind, angle, temp_diff, bool(self.session.get("cross")))
+        ratio = DEFAULT_TARGET_DIFF / max(diff, DEFAULT_TARGET_DIFF + 0.01)
+        remaining = max(1.0, -60 / ach * math.log(ratio))
+        elapsed = self.current_duration_seconds / 60
+        return max(0, round(min(60.0, remaining) - elapsed))
+
+    @property
     def max_duration_minutes(self):
         return round(self.stats.get("max_seconds", 0.0) / 60, 1)
 
@@ -1272,32 +1291,23 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         if not 0.2 <= ach <= 40:
             return
 
-        self.samples += 1
-
         key = self._bucket(
             session["wind"], session["angle"], session["temp_diff"],
             session.get("cross", False),
         )
         old = self.models.get(key, {"ach": self.learned_ach, "samples": 0})
-        count = int(old.get("samples", 0))
-        old_ach = float(old.get("ach", ach))
-        if count < BUCKET_TRUST_SAMPLES:
-            # Gleichgewichteter Schnitt, solange der Bucket noch nicht als "gelernt" gilt (siehe
-            # BUCKET_TRUST_SAMPLES) - eine einzelne verrauschte erste Messung soll nicht sofort
-            # mit 80 % Gewicht "einbrennen", bevor überhaupt genug Beobachtungen vorliegen, um sie
-            # einzuordnen. Ab BUCKET_TRUST_SAMPLES Beobachtungen (dann wird der Bucket in
-            # _model_ach() als vertrauenswürdig behandelt) auf die reaktionsschnellere
-            # exponentielle Glättung wechseln, damit sich echte Änderungen (z. B. neue
-            # Dichtungen) noch bemerkbar machen können.
-            new_ach = (old_ach * count + ach) / (count + 1)
-        else:
-            new_ach = old_ach * 0.8 + ach * 0.2
+        updated_model, accepted = robust_ach_update(
+            old, ach, now=dt_util.now(), trust_samples=BUCKET_TRUST_SAMPLES,
+        )
+        if not accepted:
+            return
 
-        self.models[key] = {
-            "ach": new_ach,
-            "samples": count + 1,
-            "last_observed_ach": ach,
-        }
+        self.models[key] = updated_model
+        self.ach_observations, robust_mean = robust_global_update(
+            self.ach_observations, ach,
+        )
+        self.learned_ach = self.learned_ach * 0.7 + robust_mean * 0.3
+        self.samples += 1
 
         await self._save()
         self._notify_listeners()
