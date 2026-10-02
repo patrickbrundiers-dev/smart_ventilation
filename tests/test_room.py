@@ -245,11 +245,11 @@ async def test_thunderstorm_blocks_venting(hass: HomeAssistant, freezer: FrozenD
     """Ein Text-Enum-Sensor (z. B. KachelmannWetter "Gewitter erwartet") mit einem Wert außerhalb
     von LOW_RISK_STATES (hier "Sicher") soll das Lüften genauso blockieren wie Regen."""
     freezer.move_to("2026-09-27 10:00:00+02:00")
+    hass.states.async_set("sensor.gewitter", "Unwahrscheinlich")
     entry = await setup_room(
         hass, season_mode="summer", thunderstorm_entity="sensor.gewitter"
     )
     rec = eid(hass, "sensor", entry, "recommendation")
-    hass.states.async_set("sensor.gewitter", "Unwahrscheinlich")
     hass.states.async_set("sensor.innen_ah", 12.5)  # eigentlich klarer Lüftungsbedarf
     await _tick(hass, freezer, 1)
     assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
