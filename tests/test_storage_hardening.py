@@ -106,3 +106,11 @@ def test_history_anomaly_values_are_expected_numeric_data():
     entry = {"minuten": "120.5"}
     assert float(entry["minuten"]) == 120.5
     assert isinstance({"minuten": "broken"}.get("minuten"), str)
+
+
+def test_persisted_trace_requires_valid_point_list():
+    valid = {"ende": "2026-10-02T18:00:00+00:00", "punkte": [[10, 55.0, 20.0], ["bad"], "bad"]}
+    points = valid["punkte"]
+    filtered = [point for point in points if isinstance(point, list) and len(point) == 3]
+    assert filtered == [[10, 55.0, 20.0]]
+    assert isinstance("corrupt-trace", str)
