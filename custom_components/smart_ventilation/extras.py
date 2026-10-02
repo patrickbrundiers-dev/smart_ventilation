@@ -441,8 +441,7 @@ class RoomExtrasMixin:
             rh is not None and rh >= DEHUM_ON_RH
         ) or self.mold_risk in ("erhöht", "hoch")
         cannot_vent = (
-            bool(self.block_reason)
-            or self.recommended_minutes == 0
+            _is_raining(self.hass, self.data["rain"])
             or self.in_quiet_hours(now)
             or self.on_vacation
             or (self.persons and not self.anyone_home)
