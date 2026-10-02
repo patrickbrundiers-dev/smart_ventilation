@@ -391,6 +391,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             entities.append(self.data.get(CONF_SUN_ENTITY, DEFAULT_SUN_ENTITY))
         if self.data.get(CONF_CO2):
             entities.append(self.data[CONF_CO2])
+        if self.data.get(CONF_THUNDERSTORM):
+            entities.append(self.data[CONF_THUNDERSTORM])
         entities.extend(self.persons)
         entities.extend(self._extras_entities())
 
