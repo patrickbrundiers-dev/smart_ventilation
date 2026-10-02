@@ -444,7 +444,12 @@ class RoomExtrasMixin:
             # Einschalten: feucht, Lüften geht gerade nicht, Fenster zu
             if (
                 need and cannot_vent and not self.open_windows()
-                and rh is not None and rh >= DEHUM_ON_RH and state.state == "off"
+                and (
+                    (rh is not None and rh >= DEHUM_ON_RH)
+                    or _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+                    >= float(self.data.get("target_absolute_humidity", 11.5))
+                )
+                and state.state == "off"
             ):
                 if await self._call(domain, "turn_on", {"entity_id": entity_id}):
                     self._dehum_on_since = now
