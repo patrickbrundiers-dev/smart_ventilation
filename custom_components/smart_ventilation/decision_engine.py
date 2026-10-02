@@ -157,7 +157,9 @@ def stale_adjusted_ach(
         current = now or datetime.now(updated.tzinfo)
         age_days = max(0.0, (current - updated).total_seconds() / 86400)
     except (TypeError, ValueError):
-        return max(0.5, value)
+        # Corrupt/unknown timestamps must not be treated as permanently fresh.
+        # Fall back conservatively just like legacy timestamp-less buckets.
+        return max(0.5, value * 0.5 + float(fallback) * 0.5)
     if age_days <= stale_days:
         return max(0.5, value)
     decay = min(0.7, (age_days - stale_days) / stale_days * 0.25)
