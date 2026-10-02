@@ -441,8 +441,13 @@ class RoomExtrasMixin:
         ) or (
             rh is not None and rh >= DEHUM_ON_RH
         ) or self.mold_risk in ("erhöht", "hoch")
+        humidity_difference = self.humidity_difference
         cannot_vent = (
             _is_raining(self.hass, self.data.get(CONF_RAIN))
+            or (
+                humidity_difference is not None
+                and humidity_difference <= 1.0
+            )
             or self.in_quiet_hours(now)
             or self.on_vacation
             or (self.persons and not self.anyone_home)
