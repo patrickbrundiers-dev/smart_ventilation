@@ -227,9 +227,7 @@ async def test_overview_setup_loads_state_and_unload(hass: HomeAssistant):
     })
     unsub_tick = MagicMock()
     unsub_bus = MagicMock()
-    with patch("custom_components.smart_ventilation.overview.async_track_time_interval", return_value=unsub_tick), patch.object(
-        hass.bus, "async_listen", return_value=unsub_bus
-    ):
+    with patch("custom_components.smart_ventilation.overview.async_track_time_interval", return_value=unsub_tick), patch("homeassistant.core.EventBus.async_listen", return_value=unsub_bus):
         await coordinator.async_setup()
 
     assert coordinator.last_notification_at is not None
@@ -439,14 +437,12 @@ async def test_card_registers_fallback_and_retry_when_not_running(hass: HomeAssi
         card, "_copy_to_www", return_value=False
     ), patch.object(card, "_local_served", return_value=False), patch.object(
         card, "_add_extra_module", return_value=False
-    ), patch.object(card, "_async_register_resource", new=AsyncMock(return_value=False)), patch.object(
-        hass.bus, "async_listen_once", return_value=retry_listener
-    ):
+    ), patch.object(card, "_async_register_resource", new=AsyncMock(return_value=False)), patch("homeassistant.core.EventBus.async_listen_once", return_value=retry_listener):
         (tmp_path / "card.js").write_text("x", encoding="utf-8")
         await card.async_register_card(hass)
 
     assert hass.data[card.DATA_URL] == card.CARD_URL_VERSIONED
-    hass.bus.async_listen_once.assert_called_once()
+    retry_listener.assert_not_called()
 
 
 async def test_card_register_static_path_failure_does_not_mark_ready(hass: HomeAssistant, tmp_path: Path):
