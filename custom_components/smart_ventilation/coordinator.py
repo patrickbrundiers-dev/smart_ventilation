@@ -109,6 +109,56 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
     def _empty_period(key):
         return {"key": key, "count": 0, "ok": 0, "short": 0, "seconds": 0.0}
 
+    @staticmethod
+    def _stored_float(value, default, minimum=None, maximum=None):
+        """Liest gespeicherte Zahlen defensiv, ohne einen Neustart zu blockieren."""
+        try:
+            result = float(value)
+        except (TypeError, ValueError):
+            return default
+        if not math.isfinite(result):
+            return default
+        if minimum is not None and result < minimum:
+            return default
+        if maximum is not None and result > maximum:
+            return default
+        return result
+
+    @staticmethod
+    def _stored_int(value, default, minimum=None, maximum=None):
+        """Liest gespeicherte Integer defensiv."""
+        try:
+            result = int(value)
+        except (TypeError, ValueError):
+            return default
+        if minimum is not None and result < minimum:
+            return default
+        if maximum is not None and result > maximum:
+            return default
+        return result
+
+    @staticmethod
+    def _stored_datetime(value):
+        """Parst gespeicherte Zeitstempel defensiv."""
+        if not isinstance(value, str):
+            return None
+        try:
+            return dt_util.parse_datetime(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _stored_observations(value):
+        """Filtert beschädigte oder veraltete ACH-Beobachtungen."""
+        if not isinstance(value, (list, tuple)):
+            return []
+        result = []
+        for item in value:
+            parsed = SmartVentilationCoordinator._stored_float(item, None, 0.2, 40)
+            if parsed is not None:
+                result.append(parsed)
+        return result
+
     def _roll_periods(self):
         """Setzt Tag/Woche/Monat zurück, wenn ein neuer Zeitraum begonnen hat."""
         changed = False
@@ -240,26 +290,29 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     async def async_setup(self):
         stored = await self.store.async_load() or {}
-        self.learned_ach = float(stored.get("learned_ach", 8.0))
-        self.samples = int(stored.get("samples", 0))
-        self.models = stored.get("models", {})
-        self.ach_observations = [float(v) for v in stored.get("ach_observations", []) if 0.2 <= float(v) <= 40]
-        self.stats = stored.get("stats", {})
+        if not isinstance(stored, dict):
+            stored = {}
+
+        self.learned_ach = self._stored_float(stored.get("learned_ach", 8.0), 8.0, 0.2, 40)
+        self.samples = self._stored_int(stored.get("samples", 0), 0, 0)
+        self.models = stored.get("models", {}) if isinstance(stored.get("models", {}), dict) else {}
+        self.ach_observations = self._stored_observations(stored.get("ach_observations", []))
+        self.stats = stored.get("stats", {}) if isinstance(stored.get("stats", {}), dict) else {}
         self._roll_periods()
 
         if stored.get("skip_date"):
             try:
                 self._skip_date = datetime.fromisoformat(stored["skip_date"]).date()
-            except ValueError:
+            except (TypeError, ValueError):
                 self._skip_date = None
         if stored.get("last_session_end"):
-            self._last_session_end = dt_util.parse_datetime(stored["last_session_end"])
+            self._last_session_end = self._stored_datetime(stored["last_session_end"])
         if stored.get("party_until"):
-            self._party_until = dt_util.parse_datetime(stored["party_until"])
+            self._party_until = self._stored_datetime(stored["party_until"])
         if stored.get("snooze_until"):
             # Ohne das würde ein Neustart während der "In 30 Min. erinnern"-Frist die bewusst
             # gewählte Pause verwerfen und sofort wieder eine Erinnerung senden.
-            self._snooze_until = dt_util.parse_datetime(stored["snooze_until"])
+            self._snooze_until = self._stored_datetime(stored["snooze_until"])
         self._last_night_low = stored.get("last_night_low")
         self._extras_load(stored)
         self._history_load(stored)
