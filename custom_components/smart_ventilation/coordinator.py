@@ -252,6 +252,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self.data[CONF_WIND_DIRECTION],
             self.data[CONF_RAIN],
         ]
+        if self.data.get(CONF_WEATHER):
+            entities.append(self.data[CONF_WEATHER])
         if self.data.get(CONF_USE_SUN, True):
             entities.append(self.data.get(CONF_SUN_ENTITY, DEFAULT_SUN_ENTITY))
         if self.data.get(CONF_CO2):
@@ -1440,8 +1442,23 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             # Geometrisch passt es (Winkel + Höhe), aber ohne echte Einstrahlung (z. B. bedeckter
             # Himmel) bringt das Fenster trotzdem keine Wärme - falls ein Globalstrahlungssensor
             # hinterlegt ist, hier zusätzlich prüfen statt blind der reinen Geometrie zu vertrauen.
+            weather_entity = self.data.get(CONF_WEATHER)
+            weather_state = self.hass.states.get(weather_entity) if weather_entity else None
+            cloud_cover = None
+            weather_condition = ""
+            if weather_state is not None:
+                weather_condition = str(weather_state.state).lower()
+                try:
+                    cloud_cover = float(weather_state.attributes.get("cloud_coverage"))
+                except (TypeError, ValueError):
+                    cloud_cover = None
+
             radiation = _float_state(self.hass, self.data.get(CONF_SOLAR_RADIATION))
             if radiation is not None and radiation < SOLAR_RADIATION_MIN:
+                return True, False, ""
+            if cloud_cover is not None and cloud_cover >= CLOUD_COVER_BLOCK:
+                return True, False, ""
+            if weather_condition in CLOUDY_WEATHER_STATES and radiation is None:
                 return True, False, ""
             return True, True, (
                 f"Direkte Sonne am Fenster "
