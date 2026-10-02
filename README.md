@@ -145,6 +145,37 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.17.0
+
+Adaptive Intelligence erweitert die Lüftungsentscheidung und das Lernen:
+
+- Adaptive Bewertung aus Feuchte, Wind, Temperaturdifferenz, Bewölkung, Solarstrahlung, CO₂ und Schimmelrisiko.
+- Robusteres ACH-Lernen mit Ausreißerfilter, begrenzter Historie und Alterung.
+- Dynamische Restzeit während laufender Lüftung.
+- Neuer Diagnose-Sensor „Entscheidungsgrund“ mit Score und Begründung.
+- Verbessertes Forecast-Scoring.
+- Entfeuchter-Koordination mit Lüftung, AH-/RH-Hysterese und Restart-/Pingpong-Schutz.
+- Solar-Hysterese für Rollo-/Jalousie-Empfehlungen.
+- Erweiterte Regressionstests und Dokumentation.
+
+### Version 2.16.0
+
+Rollo-/Sonnenlogik und Entfeuchterregelung wurden robuster:
+
+- Rollo-Empfehlung kombiniert Bewölkung und reale Solarstrahlung statt nur eines Wetter-Signals.
+- Mittlere Bewölkung erfordert ausreichende reale Einstrahlung; starke Bewölkung blockiert die direkte-Sonne-Empfehlung.
+- Entfeuchter erhält eine absolute-Feuchte-Hysterese um den Zielwert sowie einen zusätzlichen RH-Puffer.
+- Regressionstests für Rollo- und Entfeuchterlogik ergänzt.
+
+### Version 2.15.1
+
+Die Rollo-Empfehlung berücksichtigt jetzt Bewölkung:
+
+- Bewölkung ab 70 % verhindert eine direkte-Sonne-Empfehlung.
+- Wetterzustände wie „cloudy“ und „overcast“ werden berücksichtigt.
+- Änderungen der konfigurierten Wetter-Entität lösen die Neuberechnung aus.
+- Regressionstests für starke Bewölkung und Wetterwechsel ergänzt.
+
 ### Version 2.15.0
 
 - Stabilitäts-/Architekturrelease: Sensor-State-, Feuchte- und Berechnungshelfer in eigenes Modul ausgelagert.
