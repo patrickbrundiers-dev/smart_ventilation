@@ -192,8 +192,9 @@ function roomState(k) {
 
 function headline(k) {
   const reason = k.grund ? `wegen ${k.grund.replace(" + ", " und ")}` : "";
+  const decision = k.entscheidungsgrund ? `${k.entscheidungsgrund}${Number.isFinite(k.entscheidungs_score) ? ` · Score ${k.entscheidungs_score}` : ""}` : "";
   if (k.laeuft) {
-    return { title: k.querlueften ? "Querlüften läuft" : "Lüftung läuft", sub: k.kuehlt_aus ? "Bitte Fenster schließen" : "" };
+    return { title: k.querlueften ? "Querlüften läuft" : "Lüftung läuft", sub: join([k.kuehlt_aus ? "Bitte Fenster schließen" : "", k.rest_minuten > 0 && `noch ca. ${k.rest_minuten} Min.`]) };
   }
   if (k.minuten > 0 && k.grund === "Kühlen") {
     return { title: "Jetzt abkühlen", sub: join([`Fenster auf, ca. ${k.minuten} Min.`, k.kuehlen_plan && `Nacht: ${k.kuehlen_plan}`]) };
@@ -210,10 +211,10 @@ function headline(k) {
     const mode = String(k.modus || "Lüften").replace(" (Querlüften)", "");
     return {
       title: k.nach_dusche ? "Nach dem Duschen lüften" : mode,
-      sub: join([`ca. ${k.minuten} Min.`, cross && "alle Fenster öffnen", reason]),
+      sub: join([`ca. ${k.minuten} Min.`, cross && "alle Fenster öffnen", reason, decision]),
     };
   }
-  if (k.blockiert) return { title: "Gerade nicht lüften", sub: k.blockiert };
+  if (k.blockiert) return { title: "Gerade nicht lüften", sub: join([k.blockiert, decision]) };
   if (k.status === "Sensordaten fehlen") return { title: "Sensordaten fehlen", sub: "Einstellungen und Reparaturen prüfen" };
   return { title: "Raumklima in Ordnung", sub: k.gelueftet ? "Heute schon ausreichend gelüftet" : "Kein Lüften nötig" };
 }
