@@ -4,7 +4,7 @@ import math
 
 from homeassistant.core import HomeAssistant
 
-from .const import LOW_RISK_STATES, ON_STATES
+from .const import LOW_RISK_STATES, OFF_STATES, ON_STATES
 
 
 def _float_state(hass: HomeAssistant, entity_id: str | None) -> float | None:
@@ -44,6 +44,8 @@ def _has_risk(hass: HomeAssistant, entity_id: str | None) -> bool:
         return True
     state = hass.states.get(entity_id)
     if state is None or state.state in ("unknown", "unavailable", ""):
+        return False
+    if state.state in OFF_STATES:
         return False
     return str(state.state).strip().lower() not in LOW_RISK_STATES
 

@@ -245,11 +245,11 @@ async def test_thunderstorm_blocks_venting(hass: HomeAssistant, freezer: FrozenD
     """Ein Text-Enum-Sensor (z. B. KachelmannWetter "Gewitter erwartet") mit einem Wert außerhalb
     von LOW_RISK_STATES (hier "Sicher") soll das Lüften genauso blockieren wie Regen."""
     freezer.move_to("2026-09-27 10:00:00+02:00")
+    hass.states.async_set("sensor.gewitter", "Unwahrscheinlich")
     entry = await setup_room(
         hass, season_mode="summer", thunderstorm_entity="sensor.gewitter"
     )
     rec = eid(hass, "sensor", entry, "recommendation")
-    hass.states.async_set("sensor.gewitter", "Unwahrscheinlich")
     hass.states.async_set("sensor.innen_ah", 12.5)  # eigentlich klarer Lüftungsbedarf
     await _tick(hass, freezer, 1)
     assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
@@ -690,3 +690,51 @@ async def test_post_vent_pause_uses_forecast_and_extreme_override(
     karte = hass.states.get(rec).attributes["karte"]
     assert karte["schimmel"] == "hoch"
     assert karte["pausiert"] is None
+
+async def test_missing_rain_sensor_is_a_hard_safety_block(
+    hass: HomeAssistant, berlin
+) -> None:
+    """Ein konfigurierter, aber ausgefallener Regensensor darf nicht als trocken gelten."""
+    entry = await setup_room(hass)
+    rec = eid(hass, "sensor", entry, "recommendation")
+
+    hass.states.async_set("sensor.regen", "unavailable")
+    await hass.async_block_till_done()
+
+    state = hass.states.get(rec)
+    assert state.state == "Nicht lüften – Regensensor nicht verfügbar"
+    assert state.attributes["karte"]["minuten"] == 0
+    assert state.attributes["karte"]["blockiert"] == "Regensensor nicht verfügbar"
+
+    hass.states.async_set("sensor.regen", 0)
+    await hass.async_block_till_done()
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
+
+
+async def test_missing_thunderstorm_sensor_is_a_hard_safety_block(
+    hass: HomeAssistant, berlin
+) -> None:
+    """Ein konfigurierter, aber ausgefallener Gewittersensor muss sicher blockieren und sauber recovern."""
+    hass.states.async_set("binary_sensor.gewitter_erwartet", "unavailable")
+    entry = await setup_room(
+        hass, thunderstorm_entity="binary_sensor.gewitter_erwartet"
+    )
+    rec = eid(hass, "sensor", entry, "recommendation")
+
+    state = hass.states.get(rec)
+    assert state.state == "Nicht lüften – Gewittersensor nicht verfügbar"
+    assert state.attributes["karte"]["minuten"] == 0
+    assert state.attributes["karte"]["blockiert"] == "Gewittersensor nicht verfügbar"
+
+    hass.states.async_set("binary_sensor.gewitter_erwartet", "off")
+    await hass.async_block_till_done()
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
+
+    hass.states.async_set("binary_sensor.gewitter_erwartet", "unavailable")
+    await hass.async_block_till_done()
+    assert hass.states.get(rec).attributes["karte"]["minuten"] == 0
+    assert hass.states.get(rec).attributes["karte"]["blockiert"] == "Gewittersensor nicht verfügbar"
+
+    hass.states.async_set("binary_sensor.gewitter_erwartet", "off")
+    await hass.async_block_till_done()
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
