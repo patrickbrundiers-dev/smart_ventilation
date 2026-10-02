@@ -13,7 +13,6 @@
   "documentation": "https://github.com/patrickbrundiers-dev/smart_ventilation",
   "integration_type": "device",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/patrickbrundiers-dev/smart_ventilation/issues",
   "requirements": [],
-  "version": "2.18.0"
+  "version": "2.18.2"
 }
