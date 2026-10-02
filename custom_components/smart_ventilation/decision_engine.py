@@ -149,7 +149,9 @@ def stale_adjusted_ach(
     value = float(model.get("ach", fallback))
     stamp = model.get("last_updated")
     if not stamp:
-        return max(0.5, value)
+        # Legacy buckets from pre-2.17 have no timestamp. Treat them conservatively
+        # as stale rather than allowing old learned values to override the global model forever.
+        return max(0.5, value * 0.5 + float(fallback) * 0.5)
     try:
         updated = datetime.fromisoformat(str(stamp))
         current = now or datetime.now(updated.tzinfo)
