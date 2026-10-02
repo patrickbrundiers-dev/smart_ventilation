@@ -1176,8 +1176,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             hours_ahead = (when - now).total_seconds() / 3600
             if hours_ahead < -0.25 or hours_ahead > PREHEAT_RAIN_LOOKAHEAD_HOURS:
                 continue
-            rain = _num(item.get("precipitation")) or 0.0
-            rain_prob = _num(item.get("precipitation_probability")) or 0.0
+            rain_raw = _num(item.get("precipitation"))
+            rain_prob_raw = _num(item.get("precipitation_probability"))
+            if rain_raw is not None or rain_prob_raw is not None:
+                has_rain_data = True
+            rain = rain_raw or 0.0
+            rain_prob = rain_prob_raw or 0.0
             if rain > FORECAST_MAX_RAIN_MM or rain_prob >= FORECAST_MAX_RAIN_PROB:
                 return True
         return False
@@ -1203,6 +1207,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         max_warmer = float(self.data.get(CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF))
         best = None
         has_humidity = False
+        has_rain_data = False
 
         for item in forecast:
             when = dt_util.parse_datetime(str(item.get("datetime", "")))
@@ -1244,6 +1249,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             cloud = _num(item.get("cloud_coverage"))
             radiation = _num(item.get("solar_radiation")) or _num(item.get("global_radiation"))
             score = gain + min(wind, 30) / 60 * wind_factor
+
+            # Fehlt die Niederschlagsinformation komplett, darf die Stunde nicht so
+            # bewertet werden, als wäre sicher kein Regen zu erwarten. Es bleibt eine
+            # nutzbare Empfehlung, wird aber konservativ abgewertet.
+            if rain_raw is None and rain_prob_raw is None:
+                score -= 0.5
 
             # Bewölkung und reale Einstrahlung gemeinsam bewerten. Mittlere Bewölkung
             # zählt nur dann als sonniges Fenster, wenn die Vorhersage echte Strahlung
@@ -1288,6 +1299,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 "aussen_feuchte_abs": round(outdoor_ah, 1),
                 "feuchte_gewinn": round(gain, 1),
                 "regenwahrscheinlichkeit": round(rain_prob),
+                "regen_daten_verfügbar": has_rain_data,
             },
         )
 
