@@ -783,13 +783,27 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
     # Reparatur-Hinweise bei ausgefallenen Sensoren
     # ------------------------------------------------------------------
     def _required_sensors(self):
-        return {
+        sensors = {
             self.data[CONF_INDOOR_HUMIDITY]: "Absolute Feuchte innen",
             self.data[CONF_OUTDOOR_HUMIDITY]: "Absolute Feuchte außen",
             self.data[CONF_INDOOR_TEMP]: "Temperatur innen",
             self.data[CONF_OUTDOOR_TEMP]: "Temperatur außen",
             **{w: "Fensterkontakt" for w in self.windows},
         }
+        # Regen/Gewitter sind harte Sicherheitsgates. Wenn sie konfiguriert sind,
+        # müssen sie für eine automatische Empfehlung ebenfalls verfügbar sein.
+        if self.data.get(CONF_RAIN):
+            sensors[self.data[CONF_RAIN]] = "Regensensor"
+        if self.data.get(CONF_THUNDERSTORM):
+            sensors[self.data[CONF_THUNDERSTORM]] = "Gewittersensor"
+        return sensors
+
+    def _sensor_unavailable(self, entity_id):
+        """True bei fehlender/ungültiger HA-Entität für ein Sicherheits-Gate."""
+        if not entity_id:
+            return False
+        state = self.hass.states.get(entity_id)
+        return state is None or state.state in ("unknown", "unavailable", "")
 
     def _issue_id(self, entity_id):
         return f"unavailable_{self.entry.entry_id}_{entity_id.replace('.', '_')}"
@@ -1931,6 +1945,25 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self.recommended_minutes = 0
             self.recommended_mode = "Keine Lüftung"
             self.adaptive_reason = "Keine Lüftung erforderlich"
+            return
+
+        # Regen/Gewitter sind harte Sicherheitsregeln: Ein konfiguriertes,
+        # aber nicht verfügbares Sicherheitssignal darf niemals als "trocken/sicher"
+        # interpretiert werden.
+        if self._sensor_unavailable(self.data.get(CONF_RAIN)):
+            self.recommendation = "Nicht lüften – Regensensor nicht verfügbar"
+            self.recommended_minutes = 0
+            self.recommended_mode = "Geschlossen"
+            self.block_reason = "Regensensor nicht verfügbar"
+            self.adaptive_reason = "Regensensor nicht verfügbar – Lüftung blockiert"
+            return
+
+        if self._sensor_unavailable(self.data.get(CONF_THUNDERSTORM)):
+            self.recommendation = "Nicht lüften – Gewittersensor nicht verfügbar"
+            self.recommended_minutes = 0
+            self.recommended_mode = "Geschlossen"
+            self.block_reason = "Gewittersensor nicht verfügbar"
+            self.adaptive_reason = "Gewittersensor nicht verfügbar – Lüftung blockiert"
             return
 
         if _is_raining(self.hass, self.data[CONF_RAIN]):
