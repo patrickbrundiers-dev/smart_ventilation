@@ -127,10 +127,10 @@ async def test_history_day_archive_and_anomaly_notification(hass: HomeAssistant,
 
     with patch("custom_components.smart_ventilation.coordinator.SmartVentilationCoordinator.energy_price", new_callable=PropertyMock, return_value=0.4):
         room._archive_day({
-        "key": "2026-12-09",
-        "ok": 3,
-        "seconds": 7200,
-        "kwh": 2.0,
+            "key": "2026-12-09",
+            "ok": 3,
+            "seconds": 7200,
+            "kwh": 2.0,
             "kwh_gespart": 0.5,
         })
         assert room.day_log["2026-12-09"]["kosten"] == 0.8
