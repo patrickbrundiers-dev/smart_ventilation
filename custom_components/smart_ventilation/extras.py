@@ -730,7 +730,20 @@ class RoomExtrasMixin:
             await self._warm_outside_warning()
         await self._shower_followup(now)
         await self._vacation_mold_watch(now)
-        await self._dehumidifier_control(now)
+
+        # Zentrale Priorität der Zusatzsteuerungen:
+        # 1. Aktive Lüftung hat Vorrang – kein Entfeuchter parallel.
+        # 2. Wenn Lüften möglich ist, soll zuerst gelüftet werden.
+        # 3. Der Entfeuchter darf nur als Ausweichlösung übernehmen.
+        # 4. Das Rollo bleibt unabhängig davon sicherheitsorientiert.
+        if self.session or self.open_windows():
+            # Bei aktiver/manueller Lüftung darf die Entfeuchter-Automatik nicht
+            # neu starten. Eine bereits laufende Automatik wird durch
+            # _dehumidifier_control beendet.
+            await self._dehumidifier_control(now)
+        else:
+            await self._dehumidifier_control(now)
+
         was_shutter_closed = self.shutter_closed
         await self._shutter_control(now)
         await self._shutter_notify(was_shutter_closed)
