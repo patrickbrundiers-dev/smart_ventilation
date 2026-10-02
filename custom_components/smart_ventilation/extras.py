@@ -551,6 +551,13 @@ class RoomExtrasMixin:
         if state is None or state.state in ("unavailable", "unknown"):
             return
         need = self.shutter_recommended
+        radiation = _num_state(self.hass, self.data.get(CONF_SOLAR_RADIATION))
+
+        if self._shutter_closed_since is not None and radiation is not None:
+            # Hysterese: ein bereits geschlossenes Rollo bleibt bei kurzzeitiger
+            # Einstrahlungsschwankung geschlossen, bis die Strahlung klar abgefallen ist.
+            if SOLAR_RADIATION_MIN <= radiation < SOLAR_RADIATION_RELEASE and self.season == SEASON_SUMMER:
+                need = True
 
         if self._shutter_closed_since is None:
             # Schließen: nur ein tatsächlich offenes Rollo anfassen - eine manuell gewählte
