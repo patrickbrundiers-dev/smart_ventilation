@@ -6,6 +6,7 @@ from custom_components.smart_ventilation.sensor_utils import (
     _absolute_humidity,
     _dew_point,
     _float_state,
+    _has_risk,
     _relative_humidity_from_absolute,
 )
 
@@ -54,3 +55,10 @@ def test_dew_point_round_trip():
     dew_point = _dew_point(20.0, 50.0)
     assert dew_point is not None
     assert dew_point == pytest.approx(9.26, abs=0.1)
+
+
+@pytest.mark.parametrize("state", ["off", "closed", "false", "0"])
+def test_has_risk_treats_off_states_as_safe(state):
+    hass = MagicMock()
+    hass.states.get.return_value = MagicMock(state=state)
+    assert _has_risk(hass, "binary_sensor.gewitter") is False
