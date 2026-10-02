@@ -91,11 +91,25 @@ class HistoryMixin:
         # bearbeitete .storage-Datei) würde sonst in _mold_early_warning() bei warned.get("start")
         # mit einem AttributeError abbrechen und dabei _monthly_report()/_anomaly_check() für den
         # Raum bei jedem Tick mit blockieren (_history_tick ruft sie danach auf).
-        self._mold_warned = mold_warned if isinstance(mold_warned, dict) else None
+        if isinstance(mold_warned, dict):
+            start = mold_warned.get("start")
+            warned_on = mold_warned.get("on")
+            if isinstance(start, str) and isinstance(warned_on, str):
+                try:
+                    date.fromisoformat(warned_on)
+                except ValueError:
+                    self._mold_warned = None
+                else:
+                    self._mold_warned = {"start": start, "on": warned_on}
+            else:
+                self._mold_warned = None
+        else:
+            self._mold_warned = None
         self._last_month_report = stored.get("last_month_report")
-        if stored.get("last_anomaly_check"):
+        last_anomaly_check = stored.get("last_anomaly_check")
+        if isinstance(last_anomaly_check, str):
             try:
-                self._last_anomaly_check = date.fromisoformat(stored["last_anomaly_check"])
+                self._last_anomaly_check = date.fromisoformat(last_anomaly_check)
             except ValueError:
                 self._last_anomaly_check = None
 
@@ -154,8 +168,14 @@ class HistoryMixin:
             return
         warned = self._mold_warned or {}
         same_series = warned.get("start") == start.isoformat()
-        if same_series and (now.date() - date.fromisoformat(warned["on"])).days < MOLD_REWARN_DAYS:
-            return
+        warned_on = warned.get("on")
+        if same_series and isinstance(warned_on, str):
+            try:
+                warned_date = date.fromisoformat(warned_on)
+            except ValueError:
+                warned_date = None
+            if warned_date is not None and (now.date() - warned_date).days < MOLD_REWARN_DAYS:
+                return
         if self.in_quiet_hours(now):
             return  # nach der Ruhezeit nachholen
         previous_warned = self._mold_warned
@@ -253,14 +273,23 @@ class HistoryMixin:
         entry = self.day_log.get(day.isoformat())
         if not entry:
             return None
-        minutes = entry.get("minuten", 0)
+        try:
+            minutes = float(entry.get("minuten", 0))
+        except (TypeError, ValueError):
+            return None
         if minutes < ANOMALY_MIN_MINUTES:
             return None
         cutoff = (day - timedelta(days=ANOMALY_BASELINE_DAYS)).isoformat()
-        baseline = [
-            v["minuten"] for k, v in self.day_log.items()
-            if cutoff <= k < day.isoformat()
-        ]
+        baseline = []
+        for k, v in self.day_log.items():
+            if not (cutoff <= k < day.isoformat()) or not isinstance(v, dict):
+                continue
+            try:
+                value = float(v.get("minuten", 0))
+            except (TypeError, ValueError):
+                continue
+            if value >= 0:
+                baseline.append(value)
         if len(baseline) < ANOMALY_MIN_SAMPLE_DAYS:
             return None
         avg = sum(baseline) / len(baseline)
