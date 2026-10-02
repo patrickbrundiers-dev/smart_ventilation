@@ -533,7 +533,7 @@ async def test_notify_send_voice_normal_and_failed_services(hass: HomeAssistant)
 
     with patch(
         "homeassistant.core.ServiceRegistry.has_service",
-        side_effect=lambda _self, domain, service: service == "broken",
+        side_effect=lambda domain, service: service == "broken",
     ), patch(
         "homeassistant.core.ServiceRegistry.async_call",
         new=AsyncMock(side_effect=RuntimeError("offline")),
@@ -553,12 +553,19 @@ def test_extras_helpers_and_trace(hass: HomeAssistant):
     assert _num_state(hass, "sensor.test") is None
 
     from custom_components.smart_ventilation.extras import RoomExtrasMixin
-    room = SimpleNamespace(hass=hass, data={CONF_INDOOR_HUMIDITY: "sensor.test", CONF_INDOOR_TEMP: "sensor.temp"},
-                           session={"trace": []}, current_duration_seconds=30, last_trace=None)
+    class TraceRoom(RoomExtrasMixin):
+        pass
+
+    room = TraceRoom()
+    room.hass = hass
+    room.data = {CONF_INDOOR_HUMIDITY: "sensor.test", CONF_INDOOR_TEMP: "sensor.temp"}
+    room.session = {"trace": []}
+    room.current_duration_seconds = 30
+    room.last_trace = None
     hass.states.async_set("sensor.test", "10")
     hass.states.async_set("sensor.temp", "20")
-    RoomExtrasMixin._init_extras(room)
-    RoomExtrasMixin._trace_add(room)
+    room._init_extras()
+    room._trace_add()
     assert room.session["trace"]
     room.session = None
     room.last_trace = {"ende": "now", "punkte": [[i, 10, 20] for i in range(70)]}
