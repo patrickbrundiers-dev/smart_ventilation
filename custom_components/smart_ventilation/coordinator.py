@@ -166,7 +166,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         ratio = DEFAULT_TARGET_DIFF / max(diff, DEFAULT_TARGET_DIFF + 0.01)
         remaining = max(1.0, -60 / ach * math.log(ratio))
         elapsed = self.current_duration_seconds / 60
-        return max(0, round(min(60.0, remaining) - elapsed))
+        return round(min(60.0, remaining))
 
     @property
     def max_duration_minutes(self):
