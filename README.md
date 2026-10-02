@@ -606,3 +606,20 @@ Bei direkter Sonne wird die Lüftungsdauer begrenzt.
 
 ### Persistenz
 Das gelernte Modell wird ohne Home-Assistant-Helper dauerhaft im Storage der Integration gespeichert. Die erzeugten Sensoren werden zusätzlich ganz normal vom Home-Assistant-Recorder aufgezeichnet.
+
+
+## 2.17 – Adaptive Intelligence
+
+Version 2.17 erweitert die Entscheidungslogik ohne die bestehenden harten Sicherheitsregeln zu entfernen:
+
+- **Adaptive Lüftungsbewertung:** Feuchtegewinn, Wind, Temperaturdifferenz, Bewölkung, reale Solarstrahlung, CO₂ und Schimmelrisiko werden zu einem erklärbaren Entscheidungsscore kombiniert.
+- **Robusteres Lernen:** ACH-Ausreißer werden verworfen, Lern-Buckets führen eine begrenzte Beobachtungshistorie und veraltete Buckets werden langsam wieder an das globale Modell angenähert.
+- **Erklärbare Entscheidung:** Der neue Diagnose-Sensor „Entscheidungsgrund“ zeigt den wichtigsten aktuellen Grund sowie Score, empfohlene Dauer und Restdauer.
+- **Dynamische Lüftungsdauer:** Während einer laufenden Sitzung wird die erwartete Restdauer aus den aktuellen Messwerten und dem gelernten Luftwechsel neu berechnet.
+- **Besseres Forecast-Scoring:** Mittlere Bewölkung wird nur bei ausreichender realer Einstrahlung positiv bewertet; starke Bewölkung wird abgewertet.
+- **Entfeuchter-Koordination:** Ein sinnvoller Lüftungszeitpunkt hat Vorrang. Nach dem Ausschalten verhindert ein kurzer Cooldown unnötiges Hin-und-her-Schalten.
+- **Entfeuchter-Hysterese:** Abschaltung berücksichtigt absolute Feuchte und einen zusätzlichen RH-Puffer; nach Neustart wird ein bereits laufendes Gerät übernommen.
+- **Rollo-Hysterese:** Die Solarstrahlung besitzt getrennte Ein-/Ausschaltgrenzen, damit kurze Wolken- oder Messschwankungen nicht zu ständigem Auf/Zu führen.
+- **Regressionstests:** Die neue reine Entscheidungs-/Lernlogik sowie Entfeuchter-, Rollo- und Diagnosefälle werden automatisiert geprüft.
+
+Die harten Schutzbedingungen für Regen, Gewitter, fehlende Sensorwerte und unbrauchbare Außentemperaturen bleiben weiterhin vorrangig.
