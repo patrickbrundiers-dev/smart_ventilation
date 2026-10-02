@@ -82,3 +82,15 @@ def test_stored_night_low_rejects_invalid_values():
     assert SmartVentilationCoordinator._stored_float("4.5", None, -50, 60) == 4.5
     assert SmartVentilationCoordinator._stored_float("bad", None, -50, 60) is None
     assert SmartVentilationCoordinator._stored_float("99", None, -50, 60) is None
+
+
+def test_stored_mold_log_filters_corrupt_entries():
+    log = SmartVentilationCoordinator._stored_mold_log(
+        {"2026-10-01": "12.5", "bad": "nope", 123: 5, "negative": -1}
+    )
+    assert log == {"2026-10-01": 12.5}
+
+
+def test_stored_history_dict_rejects_non_dict():
+    assert SmartVentilationCoordinator._stored_history_dict("broken") == {}
+    assert SmartVentilationCoordinator._stored_history_dict({"2026-10": {"kwh": 1}}) == {"2026-10": {"kwh": 1}}
