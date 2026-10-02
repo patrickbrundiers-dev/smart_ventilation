@@ -722,7 +722,7 @@ async def test_dehumidifier_uses_absolute_humidity_hysteresis(
     assert len(off) == 0
 
     # Erst deutlich unter dem Zielwert wird nach der Mindestlaufzeit ausgeschaltet.
-    hass.states.async_set("sensor.innen_ah", 9.6)
+    hass.states.async_set("sensor.innen_ah", 8.0)
     await _tick(hass, freezer, 0.5)
     assert len(off) == 1
 
