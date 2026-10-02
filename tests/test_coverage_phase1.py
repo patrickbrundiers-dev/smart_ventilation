@@ -212,3 +212,196 @@ async def test_card_register_skips_without_http(hass: HomeAssistant):
     hass.http = None
     await card.async_register_card(hass)
     assert card.DATA_URL not in hass.data
+
+
+async def test_overview_setup_loads_state_and_unload(hass: HomeAssistant):
+    entry = MockConfigEntry(domain=DOMAIN, entry_id="overview-setup", data={"entry_type": "overview"})
+    entry.add_to_hass(hass)
+    coordinator = OverviewCoordinator(hass, entry)
+    coordinator.store.async_load = AsyncMock(return_value={
+        "last_notification_at": "2026-10-02T12:00:00+00:00",
+        "skip_date": "not-a-date",
+        "snooze_until": "2026-10-02T12:05:00+00:00",
+        "last_report": "2026-W40",
+        "last_month_report": "2026-09",
+    })
+    unsub_tick = MagicMock()
+    unsub_bus = MagicMock()
+    with patch("custom_components.smart_ventilation.overview.async_track_time_interval", return_value=unsub_tick), patch.object(
+        hass.bus, "async_listen", return_value=unsub_bus
+    ):
+        await coordinator.async_setup()
+
+    assert coordinator.last_notification_at is not None
+    assert coordinator._skip_date is None
+    assert coordinator._snooze_until is not None
+    assert coordinator._last_report == "2026-W40"
+    assert coordinator._last_month_report == "2026-09"
+    assert len(coordinator._unsubs) == 2
+
+    callback = MagicMock()
+    remove = coordinator.async_add_listener(callback)
+    callback()
+    remove()
+    coordinator.async_unload()
+    unsub_tick.assert_called_once()
+    unsub_bus.assert_called_once()
+    assert coordinator._unsubs == []
+
+
+async def test_overview_tick_respects_combine_and_calls_reports(hass: HomeAssistant):
+    entry = MockConfigEntry(domain=DOMAIN, entry_id="overview-tick", data={"entry_type": "overview"})
+    entry.add_to_hass(hass)
+    coordinator = OverviewCoordinator(hass, entry)
+    listener = MagicMock()
+    coordinator._listeners = [listener]
+    coordinator._send_combined = AsyncMock()
+    coordinator._send_weekly_report = AsyncMock()
+    coordinator._send_monthly_report = AsyncMock()
+
+    await coordinator._tick()
+    listener.assert_called_once()
+    coordinator._send_combined.assert_awaited_once()
+    coordinator._send_weekly_report.assert_awaited_once()
+    coordinator._send_monthly_report.assert_awaited_once()
+
+    coordinator.data["combine_notifications"] = False
+    coordinator._send_combined.reset_mock()
+    await coordinator._tick()
+    coordinator._send_combined.assert_not_awaited()
+
+
+async def test_overview_combined_notification_success_and_failure(hass: HomeAssistant):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="overview-send",
+        data={
+            "entry_type": "overview",
+            "notify_services": ["notify.mobile_app_test"],
+            "combine_notifications": True,
+            "notification_cooldown": 0,
+        },
+    )
+    entry.add_to_hass(hass)
+    coordinator = OverviewCoordinator(hass, entry)
+    room = _room("Bad")
+    room.reminder_allowed = MagicMock(return_value=True)
+    hass.data[DOMAIN] = {"room": room}
+
+    with patch("custom_components.smart_ventilation.overview.notify_util.anyone_home", return_value=True), patch(
+        "custom_components.smart_ventilation.overview.notify_util.in_quiet_hours", return_value=False
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.targets_for_category", return_value=["notify.mobile_app_test"]
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.filter_targets", return_value=["notify.mobile_app_test"]
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.send", new=AsyncMock(return_value=True)
+    ) as send:
+        coordinator._save = AsyncMock()
+        await coordinator._send_combined()
+        send.assert_awaited_once()
+        assert coordinator.last_notification_at is not None
+        assert coordinator._save.await_count == 1
+
+    coordinator.last_notification_at = None
+    coordinator._save = AsyncMock()
+    with patch("custom_components.smart_ventilation.overview.notify_util.anyone_home", return_value=True), patch(
+        "custom_components.smart_ventilation.overview.notify_util.in_quiet_hours", return_value=False
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.targets_for_category", return_value=["notify.mobile_app_test"]
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.filter_targets", return_value=["notify.mobile_app_test"]
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.send", new=AsyncMock(return_value=False)
+    ):
+        await coordinator._send_combined()
+    assert coordinator.last_notification_at is None
+
+
+async def test_overview_combined_notification_blockers_and_snooze(hass: HomeAssistant):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="overview-blockers",
+        data={"entry_type": "overview", "notify_services": ["notify.test"], "notification_cooldown": 60},
+    )
+    entry.add_to_hass(hass)
+    coordinator = OverviewCoordinator(hass, entry)
+    room = _room("Bad")
+    room.reminder_allowed = MagicMock(return_value=True)
+    hass.data[DOMAIN] = {"room": room}
+
+    coordinator._snooze_until = __import__("homeassistant.util.dt", fromlist=["now"]).now() + timedelta(minutes=10)
+    with patch("custom_components.smart_ventilation.overview.notify_util.anyone_home", return_value=False):
+        await coordinator._send_combined()
+    coordinator._snooze_until = None
+
+    coordinator.last_notification_at = __import__("homeassistant.util.dt", fromlist=["now"]).now()
+    with patch("custom_components.smart_ventilation.overview.notify_util.anyone_home", return_value=True), patch(
+        "custom_components.smart_ventilation.overview.notify_util.in_quiet_hours", return_value=False
+    ):
+        await coordinator._send_combined()
+    assert coordinator.last_notification_at is not None
+
+
+async def test_overview_weekly_report_branches(hass: HomeAssistant):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="overview-weekly",
+        data={"entry_type": "overview", "notify_services": ["notify.test"], "weekly_report": True},
+    )
+    entry.add_to_hass(hass)
+    coordinator = OverviewCoordinator(hass, entry)
+
+    with patch("custom_components.smart_ventilation.overview.dt_util.now", return_value=__import__("datetime").datetime(2026, 10, 4, 20, 0, tzinfo=__import__("datetime").timezone.utc)), patch(
+        "custom_components.smart_ventilation.overview.notify_util.send", new=AsyncMock()
+    ):
+        hass.data[DOMAIN] = {}
+        await coordinator._send_weekly_report()
+        assert coordinator._last_report is None
+
+    room = _room("Bad")
+    room.weekly_summary = MagicMock(return_value={"raum": "Bad", "anzahl": 3, "kwh": 1.2, "kosten": 0.34, "schimmeltage": 2})
+    hass.data[DOMAIN] = {"room": room}
+    coordinator._save = AsyncMock()
+    with patch("custom_components.smart_ventilation.overview.dt_util.now", return_value=__import__("datetime").datetime(2026, 10, 4, 20, 0, tzinfo=__import__("datetime").timezone.utc)), patch(
+        "custom_components.smart_ventilation.overview.notify_util.targets_for_category", return_value=["notify.test"]
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.send", new=AsyncMock(return_value=True)
+    ) as send:
+        await coordinator._send_weekly_report()
+        send.assert_awaited_once()
+    assert coordinator._last_report is not None
+
+
+async def test_overview_monthly_report_with_comparison(hass: HomeAssistant):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="overview-monthly",
+        data={"entry_type": "overview", "notify_services": ["notify.test"], "monthly_report": True},
+    )
+    entry.add_to_hass(hass)
+    room = _room("Bad")
+    room.history = {"2026-09": {}}
+    room.month_comparison = MagicMock(return_value={
+        "bedarf_h": 3.0,
+        "vormonat": {"bedarf_h": 2.0},
+        "kwh": 1.5,
+        "kosten": 0.45,
+        "schimmeltage": 1,
+        "lueftungen": 4,
+    })
+    hass.data[DOMAIN] = {"room": room}
+    coordinator = OverviewCoordinator(hass, entry)
+    coordinator._save = AsyncMock()
+
+    with patch("custom_components.smart_ventilation.overview.dt_util.now", return_value=__import__("datetime").datetime(2026, 10, 1, 20, 0, tzinfo=__import__("datetime").timezone.utc)), patch(
+        "custom_components.smart_ventilation.overview.notify_util.targets_for_category", return_value=["notify.test"]
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.send", new=AsyncMock(return_value=True)
+    ) as send:
+        await coordinator._send_monthly_report()
+        send.assert_awaited_once()
+        assert "mehr" in send.await_args.args[3]
+
+    await coordinator._send_monthly_report()
+    assert coordinator._last_month_report == "2026-09"
