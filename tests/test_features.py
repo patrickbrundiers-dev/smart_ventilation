@@ -488,7 +488,11 @@ async def test_solar_radiation_overrides_geometric_direct_sun(
     Rollo-Empfehlung trotz passender Sonnengeometrie. Erst ab genug W/m² wieder wie gewohnt."""
     freezer.move_to("2026-06-15 12:00:00+02:00")
     entry = await setup_room(
-        hass, use_sun=True, season_mode="summer", solar_radiation_entity="sensor.strahlung"
+        hass,
+        use_sun=True,
+        season_mode="summer",
+        solar_radiation_entity="sensor.strahlung",
+        weather_entity="weather.test",
     )
     rec = eid(hass, "sensor", entry, "recommendation")
     hass.states.async_set(
@@ -732,7 +736,10 @@ async def test_shutter_cloud_cover_and_radiation_are_combined(
     )
     rec = eid(hass, "sensor", entry, "recommendation")
     hass.states.async_set(
-        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106, "cloud_coverage": 55}
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}
+    )
+    hass.states.async_set(
+        "weather.test", "partlycloudy", {"cloud_coverage": 55}
     )
     hass.states.async_set("sensor.strahlung", 150)
     await _tick(hass, freezer, 0.5)
