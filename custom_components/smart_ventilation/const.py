@@ -172,7 +172,14 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.16.0"
+VERSION = "2.17.0"
+
+# Adaptive decision / learning
+ADAPTIVE_SCORE_MIN = 20
+ADAPTIVE_SCORE_FULL_OPEN = 62
+LEARNING_HISTORY_MAX = 12
+GLOBAL_LEARNING_HISTORY_MAX = 24
+LEARNING_STALE_DAYS = 45
 ISSUE_AFTER_MINUTES = 10  # Reparatur-Hinweis, wenn ein Sensor so lange ausfällt
 
 # Bad-Modus
