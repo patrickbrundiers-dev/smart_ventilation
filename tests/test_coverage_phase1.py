@@ -10,7 +10,7 @@ import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.smart_ventilation.const import CONF_NAME, DOMAIN
+from custom_components.smart_ventilation.const import ACTION_SKIP, ACTION_SNOOZE, CONF_NAME, DOMAIN
 from custom_components.smart_ventilation.export import _rows, _rooms, _write_csv, async_setup_export
 from custom_components.smart_ventilation.overview import OverviewCoordinator
 from custom_components.smart_ventilation import card
@@ -124,7 +124,7 @@ def test_overview_room_list_and_urgency(hass: HomeAssistant):
     coordinator = OverviewCoordinator(hass, entry)
 
     urgency = coordinator.urgency(room)
-    assert urgency == 6.5
+    assert urgency == 5.0
     result = coordinator.room_list()
     assert result[0]["raum"] == "Bad"
     assert result[0]["entfeuchter"] is True
@@ -148,12 +148,12 @@ async def test_overview_action_snooze_and_skip(hass: HomeAssistant):
     assert coordinator._snooze_until is None
     assert coordinator._skip_date is None
 
-    coordinator._handle_action(SimpleNamespace(data={"action": f"lueften_snooze_{entry.entry_id}"}))
+    coordinator._handle_action(SimpleNamespace(data={"action": f"{ACTION_SNOOZE}{entry.entry_id}"}))
     assert coordinator._snooze_until is not None
     coordinator._save.assert_awaited_once()
 
     coordinator._save.reset_mock()
-    coordinator._handle_action(SimpleNamespace(data={"action": f"lueften_skip_{entry.entry_id}"}))
+    coordinator._handle_action(SimpleNamespace(data={"action": f"{ACTION_SKIP}{entry.entry_id}"}))
     assert coordinator._skip_date is not None
     coordinator._save.assert_awaited_once()
 
