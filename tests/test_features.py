@@ -784,7 +784,7 @@ async def test_decision_reason_sensor_explains_current_choice(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
     freezer.move_to("2026-12-05 10:00:00+01:00")
-    entry = await setup_room()
+    entry = await setup_room(hass)
     hass.states.async_set("sensor.innen_ah", 13.0)
     hass.states.async_set("sensor.aussen_ah", 8.0)
     await _tick(hass, freezer, 1)
