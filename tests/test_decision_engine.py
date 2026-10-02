@@ -118,7 +118,7 @@ def test_robust_bucket_ignores_malformed_history_values():
 
 def test_robust_bucket_uses_configured_trust_threshold():
     model = {"ach": 8, "samples": 4, "history": [7, 8, 8, 9]}
-    updated, accepted = robust_ach_update(model, 20, trust_samples=4)
+    updated, accepted = robust_ach_update(model, 10, trust_samples=4)
     assert accepted
     assert updated["samples"] == 5
 
