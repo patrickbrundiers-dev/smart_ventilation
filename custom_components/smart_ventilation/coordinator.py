@@ -602,6 +602,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             await self._save()
         if self._forecast_due():
             await self._update_forecast()
+        # Zusatzsteuerungen (z. B. Entfeuchter/Rollo) benötigen die aktuelle Empfehlung und
+        # Blockierungsgründe. Daher zuerst neu berechnen und nicht den Zustand des vorherigen
+        # 30-s-Ticks verwenden.
+        self._update_recommendation()
         await self._extras_tick()
         await self._history_tick(dt_util.now())
         self._update_recommendation()
