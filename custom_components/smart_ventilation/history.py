@@ -61,10 +61,31 @@ class HistoryMixin:
             "last_anomaly_check": self._last_anomaly_check.isoformat() if self._last_anomaly_check else None,
         }
 
+    @staticmethod
+    def _stored_history_dict(value):
+        """Übernimmt nur persistierte Dictionaries mit erwartbarer Struktur."""
+        return value if isinstance(value, dict) else {}
+
+    @staticmethod
+    def _stored_mold_log(value):
+        if not isinstance(value, dict):
+            return {}
+        result = {}
+        for day, minutes in value.items():
+            if not isinstance(day, str):
+                continue
+            try:
+                parsed = float(minutes)
+            except (TypeError, ValueError):
+                continue
+            if parsed >= 0:
+                result[day] = parsed
+        return result
+
     def _history_load(self, stored):
-        self.mold_log = stored.get("mold_log") or {}
-        self.history = stored.get("history") or {}
-        self.day_log = stored.get("day_log") or {}
+        self.mold_log = self._stored_mold_log(stored.get("mold_log"))
+        self.history = self._stored_history_dict(stored.get("history"))
+        self.day_log = self._stored_history_dict(stored.get("day_log"))
         mold_warned = stored.get("mold_warned")
         # Nur ein dict wie erwartet übernehmen - eine beschädigte/fremde Ablage (z. B. von Hand
         # bearbeitete .storage-Datei) würde sonst in _mold_early_warning() bei warned.get("start")
