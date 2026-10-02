@@ -220,17 +220,21 @@ async def test_ventilation_priority_blocks_dehumidifier_during_active_session(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
     freezer.move_to("2026-12-05 10:00:00+01:00")
-    async_mock_service(hass, "switch", "turn_on")
+    turn_on = async_mock_service(hass, "switch", "turn_on")
     async_mock_service(hass, "switch", "turn_off")
-    hass.states.async_set("switch.entfeuchter", "on")
+    hass.states.async_set("switch.entfeuchter", "off")
     entry = await setup_room(hass, dehumidifier_entity="switch.entfeuchter")
     room = hass.data[DOMAIN][entry.entry_id]
 
+    # Aktive Lüftungssitzung herstellen.
     hass.states.async_set("binary_sensor.fenster_1", "on")
     await _tick(hass, freezer, 1)
 
+    assert room.session is not None
     assert room._ventilation_priority_active(dt_util.now()) is True
-    assert room._dehum_on_since is None
+    assert not turn_on
+
+
 
 
 async def test_learning_is_blocked_after_humidity_sensor_gap(
