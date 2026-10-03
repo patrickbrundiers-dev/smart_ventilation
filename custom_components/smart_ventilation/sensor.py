@@ -10,7 +10,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 from .coordinator import SmartVentilationCoordinator
 
 
@@ -80,7 +80,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.14.0",
+            sw_version=VERSION,
         )
 
     async def async_added_to_hass(self):
