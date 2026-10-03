@@ -5,6 +5,7 @@ from custom_components.smart_ventilation.decision_engine import (
     robust_ach_update,
     robust_global_update,
     stale_adjusted_ach,
+    forecast_season_signal,
 )
 
 
@@ -238,3 +239,29 @@ def test_ventilation_utility_keeps_valid_values_when_optional_inputs_are_invalid
     )
     assert score > 0
     assert "g/m³" in reason
+
+
+def test_forecast_season_uses_whole_day_not_single_warm_hour():
+    now = datetime(2026, 9, 15, 12, tzinfo=timezone.utc)
+    hourly = [
+        {"datetime": f"2026-09-15T{hour:02d}:00:00+00:00", "temperature": temp}
+        for hour, temp in [
+            (7, 10), (8, 11), (9, 12), (10, 13), (11, 14),
+            (12, 16), (13, 17), (14, 18), (15, 17), (16, 14),
+            (17, 12), (18, 11), (19, 10), (20, 9), (21, 9),
+        ]
+    ]
+    assert forecast_season_signal(hourly, [], now=now) is None
+
+
+def test_forecast_season_accepts_clear_warm_day():
+    now = datetime(2026, 9, 15, 12, tzinfo=timezone.utc)
+    hourly = [
+        {"datetime": f"2026-09-15T{hour:02d}:00:00+00:00", "temperature": temp}
+        for hour, temp in [
+            (7, 16), (8, 17), (9, 18), (10, 19), (11, 20),
+            (12, 21), (13, 22), (14, 23), (15, 22), (16, 21),
+            (17, 20), (18, 19), (19, 18), (20, 17), (21, 16),
+        ]
+    ]
+    assert forecast_season_signal(hourly, [], now=now) == "summer"
