@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from statistics import median
 import math
-from typing import Any
+from typing import Any, Iterable, Mapping
 
 
 def _now_iso(now: datetime | None = None) -> str:
@@ -25,6 +25,67 @@ def _finite_float(value: float | None) -> float | None:
     except (TypeError, ValueError):
         return None
     return parsed if math.isfinite(parsed) else None
+
+
+def forecast_season_signal(
+    hourly_forecast: Iterable[Mapping[str, Any]] | None,
+    daily_forecast: Iterable[Mapping[str, Any]] | None,
+    *,
+    threshold: float = 15.0,
+    hysteresis: float = 1.0,
+    now: datetime | None = None,
+    min_daylight_samples: int = 4,
+) -> str | None:
+    """Infer a season signal from the forecast instead of one live temperature."""
+    current = now or datetime.now().astimezone()
+    upper = float(threshold) + float(hysteresis)
+    lower = float(threshold) - float(hysteresis)
+    today_above = today_below = today_samples = 0
+
+    for item in hourly_forecast or ():
+        try:
+            when = datetime.fromisoformat(str(item.get("datetime", "")))
+            temp = float(item.get("temperature"))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(temp):
+            continue
+        if when.tzinfo is None and current.tzinfo is not None:
+            when = when.replace(tzinfo=current.tzinfo)
+        if when < current - __import__("datetime").timedelta(minutes=30):
+            continue
+        if when.date() != current.date() or not 7 <= when.hour < 22:
+            continue
+        today_samples += 1
+        today_above += temp > upper
+        today_below += temp < lower
+
+    if today_samples >= min_daylight_samples:
+        if today_above / today_samples >= 0.60:
+            return "summer"
+        if today_below / today_samples >= 0.60:
+            return "winter"
+
+    daily_signals: list[str] = []
+    for item in daily_forecast or ():
+        try:
+            high = float(item.get("temperature"))
+            low = float(item.get("templow"))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(high) or not math.isfinite(low):
+            continue
+        if low > upper:
+            daily_signals.append("summer")
+        elif high < lower:
+            daily_signals.append("winter")
+
+    if len(daily_signals) >= 2:
+        if daily_signals.count("summer") >= 2 and daily_signals.count("winter") == 0:
+            return "summer"
+        if daily_signals.count("winter") >= 2 and daily_signals.count("summer") == 0:
+            return "winter"
+    return None
 
 
 def ventilation_utility_score(
