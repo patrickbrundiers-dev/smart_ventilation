@@ -33,6 +33,7 @@ from .mold_engine import assess_mold_risk
 from .decision_engine import (
     adaptive_ventilation_score,
     ventilation_utility_score,
+    forecast_season_signal,
     robust_ach_update,
     robust_global_update,
     stale_adjusted_ach,
@@ -95,6 +96,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.preheat_plan_text = None
         self._rain_soon = False
         self._forecast_season = None
+        self._forecast_season_checked = False
         self._party_until = None
         self._mold_assessment_cache_key = None
         self._mold_assessment_cache = None
@@ -1141,15 +1143,22 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         except Exception:  # noqa: BLE001 – z. B. Dienst ohne Stundenvorhersage
             self._set_best(None, "Wetterdaten nicht verfügbar (stündliche Vorhersage?)", {})
             return
+        try:
+            daily = await self._fetch_daily_forecast(entity_id)
+        except Exception:  # noqa: BLE001 – Tagesvorhersage optional
+            daily = []
+        self._forecast_season = forecast_season_signal(
+            forecast,
+            daily,
+            threshold=float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD)),
+            hysteresis=SEASON_HYSTERESIS,
+            now=dt_util.now(),
+        )
+        self._forecast_season_checked = True
         self._evaluate_forecast(forecast)
         self.cool_plan = self.cooling_plan(forecast)
         self.preheat_plan_text = self.preheat_plan(forecast)
         self._rain_soon = self._forecast_rain_soon(forecast)
-        try:
-            daily = await self._fetch_daily_forecast(entity_id)
-        except Exception:  # noqa: BLE001 – z. B. Dienst ohne Tagesvorhersage
-            daily = []
-        self._forecast_season = self._forecast_season_trend(daily)
         self._notify_listeners()
 
     def _forecast_season_trend(self, forecast):
@@ -1557,6 +1566,19 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
+
+        # Nach erfolgreicher Forecast-Prüfung darf eine einzelne Live-Temperatur
+        # keinen Saisonwechsel mehr auslösen. Bei einem unklaren Forecast bleibt
+        # der bisherige Modus erhalten.
+        if self.data.get(CONF_WEATHER) and self._forecast_season_checked:
+            if self._forecast_season in (SEASON_SUMMER, SEASON_WINTER):
+                self._auto_season = self._forecast_season
+                self._season_pending = None
+                self._season_pending_since = None
+                return self._auto_season
+            if self._auto_season is not None:
+                return self._auto_season
+            return SEASON_WINTER
         if outdoor is None:
             return self._auto_season or SEASON_WINTER
 

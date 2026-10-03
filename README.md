@@ -146,6 +146,12 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.3
+
+- **Bugfix Saisonlogik:** In Übergangsmonaten wird der Sommer-/Wintermodus anhand des gesamten Tagesverlaufs der Stundenprognose bewertet, statt durch einen einzelnen aktuellen Temperaturwert über die 15-°C-Schwelle ausgelöst zu werden.
+- **Forecast-Vorrang:** Ein unklarer Tagesverlauf lässt den bestehenden Modus bestehen; die Live-Außentemperatur dient nicht mehr als konkurrierendes Umschaltsignal, sobald der Forecast geprüft wurde.
+- **Regressionstests:** Gemischte Tage mit warmem Nachmittag und klar warme Tage werden explizit abgesichert.
+
 ### Version 2.22.2
 
 - **Bugfix Entscheidungsengine:** Nicht-endliche Sensorwerte (`NaN`, `inf`) werden im zentralen Lüftungsnutzen sicher verworfen statt die Berechnung zu verfälschen oder Fehler auszulösen.
