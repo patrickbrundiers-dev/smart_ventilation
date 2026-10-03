@@ -146,6 +146,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.2
+
+- **Bugfix Entscheidungsengine:** Nicht-endliche Sensorwerte (`NaN`, `inf`) werden im zentralen Lüftungsnutzen sicher verworfen statt die Berechnung zu verfälschen oder Fehler auszulösen.
+- **Regressionstests:** Ungültige optionale und zentrale Eingabewerte werden explizit getestet; gültige Messwerte bleiben trotz einzelner fehlerhafter Sensorwerte nutzbar.
+
 ### Version 2.22.1
 
 - **Bugfix Entscheidungsengine:** Bewölkung und reale Solarstrahlung werden jetzt tatsächlich im zentralen Lüftungsnutzen berücksichtigt.

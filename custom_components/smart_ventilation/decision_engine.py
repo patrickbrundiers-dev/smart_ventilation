@@ -18,6 +18,15 @@ def _now_iso(now: datetime | None = None) -> str:
     return value.isoformat()
 
 
+def _finite_float(value: float | None) -> float | None:
+    """Return a finite numeric value or None for invalid sensor input."""
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
 def ventilation_utility_score(
     *,
     humidity_gain: float | None,
@@ -41,47 +50,52 @@ def ventilation_utility_score(
     score = 0.0
     reasons: list[str] = []
 
-    if humidity_gain is not None:
-        gain = max(0.0, float(humidity_gain))
+    gain = _finite_float(humidity_gain)
+    if gain is not None:
+        gain = max(0.0, gain)
         score += min(40.0, gain * 12.0)
         if gain >= 2.0:
             reasons.append(f"{gain:.1f} g/m³ trockener")
         elif gain >= 1.0:
             reasons.append("Außenluft trockener")
 
-    if wind is not None:
-        effective_wind = max(0.0, float(wind)) * max(0.0, min(1.0, float(wind_factor)))
+    wind_value = _finite_float(wind)
+    factor = _finite_float(wind_factor)
+    if wind_value is not None and factor is not None:
+        effective_wind = max(0.0, wind_value) * max(0.0, min(1.0, factor))
         score += min(15.0, effective_wind / 2.0)
         if effective_wind >= 10:
             reasons.append("günstiger Wind")
 
-    if temperature_delta is not None:
-        td = float(temperature_delta)
+    td = _finite_float(temperature_delta)
+    if td is not None:
         score += min(12.0, max(0.0, td) * 2.0)
         if td >= 3:
             reasons.append("Temperatur günstig")
 
     # Wetterfaktoren gehören direkt in den zentralen Nutzenscore, damit
     # Forecast und aktuelle Entscheidung dieselbe Bewertungslogik verwenden.
-    if cloud_cover is not None:
-        cloud = max(0.0, min(100.0, float(cloud_cover)))
+    cloud = _finite_float(cloud_cover)
+    radiation = _finite_float(solar_radiation)
+    if cloud is not None:
+        cloud = max(0.0, min(100.0, cloud))
         if cloud >= 80:
             score -= 8.0
             reasons.append("stark bewölkt")
         elif cloud >= 45:
-            if solar_radiation is not None and float(solar_radiation) >= 180:
+            if radiation is not None and radiation >= 180:
                 score += 3.0
                 reasons.append("Einstrahlung trotz Wolken")
             else:
                 score -= 4.0
                 reasons.append("bewölkt")
-    if solar_radiation is not None:
-        radiation = max(0.0, float(solar_radiation))
+    if radiation is not None:
+        radiation = max(0.0, radiation)
         if radiation >= 180:
             score += min(6.0, (radiation - 120.0) / 40.0)
 
-    if co2 is not None:
-        value = float(co2)
+    value = _finite_float(co2)
+    if value is not None:
         if value >= 1400:
             score += 20.0
             reasons.append("CO₂ sehr hoch")
@@ -99,8 +113,8 @@ def ventilation_utility_score(
         score += 10.0
         reasons.append("Wandfeuchte erhöht")
 
-    if wall_rh is not None:
-        wrh = float(wall_rh)
+    wrh = _finite_float(wall_rh)
+    if wrh is not None:
         if wrh >= 90:
             score += 15.0
         elif wrh >= 80:
@@ -108,8 +122,8 @@ def ventilation_utility_score(
         elif wrh >= 70:
             score += 4.0
 
-    if dewpoint_margin is not None:
-        margin = float(dewpoint_margin)
+    margin = _finite_float(dewpoint_margin)
+    if margin is not None:
         if margin <= 0:
             score += 20.0
             reasons.append("Kondensation möglich")
@@ -119,8 +133,9 @@ def ventilation_utility_score(
         elif margin <= 2:
             score += 6.0
 
-    if forecast_score is not None:
-        score += max(-10.0, min(10.0, (float(forecast_score) - 50.0) * 0.2))
+    forecast = _finite_float(forecast_score)
+    if forecast is not None:
+        score += max(-10.0, min(10.0, (forecast - 50.0) * 0.2))
 
     score = int(round(max(0.0, min(100.0, score))))
     return score, (" · ".join(reasons) if reasons else "geringer Lüftungsnutzen")

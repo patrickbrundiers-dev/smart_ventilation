@@ -211,3 +211,30 @@ def test_ventilation_utility_rewards_real_solar_radiation():
     )
     assert high > low
     assert "Einstrahlung" in reason
+
+
+def test_ventilation_utility_ignores_non_finite_sensor_values():
+    baseline, _ = ventilation_utility_score(
+        humidity_gain=2.0, wind=5, wind_factor=1.0, temperature_delta=2,
+        cloud_cover=20, solar_radiation=250, co2=1200, wall_rh=70,
+        dewpoint_margin=2, forecast_score=60,
+    )
+    guarded, reason = ventilation_utility_score(
+        humidity_gain=float("nan"), wind=float("inf"), wind_factor=float("nan"),
+        temperature_delta=float("nan"), cloud_cover=float("nan"),
+        solar_radiation=float("nan"), co2=float("nan"), wall_rh=float("nan"),
+        dewpoint_margin=float("nan"), forecast_score=float("nan"),
+    )
+    assert guarded == 0
+    assert "geringer Lüftungsnutzen" in reason
+    assert baseline > guarded
+
+
+def test_ventilation_utility_keeps_valid_values_when_optional_inputs_are_invalid():
+    score, reason = ventilation_utility_score(
+        humidity_gain=3.0, wind=8, wind_factor=1.0, temperature_delta=3,
+        cloud_cover=float("nan"), solar_radiation=float("nan"),
+        co2=float("nan"), wall_rh=float("nan"), dewpoint_margin=float("nan"),
+    )
+    assert score > 0
+    assert "g/m³" in reason
