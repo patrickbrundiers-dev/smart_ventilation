@@ -24,6 +24,8 @@ def ventilation_utility_score(
     wind: float | None,
     wind_factor: float = 1.0,
     temperature_delta: float | None,
+    cloud_cover: float | None = None,
+    solar_radiation: float | None = None,
     co2: float | None = None,
     mold_risk: str = "niedrig",
     wall_rh: float | None = None,
