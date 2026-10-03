@@ -24,6 +24,7 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 - Vorheizen: nach einer Nacht unter der Heizgrenze darf tagsüber trotz wärmerer Außenluft gelüftet werden, um Heizkosten zu sparen – inkl. Regen-Vorschau und Vorschau, ab wann es warm genug wird
 
 **Gesundheit & Luftqualität**
+- Schimmelrisiko mit Risiko-Score (0–100) und Datenqualitätsstatus; fehlende Wanddaten werden transparent als Schätzung/Fallback behandelt
 - Relative Feuchte, Taupunkt und Schimmelrisiko-Einschätzung an der kältesten Wandstelle (DIN 4108-2, mehrere Dämmstandards wählbar)
 - Schimmel-Frühwarnung bei mehreren kritischen Tagen in Folge
 - Optional CO₂-Sensor: Luftqualität gut/mäßig/schlecht, eigene CO₂-Lüftungsempfehlung
