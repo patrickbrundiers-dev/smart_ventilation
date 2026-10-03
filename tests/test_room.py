@@ -743,7 +743,7 @@ async def test_post_vent_pause_uses_forecast_and_extreme_override(
     hass.states.async_set("binary_sensor.fenster_1", "off")
     # Feuchte nach dem Lüften gesunken, aber noch nicht "niedrig" (erhöht, nicht hoch) –
     # sonst würde die neue Extrem-Ausnahme schon hier statt erst unten greifen.
-    hass.states.async_set("sensor.innen_ah", 12.0)
+    hass.states.async_set("sensor.innen_ah", 10.5)
     await hass.async_block_till_done()
     await _tick(hass, freezer, 1)
 
