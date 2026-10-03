@@ -2179,6 +2179,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "schimmel_massnahme": self.mold_assessment.action,
             "schimmel_taupunkt_abstand": r(self.mold_assessment.dew_point_margin, 1),
             "schimmel_trend": r(self.mold_rh_trend, 2),
+            "schimmel_score": self.mold_assessment.score,
+            "schimmel_datenqualitaet": self.mold_data_quality,
             "schimmel_h_heute": self.mold_hours_today,
             "schimmel_h_erhoeht_heute": self.mold_elevated_hours_today,
             "co2": r(self.co2, 0),
@@ -2349,6 +2351,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             duration_elevated_minutes=self.mold_elevated_minutes_today,
             trend_rh_per_hour=self.mold_rh_trend,
         )
+
+    @property
+    def mold_data_quality(self):
+        a = self.mold_assessment
+        if a.level == "unbekannt": return "unavailable"
+        if a.wall_rh is None or a.wall_temperature is None or a.dew_point_margin is None: return "degraded"
+        return "good"
 
     @property
     def mold_risk(self):
