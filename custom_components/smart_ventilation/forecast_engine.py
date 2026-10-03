@@ -70,6 +70,57 @@ def score_forecast_window(
     return max(0.0, min(100.0, score))
 
 
+def build_forecast_windows(
+    candidates: Iterable[ForecastWindow],
+    *,
+    max_gap_minutes: int = 90,
+    limit: int = 6,
+) -> list[dict]:
+    """Turn usable hourly candidates into contiguous ventilation windows."""
+    import datetime as _dt
+
+    ordered = sorted(candidates, key=lambda item: item.timestamp)
+    groups: list[list[ForecastWindow]] = []
+    for item in ordered:
+        try:
+            when = _dt.datetime.fromisoformat(item.timestamp)
+        except (TypeError, ValueError):
+            continue
+        if not groups:
+            groups.append([item])
+            continue
+        try:
+            previous = _dt.datetime.fromisoformat(groups[-1][-1].timestamp)
+            gap = (when - previous).total_seconds() / 60
+        except (TypeError, ValueError):
+            gap = max_gap_minutes + 1
+        if gap <= max_gap_minutes:
+            groups[-1].append(item)
+        else:
+            groups.append([item])
+
+    result: list[dict] = []
+    for group in groups:
+        try:
+            start = _dt.datetime.fromisoformat(group[0].timestamp)
+            end = _dt.datetime.fromisoformat(group[-1].timestamp) + _dt.timedelta(hours=1)
+        except (TypeError, ValueError):
+            continue
+        result.append({
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "score": round(max(item.score for item in group), 1),
+            "gain": round(sum(item.gain for item in group) / len(group), 1),
+            "wind": round(sum(item.wind for item in group) / len(group), 1),
+            "rain_probability": round(max(item.rain_probability for item in group), 1),
+            "rain_amount": round(max(item.rain_amount for item in group), 2),
+            "temperature_delta": round(sum(item.temperature_delta for item in group) / len(group), 1),
+            "hours": len(group),
+        })
+    result.sort(key=lambda item: (-item["score"], item["start"]))
+    return result[:max(1, limit)]
+
+
 def choose_best_window(
     windows: Iterable[ForecastWindow],
 ) -> ForecastWindow | None:
