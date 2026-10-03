@@ -58,3 +58,28 @@ def test_forecast_rejects_non_finite_inputs():
 
 def test_forecast_clamps_rain_probability():
     assert score_forecast_window(humidity_gain=2, wind=5, temperature_delta=1, rain_probability=150) == 0.0
+
+
+from custom_components.smart_ventilation.forecast_engine import ForecastWindow, build_forecast_windows
+
+
+def test_build_forecast_windows_merges_adjacent_hours():
+    candidates = [
+        ForecastWindow("2026-10-03T10:00:00+02:00", 2.0, score=70),
+        ForecastWindow("2026-10-03T11:00:00+02:00", 2.5, score=90),
+        ForecastWindow("2026-10-03T14:00:00+02:00", 3.0, score=60),
+    ]
+    windows = build_forecast_windows(candidates)
+    assert len(windows) == 2
+    assert windows[0]["hours"] == 2
+    assert windows[0]["score"] == 90
+    assert windows[1]["hours"] == 1
+
+
+def test_build_forecast_windows_limits_results():
+    candidates = [
+        ForecastWindow(f"2026-10-03T{h:02d}:00:00+02:00", 2.0, score=float(h))
+        for h in range(7, 15, 2)
+    ]
+    windows = build_forecast_windows(candidates, limit=2)
+    assert len(windows) == 2
