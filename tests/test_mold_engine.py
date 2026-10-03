@@ -44,9 +44,11 @@ def test_mold_rising_trend_adds_urgency():
     assert "steigend" in result.reason
 
 
-def test_mold_missing_wall_data_is_unknown():
+def test_mold_missing_wall_data_uses_room_air():
     result = assess_mold_risk(None, None, 65, 12)
-    assert result.level == "unbekannt"
+    assert result.level == "beobachten"
+    assert "Wanddaten fehlen" in result.reason
+
 
 def test_mold_uses_room_air_fallback_when_wall_data_is_missing():
     result = assess_mold_risk(None, None, 76, 14)
