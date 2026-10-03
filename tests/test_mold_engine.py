@@ -35,7 +35,13 @@ def test_mold_critical_above_90_percent():
 def test_mold_critical_near_condensation():
     result = assess_mold_risk(82, 16, 75, 15.6)
     assert result.level == "kritisch"
-    assert "Taupunkt" in result.reason
+    assert "sehr nah" in result.reason
+
+
+def test_mold_critical_at_condensation_point():
+    result = assess_mold_risk(82, 16, 75, 16)
+    assert result.level == "kritisch"
+    assert "Kondensation" in result.reason
 
 
 def test_mold_rising_trend_adds_urgency():
