@@ -153,6 +153,25 @@ def robust_ach_update(
     return current, True
 
 
+def context_bucket(
+    *,
+    wind: float | None,
+    temperature_delta: float | None,
+    cross_ventilation: bool = False,
+) -> str:
+    """Build a stable learning bucket from physical ventilation context.
+
+    The bucket intentionally stays coarse so learning does not fragment into
+    hundreds of sparsely populated combinations.
+    """
+    w = max(0.0, float(wind or 0.0))
+    td = float(temperature_delta or 0.0)
+    wind_bucket = "still" if w < 3 else "light" if w < 10 else "strong"
+    temp_bucket = "colder" if td < -3 else "neutral" if td <= 3 else "warmer"
+    cross = "cross" if cross_ventilation else "single"
+    return f"{wind_bucket}:{temp_bucket}:{cross}"
+
+
 def stale_adjusted_ach(
     model: dict[str, Any],
     fallback: float,

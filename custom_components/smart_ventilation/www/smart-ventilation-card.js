@@ -11,13 +11,16 @@
  */
 const DOMAIN = "smart_ventilation";
 const LOCALE = "de-DE";
+const RTF = new Intl.RelativeTimeFormat("de", { numeric: "auto" });
+const NUMBER_FORMATTERS = new Map();
+const numberFormatter = (digits) => {\n  if (!NUMBER_FORMATTERS.has(digits)) NUMBER_FORMATTERS.set(digits, new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: digits }));\n  return NUMBER_FORMATTERS.get(digits);\n};
 
 /* ---------- Hilfen ---------- */
 const esc = (v) =>
   String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const has = (v) => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v));
 const fmt = (v, digits = 1) =>
-  has(v) ? Number(v).toLocaleString(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: digits }) : "–";
+  has(v) ? numberFormatter(digits).format(Number(v)) : "–";
 const dur = (s) => {
   s = Math.max(0, Math.round(s || 0));
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
@@ -28,8 +31,8 @@ const ago = (iso) => {
   const diff = (Date.parse(iso) - Date.now()) / 1000;
   const rtf = new Intl.RelativeTimeFormat("de", { numeric: "auto" });
   const abs = Math.abs(diff);
-  if (abs < 3600) return rtf.format(Math.round(diff / 60), "minute");
-  if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour");
+  if (abs < 3600) return RTF.format(Math.round(diff / 60), "minute");
+  if (abs < 86400) return RTF.format(Math.round(diff / 3600), "hour");
   return rtf.format(Math.round(diff / 86400), "day");
 };
 const join = (parts) => parts.filter(Boolean).join(" · ");

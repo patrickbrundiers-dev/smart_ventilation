@@ -27,11 +27,13 @@ from .sensor_utils import (
     _wind_kmh,
 )
 from .history import HistoryMixin, month_name
+from .forecast_engine import score_forecast_window
 from .decision_engine import (
     adaptive_ventilation_score,
     robust_ach_update,
     robust_global_update,
     stale_adjusted_ach,
+    context_bucket,
 )
 
 
@@ -624,6 +626,9 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         """
         key = self._bucket(wind, angle, temp_diff, cross)
         model = self.models.get(key)
+        legacy_key = key.split("|ctx:", 1)[0]
+        if model is None:
+            model = self.models.get(legacy_key)
         if model and model.get("samples", 0) >= BUCKET_TRUST_SAMPLES:
             return max(0.5, stale_adjusted_ach(model, self.learned_ach, stale_days=LEARNING_STALE_DAYS)), key
 
@@ -1253,7 +1258,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             wind_factor = self._forecast_wind_factor(item)
             cloud = _num(item.get("cloud_coverage"))
             radiation = _num(item.get("solar_radiation")) or _num(item.get("global_radiation"))
-            score = gain + min(wind, 30) / 60 * wind_factor
+            score = score_forecast_window(
+                humidity_gain=gain,
+                wind=wind,
+                temperature_delta=(indoor_t - temp) if indoor_t is not None else 0.0,
+                rain_probability=rain_prob,
+                rain_amount=rain,
+                min_gain=FORECAST_MIN_GAIN,
+                max_rain_probability=FORECAST_MAX_RAIN_PROB,
+                max_rain_amount=FORECAST_MAX_RAIN_MM,
+            ) / 20.0 * wind_factor
 
             if rain_raw is None and rain_prob_raw is None:
                 score -= 0.5
