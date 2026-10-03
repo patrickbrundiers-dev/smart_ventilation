@@ -36,3 +36,22 @@ def test_winter_scenario_20c_70rh_cold_wall_is_high():
     result = _relative_humidity_at_surface(20, 70, 16.1)
     assert result is not None
     assert 88.0 < result < 90.5
+
+
+from custom_components.smart_ventilation.mold_engine import assess_mold_risk
+
+
+def test_wall_dewpoint_margin_distinguishes_condensation_from_warning():
+    safe = assess_mold_risk(70, 17.4, 60, 12.0)
+    warning = assess_mold_risk(78, 16.4, 60, 16.0)
+    condensation = assess_mold_risk(95, 16.0, 60, 16.2)
+    assert safe.dew_point_margin > 2
+    assert 0 < warning.dew_point_margin <= 0.5
+    assert condensation.dew_point_margin <= 0
+    assert condensation.level == "kritisch"
+
+
+def test_wall_humidity_scenario_escalates_with_duration():
+    result = assess_mold_risk(82, 16.5, 70, 14.5, duration_high_minutes=360)
+    assert result.level == "hoch"
+    assert result.duration_hours >= 6
