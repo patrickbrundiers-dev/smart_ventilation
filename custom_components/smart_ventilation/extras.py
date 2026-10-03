@@ -450,29 +450,20 @@ class RoomExtrasMixin:
             return False
         return True
 
-    async def _dehumidifier_control(self, now):
-        entity_id = self.data.get(CONF_DEHUMIDIFIER)
-        if not entity_id:
-            return
-        domain = entity_id.partition(".")[0]
-        state = self.hass.states.get(entity_id)
-        if state is None or state.state in ("unavailable", "unknown"):
-            return
-
+    def _dehumidifier_need_and_block(self, now):
+        """Gemeinsame Bedarfs-/Blockade-Prüfung für die echte Steuerung (_dehumidifier_control)
+        und die reine Status-Anzeige (dehumidifier_active) - vorher gab es hier zwei leicht
+        unterschiedliche Kopien derselben Logik (andere Einschalt-Schwelle, fehlende
+        Lüftungs-Vorrang-Prüfung in der Anzeige), wodurch die Übersichtskarte etwas anderes
+        zeigen konnte, als der Entfeuchter tatsächlich tat."""
         rh = self.indoor_rh
         indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
-        ah_start = target_abs + DEHUM_AH_HYSTERESIS
-        ah_stop = target_abs - DEHUM_AH_HYSTERESIS
-        rh_start = DEHUM_ON_RH
-        rh_stop = DEHUM_OFF_RH - DEHUM_RH_HYSTERESIS
-        mold_high = self.mold_risk == "hoch"
         need = (
-            (indoor_ah is not None and indoor_ah > ah_start)
-            or (rh is not None and rh >= rh_start)
+            (indoor_ah is not None and indoor_ah > target_abs + DEHUM_AH_HYSTERESIS)
+            or (rh is not None and rh >= DEHUM_ON_RH)
             or self.mold_risk in ("erhöht", "hoch")
         )
-
         humidity_difference = self.humidity_difference
         ventilation_available = self._ventilation_priority_active(now) and not self.open_windows()
         cannot_vent = (
@@ -483,6 +474,24 @@ class RoomExtrasMixin:
             or (self.persons and not self.anyone_home)
             or not ventilation_available
         )
+        return need, cannot_vent, ventilation_available
+
+    async def _dehumidifier_control(self, now):
+        entity_id = self.data.get(CONF_DEHUMIDIFIER)
+        if not entity_id:
+            return
+        domain = entity_id.partition(".")[0]
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in ("unavailable", "unknown"):
+            return
+
+        indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
+        rh = self.indoor_rh
+        target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
+        ah_stop = target_abs - DEHUM_AH_HYSTERESIS
+        rh_stop = DEHUM_OFF_RH - DEHUM_RH_HYSTERESIS
+        mold_high = self.mold_risk == "hoch"
+        need, cannot_vent, ventilation_available = self._dehumidifier_need_and_block(now)
 
         if self._dehum_on_since is None:
             if (
@@ -540,25 +549,11 @@ class RoomExtrasMixin:
         if state.state == "on":
             return True
 
-        indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
-        target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
-        rh = self.indoor_rh
-        need = (
-            indoor_ah is not None and indoor_ah > target_abs
-        ) or (
-            rh is not None and rh >= DEHUM_ON_RH
-        ) or self.mold_risk in ("erhöht", "hoch")
-        humidity_difference = self.humidity_difference
-        cannot_vent = (
-            _is_raining(self.hass, self.data.get(CONF_RAIN))
-            or (
-                humidity_difference is not None
-                and humidity_difference <= 1.0
-            )
-            or self.in_quiet_hours()
-            or self.on_vacation
-            or (self.persons and not self.anyone_home)
-        )
+        # Dieselbe Bedarfs-/Blockade-Prüfung wie die echte Steuerung (_dehumidifier_control) -
+        # vorher stand hier eine eigene, leicht abweichende Kopie (andere Einschalt-Schwelle,
+        # fehlende Lüftungs-Vorrang-Prüfung), die einen anderen Status zeigen konnte, als der
+        # Entfeuchter tatsächlich tat.
+        need, cannot_vent, _ = self._dehumidifier_need_and_block(dt_util.now())
         return bool(
             state.state == "off"
             and need
@@ -603,6 +598,15 @@ class RoomExtrasMixin:
         ran = (now - self._shutter_closed_since) >= timedelta(minutes=SHUTTER_MIN_RUNTIME_MINUTES)
         if ran and not need:
             await self._call(domain, "open_cover", {"entity_id": entity_id})
+            self._shutter_closed_since = None
+            await self._save()
+        elif state.state == "open":
+            # Wie beim Entfeuchter (siehe _dehumidifier_control): Wir denken, das Rollo sei von
+            # uns geschlossen, aber das Gerät selbst meldet "offen" - der Schließ-Befehl kam nie
+            # an, oder jemand hat es von Hand wieder geöffnet, während die Sonnenbedingung noch
+            # besteht (dann würde "ran and not need" nie True). Zustand korrigieren, damit die
+            # Schließ-Logik oben beim nächsten Durchlauf erneut greift, statt dauerhaft von einem
+            # bereits geschlossenen Rollo auszugehen, das in Wirklichkeit offen ist.
             self._shutter_closed_since = None
             await self._save()
 
@@ -748,13 +752,11 @@ class RoomExtrasMixin:
         # 2. Wenn Lüften möglich ist, soll zuerst gelüftet werden.
         # 3. Der Entfeuchter darf nur als Ausweichlösung übernehmen.
         # 4. Das Rollo bleibt unabhängig davon sicherheitsorientiert.
-        if self.session or self.open_windows():
-            # Bei aktiver/manueller Lüftung darf die Entfeuchter-Automatik nicht
-            # neu starten. Eine bereits laufende Automatik wird durch
-            # _dehumidifier_control beendet.
-            await self._dehumidifier_control(now)
-        else:
-            await self._dehumidifier_control(now)
+        # Bei aktiver/manueller Lüftung darf die Entfeuchter-Automatik nicht neu starten - das
+        # prüft _dehumidifier_control bereits selbst (self.session/open_windows() fließen dort
+        # sowohl in die Einschalt- als auch in die Ausschalt-Bedingung ein), daher hier ein
+        # einziger, unbedingter Aufruf statt zweier inhaltsgleicher Zweige.
+        await self._dehumidifier_control(now)
 
         was_shutter_closed = self.shutter_closed
         await self._shutter_control(now)

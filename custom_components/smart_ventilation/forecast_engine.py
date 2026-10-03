@@ -52,7 +52,7 @@ def score_forecast_window(
     rain_amount = max(0.0, rain_amount)
     if gain < min_gain:
         return 0.0
-    if rain_prob >= max_rain_probability or rain_amount > max_rain_amount:
+    if rain_prob >= max_rain_probability or rain_amount >= max_rain_amount:
         return 0.0
 
     try:
@@ -109,7 +109,12 @@ def build_forecast_windows(
         result.append({
             "start": start.isoformat(),
             "end": end.isoformat(),
-            "score": round(max(item.score for item in group), 1),
+            # Durchschnitt statt Maximum - konsistent mit gain/wind/temperature_delta, die
+            # ebenfalls den typischen Wert über das Fenster abbilden. Das Maximum einer einzelnen
+            # guten Stunde konnte vorher einen hohen Score neben einer (von einer anderen Stunde
+            # stammenden) hohen Regenwahrscheinlichkeit zeigen - ein in sich widersprüchliches
+            # Ergebnis, da beide Werte dann aus unterschiedlichen Stunden derselben Gruppe kamen.
+            "score": round(sum(item.score for item in group) / len(group), 1),
             "gain": round(sum(item.gain for item in group) / len(group), 1),
             "wind": round(sum(item.wind for item in group) / len(group), 1),
             "rain_probability": round(max(item.rain_probability for item in group), 1),

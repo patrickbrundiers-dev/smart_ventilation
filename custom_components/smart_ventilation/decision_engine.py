@@ -46,7 +46,10 @@ def forecast_season_signal(
         try:
             when = datetime.fromisoformat(str(item.get("datetime", "")))
             temp = float(item.get("temperature"))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, AttributeError):
+            # AttributeError: ein einzelner Forecast-Eintrag ist None/kein Mapping (lückenhafte
+            # Antwort einer Wetter-Integration) - dann einfach überspringen statt den gesamten
+            # Update-Zyklus mit einem unbehandelten Fehler abzubrechen.
             continue
         if not math.isfinite(temp):
             continue
@@ -71,7 +74,7 @@ def forecast_season_signal(
         try:
             high = float(item.get("temperature"))
             low = float(item.get("templow"))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, AttributeError):
             continue
         if not math.isfinite(high) or not math.isfinite(low):
             continue
@@ -414,7 +417,15 @@ def robust_global_update(history: list[float], ach: float, *, max_history: int =
         med = median(values)
         mad = median(abs(v - med) for v in values)
         if abs(candidate - med) > max(2.0, med * 0.35, mad * 4.0):
-            return values[-max_history:], sum(values) / len(values)
+            # Dieselbe getrimmte Mittelung wie beim regulären (akzeptierten) Pfad unten
+            # verwenden - vorher lieferte dieser Ausreißer-Zweig den UNgetrimmten Mittelwert,
+            # wodurch der gemeldete Wert allein dadurch sprang, dass ein Kandidat verworfen
+            # wurde, ohne dass sich an den akzeptierten Messwerten selbst etwas änderte.
+            trimmed_history = values[-max_history:]
+            ordered = sorted(trimmed_history)
+            trim = 1 if len(ordered) >= 7 else 0
+            core = ordered[trim: len(ordered) - trim] if trim else ordered
+            return trimmed_history, sum(core) / len(core)
     values.append(candidate)
     values = values[-max_history:]
     ordered = sorted(values)

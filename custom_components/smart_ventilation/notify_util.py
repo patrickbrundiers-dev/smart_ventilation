@@ -98,7 +98,10 @@ def reserve_notification(guard, key, now, cooldown_seconds, priority=0):
         previous = dt_util.parse_datetime(item.get("at"))
         if previous is not None:
             elapsed = (now - previous).total_seconds()
-            if elapsed < max(0, cooldown_seconds) and int(item.get("priority", 0)) >= priority:
+            # elapsed < 0 bedeutet: die Uhr ist zurückgesprungen (NTP-Korrektur, DST-Umstellung) -
+            # nicht als "noch in der Abklingzeit" werten, sonst könnte eine Benachrichtigung je
+            # nach Größe des Sprungs unbegrenzt lange unterdrückt bleiben.
+            if 0 <= elapsed < max(0, cooldown_seconds) and int(item.get("priority", 0)) >= priority:
                 return False
     guard[key] = {"at": now.isoformat(), "priority": int(priority)}
     return True

@@ -143,6 +143,26 @@ def test_overview_room_list_and_urgency(hass: HomeAssistant):
     assert coordinator.rooms_needing()[0]["raum"] == "Bad"
     assert coordinator.most_urgent == "Bad"
 
+
+def test_urgency_ranks_critical_mold_above_high_mold(hass: HomeAssistant):
+    """MOLD_WEIGHT kannte "kritisch" bisher nicht -> .get(..., 0.0) gab einem Raum mit akutem
+    Schimmelrisiko denselben (Null-)Dringlichkeits-Bonus wie einem Raum ganz ohne Risiko. Ein
+    Raum mit "kritisch" muss dringender sein als einer mit "hoch", nicht gleich dringend wie
+    einer ganz ohne Schimmelrisiko."""
+    entry = MockConfigEntry(domain=DOMAIN, entry_id="overview-test", data={"entry_type": "overview"})
+    entry.add_to_hass(hass)
+    hoch = _room("Hoch-Risiko")
+    hoch.mold_risk = "hoch"
+    kritisch = _room("Kritisch-Risiko")
+    kritisch.mold_risk = "kritisch"
+    kein_risiko = _room("Kein-Risiko")
+    kein_risiko.mold_risk = "niedrig"
+    hass.data[DOMAIN] = {"hoch": hoch, "kritisch": kritisch, "kein_risiko": kein_risiko}
+    coordinator = OverviewCoordinator(hass, entry)
+
+    assert coordinator.urgency(kritisch) > coordinator.urgency(hoch)
+    assert coordinator.urgency(kritisch) > coordinator.urgency(kein_risiko)
+
     room.recommended_minutes = 0
     assert coordinator.rooms_needing() == []
     assert coordinator.most_urgent == "Keiner"

@@ -419,6 +419,29 @@ async def test_dehumidifier_runs_even_when_outdoor_air_is_more_humid(
     assert len(on) == 1
 
 
+async def test_dehumidifier_active_matches_real_control_during_storm_block(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Die für Karte/Übersicht gezeigte "dehumidifier_active"-Eigenschaft nutzte vorher eine
+    eigene, unvollständige Kopie der Steuerungs-Logik (andere Einschalt-Schwelle, vor allem ohne
+    die Lüftungs-Vorrang-/block_reason-Prüfung). Bei einem erwarteten Gewitter (Lüften blockiert,
+    obwohl es noch nicht regnet) sprang der Entfeuchter tatsächlich an, während die Anzeige
+    fälschlich "nicht aktiv" zeigen konnte - beide müssen hier übereinstimmen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    on = async_mock_service(hass, "switch", "turn_on")
+    hass.states.async_set("switch.entfeuchter", "off")
+    hass.states.async_set("binary_sensor.gewitter", "on")
+    entry = await setup_room(
+        hass, dehumidifier_entity="switch.entfeuchter", thunderstorm_entity="binary_sensor.gewitter",
+    )
+    hass.states.async_set("sensor.innen_ah", 12.5)  # feucht genug (~70 % rel. Feuchte)
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 1
+
+    room = hass.data[DOMAIN][entry.entry_id]
+    assert room.dehumidifier_active is True
+
+
 async def test_dehumidifier_resyncs_when_device_reports_off_unexpectedly(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
@@ -526,6 +549,34 @@ async def test_shutter_closes_and_reopens_with_direct_sun(
     hass.states.async_set("sun.sun", "above_horizon", {"elevation": 40, "azimuth": 250})  # weg vom Fenster
     await _tick(hass, freezer, 16)  # über die Mindestlaufzeit von 15 Min. hinaus
     assert len(open_) == 1
+
+
+async def test_shutter_resyncs_when_manually_reopened_while_sun_still_shines(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Schließt die Automatik wegen direkter Sonne und wird das Rollo danach von Hand wieder
+    geöffnet, während die Sonne weiterhin direkt aufs Fenster scheint (also "need" weiter True
+    bleibt, wodurch "ran and not need" nie zutrifft), darf der Coordinator das nicht übersehen -
+    sonst denkt er dauerhaft, das Rollo sei von ihm geschlossen, und schließt es nie wieder, wenn
+    die Sonne (z. B. am nächsten Tag) erneut direkt aufs Fenster trifft. Analog zur bereits
+    bestehenden Selbstkorrektur beim Entfeuchter."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    close = async_mock_service(hass, "cover", "close_cover")
+    hass.states.async_set("cover.rollo", "open")
+    await setup_room(hass, use_sun=True, season_mode="summer", shutter_entity="cover.rollo")
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # = Fensterausrichtung
+    )
+    await _tick(hass, freezer, 0.5)
+    assert len(close) == 1
+
+    # Von Hand wieder geöffnet, Sonne scheint unverändert weiter direkt aufs Fenster.
+    hass.states.async_set("cover.rollo", "open")
+    await _tick(hass, freezer, 0.5)  # Coordinator merkt den Widerspruch und korrigiert sich
+    assert len(close) == 1  # noch kein erneuter Schließ-Versuch in demselben Tick
+
+    await _tick(hass, freezer, 0.5)  # nächster Durchlauf: Schließ-Logik greift wieder
+    assert len(close) == 2
 
 
 async def test_shutter_notification_close_and_open_once_per_exposure(

@@ -240,9 +240,17 @@
     },
     "abort": {
       "already_configured": "This is already configured."
+    },
+    "error": {
+      "same_sensor_humidity": "Indoor and outdoor humidity are the same sensor - the difference would always be 0.",
+      "same_sensor_temp": "Indoor and outdoor temperature are the same sensor - the difference would always be 0."
     }
   },
   "options": {
+    "error": {
+      "same_sensor_humidity": "Indoor and outdoor humidity are the same sensor - the difference would always be 0.",
+      "same_sensor_temp": "Indoor and outdoor temperature are the same sensor - the difference would always be 0."
+    },
     "step": {
       "init": {
         "title": "Settings: {name}",

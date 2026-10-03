@@ -51,6 +51,16 @@ def test_forecast_score_rejects_rain_above_amount_limit():
     ) == 0
 
 
+def test_forecast_score_rejects_rain_at_amount_limit():
+    """rain_amount am Grenzwert selbst muss genauso blockieren wie rain_probability am
+    Grenzwert (siehe test_forecast_score_rejects_rain_at_probability_limit) - vorher war
+    rain_amount beim Grenzwert selbst noch NICHT blockiert (">" statt ">="), eine unbegründete
+    Asymmetrie zwischen zwei gleichartigen Sicherheits-Schwellen."""
+    assert score_forecast_window(
+        humidity_gain=3, wind=10, temperature_delta=0, rain_amount=0.2
+    ) == 0
+
+
 def test_forecast_rejects_non_finite_inputs():
     assert score_forecast_window(humidity_gain=float("nan"), wind=5, temperature_delta=1) == 0.0
     assert score_forecast_window(humidity_gain=2, wind=float("inf"), temperature_delta=1) == 0.0
@@ -72,8 +82,27 @@ def test_build_forecast_windows_merges_adjacent_hours():
     windows = build_forecast_windows(candidates)
     assert len(windows) == 2
     assert windows[0]["hours"] == 2
-    assert windows[0]["score"] == 90
+    # Durchschnitt (70+90)/2=80, nicht das Maximum (90) - konsistent mit gain/wind/
+    # temperature_delta, die ebenfalls den typischen Wert über das Fenster abbilden (siehe
+    # test_build_forecast_windows_score_is_average_not_best_hour für die Begründung).
+    assert windows[0]["score"] == 80.0
     assert windows[1]["hours"] == 1
+
+
+def test_build_forecast_windows_score_is_average_not_best_hour():
+    """Vorher war "score" das Maximum der Gruppe, rain_probability/rain_amount aber das Maximum
+    der (womöglich anderen!) schlechtesten Stunde - ein in sich widersprüchliches Ergebnis (hoher
+    Score neben hohem Regenrisiko aus zwei verschiedenen Stunden). Score muss wie gain/wind/
+    temperature_delta der Durchschnitt sein, rain_probability/rain_amount bleiben bewusst das
+    (konservative) Maximum."""
+    candidates = [
+        ForecastWindow("2026-10-03T10:00:00+02:00", gain=3.0, rain_probability=5, score=90),
+        ForecastWindow("2026-10-03T11:00:00+02:00", gain=0.2, rain_probability=48, score=20),
+    ]
+    windows = build_forecast_windows(candidates)
+    assert len(windows) == 1
+    assert windows[0]["score"] == 55.0
+    assert windows[0]["rain_probability"] == 48
 
 
 def test_build_forecast_windows_limits_results():

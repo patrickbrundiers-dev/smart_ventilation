@@ -70,3 +70,22 @@ def test_mold_score_increases_with_condensation_risk():
 def test_mold_score_is_bounded():
     result = assess_mold_risk(95, 15, 90, 14, duration_high_minutes=720, trend_rh_per_hour=10)
     assert 0 <= result.score <= 100
+
+
+def test_mold_score_is_monotonic_across_dewpoint_margin_critical_threshold():
+    """Eine minimal SICHERERE Taupunkt-Marge (weiter weg vom Taupunkt) darf nie einen HÖHEREN
+    Score liefern als eine knappere Marge - vorher kippte die Formel an der Schwelle
+    MOLD_DEWPOINT_MARGIN_CRITICAL (0,5 °C) von "max(score, 95)" auf eine additive Formel, die an
+    0,51 °C kurzzeitig über 95 hinausschießen konnte."""
+    from custom_components.smart_ventilation.mold_engine import MoldAssessment
+
+    margins = [0.3, 0.5, 0.51, 0.8, 1.0, 1.5, 1.9, 2.0, 2.5]
+    for level, base in (("kritisch", 92), ("hoch", 72), ("erhöht", 50)):
+        scores = [
+            MoldAssessment(
+                level=level, reason="", action="", wall_rh=None, wall_temperature=None,
+                dew_point_margin=margin, duration_hours=0, trend_rh_per_hour=None,
+            ).score
+            for margin in margins
+        ]
+        assert scores == sorted(scores, reverse=True), (level, margins, scores)

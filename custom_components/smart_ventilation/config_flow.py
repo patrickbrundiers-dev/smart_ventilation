@@ -355,6 +355,17 @@ def overview_schema(hass: HomeAssistant, d: dict) -> vol.Schema:
     })
 
 
+def _validate_room(data: dict) -> dict:
+    """Verhindert, dass derselbe Sensor versehentlich für Innen- und Außenwert ausgewählt wird -
+    die daraus berechnete Differenz wäre dann dauerhaft 0, ohne dass das beim Einrichten auffällt."""
+    errors: dict[str, str] = {}
+    if data.get(CONF_INDOOR_HUMIDITY) and data.get(CONF_INDOOR_HUMIDITY) == data.get(CONF_OUTDOOR_HUMIDITY):
+        errors["base"] = "same_sensor_humidity"
+    elif data.get(CONF_INDOOR_TEMP) and data.get(CONF_INDOOR_TEMP) == data.get(CONF_OUTDOOR_TEMP):
+        errors["base"] = "same_sensor_temp"
+    return errors
+
+
 def flatten(user_input: dict) -> dict:
     """{bereich: {feld: wert}} -> {feld: wert}; entfernte optionale Felder leer speichern."""
     data = {}
@@ -383,22 +394,27 @@ class SmartVentilationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_menu(step_id="user", menu_options=options)
 
     async def async_step_room(self, user_input=None):
+        errors: dict[str, str] = {}
+        # getattr, weil das Feld nur gesetzt ist, wenn man über "Raum aus Vorlage" hierherkam
+        defaults = getattr(self, "_template", {})
         if user_input is not None:
             data = flatten(user_input)
-            await self.async_set_unique_id(data[CONF_NAME].strip().lower())
-            self._abort_if_unique_id_configured()
-            data[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
-            # Tagesziel unangetastet gelassen (zeigte nur den allgemeinen Vorschlag) ->
-            # stattdessen den zum gewählten Raumtyp passenden Richtwert übernehmen.
-            # Ein bewusst abweichend eingetragener Wert bleibt unangetastet.
-            if data.get(CONF_TARGET_ABS) == DEFAULT_TARGET_ABS:
-                data[CONF_TARGET_ABS] = ROOM_TYPE_TARGET_ABS.get(
-                    data.get(CONF_ROOM_TYPE), DEFAULT_TARGET_ABS
-                )
-            return self.async_create_entry(title=data[CONF_NAME], data=data)
-        # getattr, weil das Feld nur gesetzt ist, wenn man über "Raum aus Vorlage" hierherkam
+            defaults = data  # bei Fehler die Eingaben erneut vorausfüllen statt sie zu verwerfen
+            errors = _validate_room(data)
+            if not errors:
+                await self.async_set_unique_id(data[CONF_NAME].strip().lower())
+                self._abort_if_unique_id_configured()
+                data[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
+                # Tagesziel unangetastet gelassen (zeigte nur den allgemeinen Vorschlag) ->
+                # stattdessen den zum gewählten Raumtyp passenden Richtwert übernehmen.
+                # Ein bewusst abweichend eingetragener Wert bleibt unangetastet.
+                if data.get(CONF_TARGET_ABS) == DEFAULT_TARGET_ABS:
+                    data[CONF_TARGET_ABS] = ROOM_TYPE_TARGET_ABS.get(
+                        data.get(CONF_ROOM_TYPE), DEFAULT_TARGET_ABS
+                    )
+                return self.async_create_entry(title=data[CONF_NAME], data=data)
         return self.async_show_form(
-            step_id="room", data_schema=room_schema(self.hass, getattr(self, "_template", {}), setup=True)
+            step_id="room", data_schema=room_schema(self.hass, defaults, setup=True), errors=errors,
         )
 
     async def async_step_room_from_template(self, user_input=None):
@@ -442,14 +458,20 @@ class SmartVentilationOptionsFlow(config_entries.OptionsFlow):
         current = {**self.config_entry.data, **self.config_entry.options}
         overview = self.config_entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_OVERVIEW
 
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(
-                title="", data={**self.config_entry.options, **flatten(user_input)}
-            )
+            data = flatten(user_input)
+            errors = {} if overview else _validate_room(data)
+            if not errors:
+                return self.async_create_entry(
+                    title="", data={**self.config_entry.options, **data}
+                )
+            current = {**current, **data}  # Eingaben erneut vorausfüllen statt sie zu verwerfen
 
         schema = overview_schema(self.hass, current) if overview else room_schema(self.hass, current, setup=False)
         return self.async_show_form(
             step_id="init",
             data_schema=schema,
+            errors=errors,
             description_placeholders={"name": str(current.get(CONF_NAME, ""))},
         )

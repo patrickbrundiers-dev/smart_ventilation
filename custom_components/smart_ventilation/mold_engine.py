@@ -35,7 +35,12 @@ class MoldAssessment:
         if self.dew_point_margin is not None and self.dew_point_margin <= MOLD_DEWPOINT_MARGIN_CRITICAL:
             score = max(score, 95)
         elif self.dew_point_margin is not None and self.dew_point_margin < 2.0:
-            score += (2.0 - max(0.0, self.dew_point_margin)) * 6.0
+            # Linear von "95" genau an MOLD_DEWPOINT_MARGIN_CRITICAL (stetiger Übergang zum Zweig
+            # oben) bis "kein Bonus mehr" bei 2,0 °C. Die alte feste Formel (+bis zu 9 Punkte)
+            # konnte an der Schwelle einen unstetigen Sprung erzeugen: ein geringfügig
+            # SICHERERER Wert (0,51 statt 0,50 °C Marge) ergab dadurch einen HÖHEREN Score.
+            span = 2.0 - MOLD_DEWPOINT_MARGIN_CRITICAL
+            score += (95.0 - score) * (2.0 - self.dew_point_margin) / span
         if self.trend_rh_per_hour is not None and self.trend_rh_per_hour >= MOLD_TREND_WARN_RH_PER_HOUR:
             score += min(8.0, self.trend_rh_per_hour - MOLD_TREND_WARN_RH_PER_HOUR + 2.0)
         if self.duration_hours >= 6:

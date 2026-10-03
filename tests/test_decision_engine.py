@@ -104,6 +104,22 @@ def test_global_learning_rejects_outlier():
     assert mean < 10
 
 
+def test_global_learning_rejected_outlier_uses_same_trimmed_mean_as_accepted():
+    """Der Ausreißer-Zweig (Kandidat wird verworfen) muss denselben getrimmten Mittelwert liefern
+    wie der normale Pfad unten - vorher lieferte er den UNgetrimmten Mittelwert, wodurch der
+    gemeldete Wert allein dadurch sprang, dass ein Kandidat verworfen wurde, ohne dass sich an den
+    akzeptierten Messwerten selbst etwas änderte."""
+    history = [6, 7, 7, 8, 9, 10, 20]
+    # Ein Kandidat, der als klarer Ausreißer abgelehnt wird (weit weg vom Median).
+    _, rejected_mean = robust_global_update(history, 35)
+    # Erwartet: derselbe getrimmte Mittelwert (ein Ausreißer oben/unten entfernt, da 7 Werte),
+    # NICHT der rohe Mittelwert über alle 7 Werte (inkl. der bereits vorhandenen 20).
+    ordered = sorted(float(v) for v in history)
+    expected_core = ordered[1:-1]
+    assert rejected_mean == sum(expected_core) / len(expected_core)
+    assert rejected_mean != sum(ordered) / len(ordered)
+
+
 def test_global_learning_history_is_bounded():
     history, _ = robust_global_update(list(range(1, 25)), 10)
     assert len(history) == 24
@@ -252,6 +268,21 @@ def test_forecast_season_uses_whole_day_not_single_warm_hour():
         ]
     ]
     assert forecast_season_signal(hourly, [], now=now) is None
+
+
+def test_forecast_season_signal_skips_malformed_forecast_entries():
+    """Ein lückenhafter/kaputter Eintrag (None statt eines Dicts) in der stündlichen oder
+    täglichen Vorhersage - z. B. bei einer wackligen Wetter-Integration - darf den gesamten
+    Update-Zyklus nicht mit einem unbehandelten AttributeError abbrechen, sondern muss einfach
+    übersprungen werden."""
+    now = datetime(2026, 9, 15, 12, tzinfo=timezone.utc)
+    hourly = [
+        {"datetime": f"2026-09-15T{hour:02d}:00:00+00:00", "temperature": temp}
+        for hour, temp in [(7, 16), (8, 17), (9, 18), (10, 19)]
+    ] + [None]
+    # Darf nicht crashen - Ergebnis selbst ist bei nur 4 validen Samples (< min_daylight_samples)
+    # noch unbestimmt, es geht hier nur darum, dass kein Fehler auftritt.
+    forecast_season_signal(hourly, [None, {"not": "a forecast"}], now=now)
 
 
 def test_forecast_season_accepts_clear_warm_day():

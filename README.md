@@ -146,6 +146,20 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.5
+
+Umfassende Fehlerbereinigung nach einer vollständigen Code-Überprüfung – keine neuen Funktionen, ausschließlich Korrekturen bestehender Logik:
+
+- **Schimmelrisiko „kritisch“ wurde an zwei Stellen übergangen:** Die Feuchte-Lüftungsempfehlung konnte vorzeitig auf „kein Lüften nötig“ wechseln, obwohl weiterhin akutes Schimmelrisiko bestand; in der Übersichtskarte bekam ein Raum mit „kritisch“ denselben (Null-)Dringlichkeits-Bonus wie ein Raum ganz ohne Risiko.
+- **Entfeuchter-Status konsistent:** Die auf Karte/Übersicht gezeigte „Entfeuchter aktiv“-Anzeige nutzte eine eigene, unvollständige Kopie der Steuerungslogik und konnte etwas anderes zeigen als der Entfeuchter tatsächlich tat.
+- **Rollo-Selbstkorrektur:** Wird ein automatisch geschlossenes Rollo von Hand wieder geöffnet, während die Sonnenbedingung weiter besteht, erkennt die Automatik das jetzt (analog zur bestehenden Entfeuchter-Selbstkorrektur) und schließt beim nächsten Durchlauf erneut.
+- **Sammel-Benachrichtigungen unterscheiden Raum-Kombinationen:** Zwei inhaltlich unterschiedliche fällige Raum-Gruppen mit zufällig gleicher Anzahl blockierten sich bisher gegenseitig, weil der Sperr-Schlüssel nur die Anzahl, nicht die Räume selbst abbildete.
+- **Absturzschutz bei lückenhaften Wettervorhersagen**, robustere Lernwert-Mittelung bei verworfenen Ausreißern, und eine an der kritischen Schwelle nicht mehr unstetige Schimmel-Score-Berechnung.
+- **Reload-sicher:** Schlägt das Entladen von Entitäten fehl, wird der Coordinator nicht mehr trotzdem abgeschaltet.
+- **Konfiguration:** Derselbe Sensor für Innen- und Außenfeuchte bzw. -temperatur wird jetzt beim Einrichten abgelehnt, statt eine dauerhaft nutzlose Differenz von 0 stillschweigend zu speichern.
+- **Übersichtskarte:** Tastatursteuerung (Enter/Leertaste) löste Aktionen doppelt aus; „Günstige Lüftungsfenster“ zeigte die zeitlich nächsten statt der besten Fenster; wichtige Warnungen konnten hinter harmlosen Hinweisen verschwinden; ein Raum mit unbekanntem Schimmelrisiko (z. B. bei Sensorausfall) war in der Übersicht unsichtbar statt das kenntlich zu machen.
+- Kleinere Aufräumarbeiten: tote Codezweige entfernt, eine seit 2.14.0 eingefrorene Geräte-Versionsanzeige korrigiert, mehrteilige Lüftungsgründe (z. B. „Feuchte + Vorheizen“) zeigen wieder den passenden Text statt der generischen Meldung.
+
 ### Version 2.22.4
 
 - **Benachrichtigungs-Spam-Sperre:** Benachrichtigungen werden zentral nach Kategorie und Zielzustand dedupliziert und persistent gespeichert.

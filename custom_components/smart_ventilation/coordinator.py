@@ -31,14 +31,17 @@ from .history import HistoryMixin, month_name
 from .forecast_engine import ForecastWindow, build_forecast_windows, score_forecast_window
 from .mold_engine import assess_mold_risk
 from .decision_engine import (
-    adaptive_ventilation_score,
     ventilation_utility_score,
     forecast_season_signal,
     robust_ach_update,
     robust_global_update,
     stale_adjusted_ach,
-    context_bucket,
 )
+# adaptive_ventilation_score/context_bucket sind vorbereitete, eigenständig getestete Bausteine
+# (siehe tests/test_decision_engine.py, tests/test_forecast_engine.py) für ein per-Kontext
+# gebündeltes Lernmodell - hier noch nicht verdrahtet, DIESES Modul nutzt stattdessen
+# ventilation_utility_score. Nicht versehentlich als Ersatz für Letzteres einsetzen: andere
+# Gewichtung, andere Signatur.
 
 
 class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
@@ -278,7 +281,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         ach, _ = self._model_ach(wind, angle, temp_diff, bool(self.session.get("cross")))
         ratio = DEFAULT_TARGET_DIFF / max(diff, DEFAULT_TARGET_DIFF + 0.01)
         remaining = max(1.0, -60 / ach * math.log(ratio))
-        elapsed = self.current_duration_seconds / 60
         return round(min(60.0, remaining))
 
     @property
@@ -1984,7 +1986,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         reasons_clearly_below = (
             indoor <= target_abs - hysteresis + 1e-6
             and (rh is None or rh < HUMID_RH - hysteresis * HUMID_RH_HYSTERESIS_RATIO)
-            and mold not in ("erhöht", "hoch")
+            # "kritisch" fehlte hier bisher, obwohl der Einstieg oben (enter) es mit berück-
+            # sichtigt - dadurch konnte "kein Lüften nötig" gemeldet werden, obwohl weiterhin
+            # akutes Schimmelrisiko besteht, sobald nur der Feuchteunterschied abklingt.
+            and mold not in ("erhöht", "hoch", "kritisch")
         )
         self._humidity_active = not (diff_clearly_below or reasons_clearly_below)
         return self._humidity_active
@@ -2143,7 +2148,9 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         elif direct_sun:
             minutes = min(minutes, 5)
             mode = "Kurz komplett öffnen"
-            self.block_reason = sun_reason
+            # Bei gleichzeitigem CO₂-Override (Zeile oben) nicht überschreiben, sonst geht die
+            # CO₂-Information verloren, nur weil zusätzlich auch noch direkte Sonne anliegt.
+            self.block_reason = f"{self.block_reason} + {sun_reason}" if co2_override else sun_reason
         elif self.adaptive_score >= ADAPTIVE_SCORE_FULL_OPEN or (minutes <= 12 and (wind is None or wind >= 5)):
             mode = "Komplett öffnen"
         else:
@@ -2154,20 +2161,25 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
         self.recommended_minutes = round(minutes)
         self.recommended_mode = mode
-        if self.recommend_reason == "Kühlen":
+        # recommend_reason ist "Feuchte + Vorheizen" & Co. (siehe " + ".join(reasons) oben), kein
+        # einzelnes Wort - ein exakter "=="-Vergleich traf daher nur noch, wenn das jeweils EINZIGE
+        # aktive Kriterium war, und fiel bei jeder Kombination (z. B. gleichzeitig zu feucht UND
+        # vorzuheizen) auf den generischen Text im else-Zweig zurück.
+        reason_parts = self.recommend_reason.split(" + ") if self.recommend_reason else []
+        if "Kühlen" in reason_parts:
             self.recommended_mode = "Kühlen – Fenster auf"
             self.recommendation = (
                 f"Kühlen – Fenster auf bis ca. {self.comfort_temp:.0f} °C "
                 f"(ca. {self.recommended_minutes} Min.)"
             )
-        elif self.recommend_reason == "Vorheizen":
+        elif "Vorheizen" in reason_parts:
             self.recommended_mode = "Vorheizen – Fenster auf"
             self.recommendation = (
                 f"Vorheizen – warme Luft reinlassen bis ca. {self.preheat_temp:.0f} °C "
                 f"(ca. {self.recommended_minutes} Min.)"
             )
         else:
-            suffix = " (CO₂)" if self.recommend_reason == "CO₂" else ""
+            suffix = " (CO₂)" if "CO₂" in reason_parts else ""
             if self._rain_soon:
                 suffix += " – bald Regen, lieber jetzt lüften"
             if self.party_active:

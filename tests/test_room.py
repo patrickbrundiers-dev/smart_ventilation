@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from unittest.mock import AsyncMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, SupportsResponse
@@ -504,6 +505,20 @@ async def test_unload(hass: HomeAssistant, berlin) -> None:
     await hass.async_block_till_done()
 
 
+async def test_unload_keeps_coordinator_when_platform_unload_fails(hass: HomeAssistant, berlin) -> None:
+    """Schlägt das Entladen der Plattformen fehl, darf der Coordinator nicht trotzdem abgeräumt
+    werden - sonst hängen noch geladene Entities an einem bereits abgeschalteten Coordinator
+    (Listener abgemeldet, Storage geschlossen), was beim nächsten Zugriff oder Reload crasht."""
+    entry = await setup_room(hass)
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    with patch.object(
+        hass.config_entries, "async_unload_platforms", AsyncMock(return_value=False)
+    ):
+        result = await hass.config_entries.async_unload(entry.entry_id)
+    assert result is False
+    assert hass.data[DOMAIN].get(entry.entry_id) is coordinator
+
+
 async def test_restored_session_does_not_use_stale_sensor_values(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
@@ -765,6 +780,32 @@ async def test_post_vent_pause_uses_forecast_and_extreme_override(
     karte = hass.states.get(rec).attributes["karte"]
     assert karte["schimmel"] == "kritisch"
     assert karte["pausiert"] is None
+
+
+async def test_humidity_need_stays_active_during_critical_mold_risk(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Der Feuchte-Austritt (Hysterese) prüfte bisher nur auf "erhöht"/"hoch", nicht "kritisch" -
+    sank der reine Feuchteunterschied dadurch unter die anderen Schwellen (Innenfeuchte, rel.
+    Feuchte innen), konnte "kein Lüften nötig" gemeldet werden, obwohl weiterhin akutes
+    Schimmelrisiko besteht. Reproduziert mit demselben Wandfeuchte-Mechanismus wie
+    test_post_vent_pause_uses_forecast_and_extreme_override (sehr kalte Außentemperatur -> kalte
+    geschätzte Wandoberfläche -> hohe Wandfeuchte trotz moderater Raumluftfeuchte)."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    entry = await setup_room(hass, building_standard="old")
+    rec = eid(hass, "sensor", entry, "recommendation")
+    assert hass.states.get(rec).attributes["karte"]["minuten"] > 0  # Feuchte-Bedarf zu Beginn aktiv
+
+    # Reine Raumluftfeuchte jetzt klar unter den Austritts-Schwellen (Innenfeuchte <= Zielwert -
+    # Hysterese-Puffer, rel. Feuchte < 62 %) - aber eine sehr kalte Außentemperatur treibt die
+    # geschätzte Wandoberflächenfeuchte weiterhin über 90 % ("kritisch").
+    hass.states.async_set("sensor.aussen_t", -25.0)
+    hass.states.async_set("sensor.innen_ah", 9.8)
+    await _tick(hass, freezer, 1)
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["schimmel"] == "kritisch"
+    assert karte["minuten"] > 0
+
 
 async def test_missing_rain_sensor_is_a_hard_safety_block(
     hass: HomeAssistant, berlin

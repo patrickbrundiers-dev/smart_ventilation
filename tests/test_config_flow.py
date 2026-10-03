@@ -111,6 +111,28 @@ async def test_room_type_does_not_override_manual_target_humidity(hass: HomeAssi
     assert result["data"]["target_absolute_humidity"] == 12.0
 
 
+async def test_room_form_rejects_same_sensor_for_indoor_and_outdoor_humidity(hass: HomeAssistant) -> None:
+    """Derselbe Sensor für Innen- und Außenfeuchte ausgewählt -> die daraus berechnete Differenz
+    wäre dauerhaft 0, ohne dass das beim Einrichten auffiele. Muss abgelehnt werden statt
+    stillschweigend gespeichert zu werden."""
+    set_room_states(hass)
+    room_input = {
+        **ROOM_INPUT,
+        "outdoor": {**ROOM_INPUT["outdoor"], "outdoor_absolute_humidity": "sensor.innen_ah"},
+    }
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], room_input)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "same_sensor_humidity"}
+
+    # Korrigiert -> geht jetzt durch.
+    fixed = {**room_input, "outdoor": {**room_input["outdoor"], "outdoor_absolute_humidity": "sensor.aussen_ah"}}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], fixed)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
 async def test_room_twice_aborts(hass: HomeAssistant) -> None:
     await setup_room(hass)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})

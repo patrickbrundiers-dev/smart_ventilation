@@ -240,9 +240,17 @@
     },
     "abort": {
       "already_configured": "Das ist bereits eingerichtet."
+    },
+    "error": {
+      "same_sensor_humidity": "Innen- und Außenfeuchte sind derselbe Sensor - die Differenz wäre dann immer 0.",
+      "same_sensor_temp": "Innen- und Außentemperatur sind derselbe Sensor - die Differenz wäre dann immer 0."
     }
   },
   "options": {
+    "error": {
+      "same_sensor_humidity": "Innen- und Außenfeuchte sind derselbe Sensor - die Differenz wäre dann immer 0.",
+      "same_sensor_temp": "Innen- und Außentemperatur sind derselbe Sensor - die Differenz wäre dann immer 0."
+    },
     "step": {
       "init": {
         "title": "Einstellungen: {name}",

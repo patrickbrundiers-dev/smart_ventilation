@@ -138,9 +138,13 @@ function yearChart(months) {
 /* ---------- Forecast-Lüftungsfenster ---------- */
 function forecastWindowsPanel(windows) {
   if (!Array.isArray(windows) || !windows.length) return "";
+  // Erst die (vom Backend bereits nach Score sortierten) besten 4 Fenster auswählen - NICHT
+  // vorher chronologisch sortieren, sonst würden die zeitlich spätesten Fenster bevorzugt und
+  // das eigentlich beste Fenster könnte ganz rausfallen, obwohl der Titel "nach Nutzen" sagt.
+  // Erst für die Anzeige selbst werden genau diese Top-4 dann chronologisch sortiert.
   const upcoming = [...windows]
-    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
-    .slice(0, 4);
+    .slice(0, 4)
+    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
   const rows = upcoming.map((w) => {
     const start = new Date(w.start);
     const end = new Date(w.end);
@@ -263,6 +267,7 @@ function headline(k) {
 
 const RISK = { kritisch: ["bad", "kritisch"], hoch: ["bad", "hoch"], "erhöht": ["warn", "erhöht"], beobachten: ["info", "beobachten"], niedrig: ["good", "niedrig"] };
 const AIR = { schlecht: "bad", "mäßig": "warn", gut: "good" };
+const ALERT_RANK = { bad: 0, warn: 1, info: 2 };
 
 /* ---------- Karte ---------- */
 class SmartVentilationCard extends HTMLElement {
@@ -405,7 +410,12 @@ class SmartVentilationCard extends HTMLElement {
         this._moreInfo(el.dataset.entity || this._entityId);
       };
       el.addEventListener("click", open);
-      el.addEventListener("keydown", (ev) => (ev.key === "Enter" || ev.key === " ") && open(ev));
+      el.addEventListener("keydown", (ev) => {
+        // preventDefault, sonst löst der Browser bei <button> zusätzlich noch ein natives
+        // click-Event für Enter/Leertaste aus - der Handler würde doppelt feuern (z. B. ein
+        // Umschalter ginge an und im selben Tastendruck sofort wieder aus).
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open(ev); }
+      });
     });
     this.shadowRoot.querySelectorAll("[data-press]").forEach((el) => {
       const press = (ev) => {
@@ -413,7 +423,9 @@ class SmartVentilationCard extends HTMLElement {
         this._press(el.dataset.entity);
       };
       el.addEventListener("click", press);
-      el.addEventListener("keydown", (ev) => (ev.key === "Enter" || ev.key === " ") && press(ev));
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); press(ev); }
+      });
     });
     // Rein clientseitige Umschalter (Sortierung, Aufschlüsselung aufklappen) - kein Service-Call,
     // nur ein Re-Render mit demselben, zuletzt empfangenen Zustand.
@@ -424,7 +436,9 @@ class SmartVentilationCard extends HTMLElement {
         this._render(this._lastState);
       };
       el.addEventListener("click", pick);
-      el.addEventListener("keydown", (ev) => (ev.key === "Enter" || ev.key === " ") && pick(ev));
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); pick(ev); }
+      });
     });
     this.shadowRoot.querySelectorAll("[data-toggle]").forEach((el) => {
       const toggle = (ev) => {
@@ -434,7 +448,9 @@ class SmartVentilationCard extends HTMLElement {
         this._render(this._lastState);
       };
       el.addEventListener("click", toggle);
-      el.addEventListener("keydown", (ev) => (ev.key === "Enter" || ev.key === " ") && toggle(ev));
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(ev); }
+      });
     });
     this._bindChart();
   }
@@ -477,7 +493,12 @@ class SmartVentilationCard extends HTMLElement {
     if (k.nach_dusche && !k.laeuft) alerts.push(["warn", "mdi:shower-head", "Nach dem Duschen", "Jetzt lüften, bevor sich Feuchte in den Wänden festsetzt."]);
     if (k.regen_bald && k.minuten > 0 && !k.laeuft) alerts.push(["info", "mdi:weather-rainy", "Bald Regen", "Lieber jetzt lüften, bevor es regnet."]);
     if (k.urlaub) alerts.push(["info", "mdi:palm-tree", "Urlaubsmodus", "Keine Erinnerungen – nur Warnungen bei Schimmelgefahr."]);
-    const alertHtml = alerts
+    // Nach Schweregrad sortieren, bevor auf zwei begrenzt wird - sonst konnten wichtige
+    // Warnungen (z. B. "Raum kühlt aus", akutes Schimmelrisiko) hinter harmlosen Infos
+    // (z. B. "Heizung abgesenkt") verschwinden, nur weil diese zuerst im Array standen.
+    // Stabil sortiert: innerhalb derselben Dringlichkeit bleibt die bisherige Reihenfolge erhalten.
+    const alertHtml = [...alerts]
+      .sort((a, b) => (ALERT_RANK[a[0]] ?? 3) - (ALERT_RANK[b[0]] ?? 3))
       .slice(0, 2)
       .map(([tone, icon, title, text]) => `<div class="alert tone-${tone}"><ha-icon icon="${icon}"></ha-icon><div><b>${esc(title)}</b><span>${esc(text)}</span></div></div>`)
       .join("");
@@ -730,8 +751,13 @@ class SmartVentilationCard extends HTMLElement {
           : r.lueften && r.pausiert ? ["neutral", "mdi:pause-circle-outline", r.pausiert, "Pausiert"]
           : r.lueften ? ["warn", "mdi:window-open-variant", r.empfehlung, `${r.minuten} Min.`]
           : ["good", "mdi:check", "Kein Lüften nötig", ""];
-        const riskTone = RISK[r.schimmelrisiko];
-        const riskIcon = r.schimmelrisiko === "kritisch" ? "mdi:alert-octagon-outline" : "mdi:shield-alert-outline";
+        // Fehlt RISK[...] (nur bei "unbekannt" der Fall, z. B. wenn der Wandfeuchte-/Innenfeuchte-
+        // Sensor gerade ausfällt), trotzdem sichtbar machen statt stillschweigend wie "kein
+        // Risiko" zu behandeln - die Einzelraum-Karte zeigt das ebenfalls explizit an.
+        const riskTone = RISK[r.schimmelrisiko] || (r.schimmelrisiko === "unbekannt" ? ["neutral", "unbekannt"] : null);
+        const riskIcon = r.schimmelrisiko === "kritisch" ? "mdi:alert-octagon-outline"
+          : r.schimmelrisiko === "unbekannt" ? "mdi:help-circle-outline"
+          : "mdi:shield-alert-outline";
         // Kleine Symbole neben dem Raumnamen für alles, was sonst erst auf der Einzelraum-Karte
         // sichtbar wäre: Schimmelrisiko, laufender Entfeuchter, empfohlenes (noch offenes) Rollo.
         const badges = [];

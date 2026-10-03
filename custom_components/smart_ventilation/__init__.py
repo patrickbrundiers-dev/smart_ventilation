@@ -56,9 +56,13 @@ async def _async_reload(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, _platforms(entry))
-    coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
-    if coordinator:
-        coordinator.async_unload()
+    # Nur abräumen, wenn die Plattformen tatsächlich entladen wurden - sonst hängen noch
+    # geladene Entities an einem bereits abgeschalteten Coordinator (Listener abgemeldet,
+    # Storage geschlossen), was beim nächsten Zugriff oder Reload crasht.
+    if unload_ok:
+        coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
+        if coordinator:
+            coordinator.async_unload()
     return unload_ok
 
 

@@ -21,7 +21,10 @@ from .extras import _week_key, de_num
 from .const import CONF_MONTHLY_REPORT, MONTHLY_REPORT_HOUR
 from .history import change_percent, de, month_name
 
-MOLD_WEIGHT = {"hoch": 3.0, "erhöht": 1.5}
+# "kritisch" fehlte hier bisher komplett -> .get(..., 0.0) gab einem Raum mit akutem
+# Schimmelrisiko denselben (Null-)Dringlichkeits-Bonus wie einem Raum ganz ohne Risiko, wodurch
+# er beim "dringendsten Raum" bzw. in der Sammel-Benachrichtigung übergangen werden konnte.
+MOLD_WEIGHT = {"kritisch": 4.5, "hoch": 3.0, "erhöht": 1.5}
 
 
 class OverviewCoordinator:
@@ -239,7 +242,13 @@ class OverviewCoordinator:
         targets = notify_util.targets_for_category(self.data, CAT_REMINDER, self.notify_targets)
         targets = notify_util.filter_targets(self.hass, targets, self.persons)
 
-        key = notify_util.notification_guard_key(CAT_REMINDER, title)
+        # Eigener Sperr-Schlüssel statt des Anzeige-Titels: Bei mehreren fälligen Räumen ist der
+        # Titel bewusst kurz gehalten ("Lüften: 2 Räume", ohne Namen). Als Dedup-Schlüssel wäre
+        # das aber mehrdeutig - zwei völlig unterschiedliche Raum-Kombinationen mit zufällig
+        # derselben Anzahl würden sich gegenseitig blockieren. Die sortierten Raumnamen sind
+        # eindeutig und ändern den sichtbaren Titel nicht.
+        guard_identity = ",".join(sorted(r.data.get("name", "") for r in due))
+        key = notify_util.notification_guard_key(CAT_REMINDER, guard_identity)
         if not notify_util.reserve_notification(
             self._notification_guard, key, now, 0 if snooze_over else cooldown
         ):
