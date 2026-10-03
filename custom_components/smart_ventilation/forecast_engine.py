@@ -43,7 +43,7 @@ def score_forecast_window(
     rain_amount = max(0.0, float(rain_amount or 0.0))
     if gain < min_gain:
         return 0.0
-    if rain_prob > max_rain_probability or rain_amount > max_rain_amount:
+    if rain_prob >= max_rain_probability or rain_amount > max_rain_amount:
         return 0.0
 
     wind_value = max(0.0, float(wind or 0.0))
