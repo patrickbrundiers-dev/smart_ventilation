@@ -522,6 +522,14 @@
       "mold_dewpoint_margin": {
         "name": "Taupunktabstand Wand"
       },
+      "mold_data_quality": {
+        "name": "Schimmel-Datenqualität",
+        "state": {
+          "good": "Gut",
+          "degraded": "Eingeschränkt",
+          "unavailable": "Nicht verfügbar"
+        }
+      },
       "notification_status": {
         "name": "Benachrichtigungsstatus"
       },

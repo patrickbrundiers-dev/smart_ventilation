@@ -5,6 +5,7 @@ No Home Assistant dependency. Keeps forecast ranking deterministic and easy to t
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Iterable
 
 
@@ -38,16 +39,29 @@ def score_forecast_window(
     useful wind and a moderate temperature advantage while avoiding excessive
     weighting of any single input.
     """
-    gain = max(0.0, float(humidity_gain or 0.0))
-    rain_prob = max(0.0, float(rain_probability or 0.0))
-    rain_amount = max(0.0, float(rain_amount or 0.0))
+    try:
+        gain = float(humidity_gain or 0.0)
+        rain_prob = float(rain_probability or 0.0)
+        rain_amount = float(rain_amount or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+    if not all(math.isfinite(v) for v in (gain, rain_prob, rain_amount)):
+        return 0.0
+    gain = max(0.0, gain)
+    rain_prob = max(0.0, min(100.0, rain_prob))
+    rain_amount = max(0.0, rain_amount)
     if gain < min_gain:
         return 0.0
     if rain_prob >= max_rain_probability or rain_amount > max_rain_amount:
         return 0.0
 
-    wind_value = max(0.0, float(wind or 0.0))
-    temp_delta = float(temperature_delta or 0.0)
+    try:
+        wind_value = max(0.0, float(wind or 0.0))
+        temp_delta = float(temperature_delta or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(wind_value) or not math.isfinite(temp_delta):
+        return 0.0
 
     score = min(60.0, gain * 20.0)
     score += min(20.0, wind_value * 1.5)

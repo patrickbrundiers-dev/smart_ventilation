@@ -132,7 +132,11 @@ U_VALUES = {
     "insulated": 0.35,
     "passive": 0.15,
 }
-RSI_CORNER = 0.35
+# Innere Oberflächen-Temperatur nach dem üblichen Wärmeübergangswiderstand Rsi.
+# Ein konservatives Minimum für den Temperaturfaktor verhindert unrealistisch
+# kalte Wandflächen und damit künstlich erzeugte 100-%-Wandfeuchte.
+R_SI = 0.13  # m²K/W
+MIN_WALL_SURFACE_TEMPERATURE_FACTOR = 0.70
 MOLD_RH_HIGH = 80.0
 MOLD_RH_ELEVATED = 70.0
 MOLD_RH_WATCH = 65.0
@@ -159,7 +163,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.20.0"
+VERSION = "2.21.0"
 
 # Adaptive decision / learning
 ADAPTIVE_SCORE_MIN = 20
@@ -237,7 +241,6 @@ TRACE_CARD_POINTS = 60
 # Schimmel-Frühwarnung
 MOLD_CRITICAL_MINUTES = 360
 MOLD_STREAK_WARN = 3
-MOLD_ELEVATED_MINUTES = 360
 MOLD_REWARN_DAYS = 7
 MOLD_LOG_DAYS = 62
 

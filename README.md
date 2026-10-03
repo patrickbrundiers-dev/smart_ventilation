@@ -24,6 +24,7 @@ wie schnell dein Raum tatsächlich Feuchte abgibt.
 - Vorheizen: nach einer Nacht unter der Heizgrenze darf tagsüber trotz wärmerer Außenluft gelüftet werden, um Heizkosten zu sparen – inkl. Regen-Vorschau und Vorschau, ab wann es warm genug wird
 
 **Gesundheit & Luftqualität**
+- Schimmelrisiko mit Risiko-Score (0–100) und Datenqualitätsstatus; fehlende Wanddaten werden transparent als Schätzung/Fallback behandelt
 - Relative Feuchte, Taupunkt und Schimmelrisiko-Einschätzung an der kältesten Wandstelle (DIN 4108-2, mehrere Dämmstandards wählbar)
 - Schimmel-Frühwarnung bei mehreren kritischen Tagen in Folge
 - Optional CO₂-Sensor: Luftqualität gut/mäßig/schlecht, eigene CO₂-Lüftungsempfehlung
@@ -652,6 +653,17 @@ Bei direkter Sonne wird die Lüftungsdauer begrenzt.
 ### Persistenz
 Das gelernte Modell wird ohne Home-Assistant-Helper dauerhaft im Storage der Integration gespeichert. Die erzeugten Sensoren werden zusätzlich ganz normal vom Home-Assistant-Recorder aufgezeichnet.
 
+
+## 2.21.0 – Hardening & Diagnose
+
+- **Schimmelbewertung gehärtet:** Grenzwerte werden zentral verwaltet; die kritische Tagesserie berücksichtigt den aktuellen Tag korrekt.
+- **Risiko-Score:** Jede Schimmelbewertung liefert zusätzlich einen transparenten Score von 0–100 für Dashboard und Automationen.
+- **Datenqualität:** Neuer Diagnose-Sensor zeigt, ob Wand-, Temperatur- und Taupunktdaten vollständig verfügbar sind.
+- **Forecast-Sicherheit:** Ungültige oder nicht-endliche Wetterwerte werden verworfen statt die Empfehlung zu verfälschen.
+- **Lernmodell:** Nicht-endliche ACH-Werte werden sicher abgewiesen.
+- **Performance:** Identische Schimmel-Messzustände werden im Coordinator zwischengespeichert.
+- **Energie:** Ungültige oder negative Energiepreise werden auf einen sicheren Vorgabewert zurückgeführt.
+- **Versionierung:** Geräteinformationen verwenden jetzt automatisch die aktuelle Integrationsversion.
 
 ## 2.17 – Adaptive Intelligence
 

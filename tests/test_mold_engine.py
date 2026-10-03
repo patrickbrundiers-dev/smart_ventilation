@@ -35,7 +35,13 @@ def test_mold_critical_above_90_percent():
 def test_mold_critical_near_condensation():
     result = assess_mold_risk(82, 16, 75, 15.6)
     assert result.level == "kritisch"
-    assert "Taupunkt" in result.reason
+    assert "sehr nah" in result.reason
+
+
+def test_mold_critical_at_condensation_point():
+    result = assess_mold_risk(82, 16, 75, 16)
+    assert result.level == "kritisch"
+    assert "Kondensation" in result.reason
 
 
 def test_mold_rising_trend_adds_urgency():
@@ -54,3 +60,13 @@ def test_mold_uses_room_air_fallback_when_wall_data_is_missing():
     result = assess_mold_risk(None, None, 76, 14)
     assert result.level == "hoch"
     assert "Wanddaten fehlen" in result.reason
+
+
+def test_mold_score_increases_with_condensation_risk():
+    result = assess_mold_risk(82, 16, 75, 15.6, trend_rh_per_hour=2.5)
+    assert result.score >= 95
+
+
+def test_mold_score_is_bounded():
+    result = assess_mold_risk(95, 15, 90, 14, duration_high_minutes=720, trend_rh_per_hour=10)
+    assert 0 <= result.score <= 100

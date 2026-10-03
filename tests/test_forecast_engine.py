@@ -49,3 +49,12 @@ def test_forecast_score_rejects_rain_above_amount_limit():
     assert score_forecast_window(
         humidity_gain=3, wind=10, temperature_delta=0, rain_amount=0.21
     ) == 0
+
+
+def test_forecast_rejects_non_finite_inputs():
+    assert score_forecast_window(humidity_gain=float("nan"), wind=5, temperature_delta=1) == 0.0
+    assert score_forecast_window(humidity_gain=2, wind=float("inf"), temperature_delta=1) == 0.0
+
+
+def test_forecast_clamps_rain_probability():
+    assert score_forecast_window(humidity_gain=2, wind=5, temperature_delta=1, rain_probability=150) == 0.0

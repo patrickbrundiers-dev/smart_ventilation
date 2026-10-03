@@ -10,7 +10,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 from .coordinator import SmartVentilationCoordinator
 
 
@@ -59,6 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         MoldStreakSensor(coordinator),
         MoldTrendSensor(coordinator),
         MoldDewPointMarginSensor(coordinator),
+        MoldDataQualitySensor(coordinator),
         NeedMonthSensor(coordinator),
     ])
 
@@ -79,7 +80,7 @@ class BaseSensor(SensorEntity):
             name=coordinator.data["name"],
             manufacturer="Custom",
             model="Adaptive Ventilation",
-            sw_version="2.14.0",
+            sw_version=VERSION,
         )
 
     async def async_added_to_hass(self):
@@ -248,6 +249,8 @@ class MoldRiskSensor(BaseSensor):
             "kritische_stunden_heute": self.coordinator.mold_hours_today,
             "erhoehte_stunden_heute": self.coordinator.mold_elevated_hours_today,
             "trend_pro_stunde": self.coordinator.mold_rh_trend,
+            "risiko_score": a.score,
+            "datenqualitaet": self.coordinator.mold_data_quality,
             "kritische_tage_in_folge": self.coordinator.mold_streak_current()[0],
             "grund": a.reason,
             "massnahme": a.action,
@@ -265,6 +268,19 @@ class MoldTrendSensor(BaseSensor):
 
     @property
     def native_unit_of_measurement(self): return "%/h"
+
+
+class MoldDataQualitySensor(BaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["good", "degraded", "unavailable"]
+    def __init__(self, c): super().__init__(c, "mold_data_quality", "Schimmel-Datenqualität")
+    @property
+    def native_value(self): return self.coordinator.mold_data_quality
+    @property
+    def extra_state_attributes(self):
+        a = self.coordinator.mold_assessment
+        return {"wand_feuchte_verfuegbar": a.wall_rh is not None, "wand_temperatur_verfuegbar": a.wall_temperature is not None, "taupunkt_abstand_verfuegbar": a.dew_point_margin is not None, "raumfeuchte_verfuegbar": self.coordinator.indoor_rh is not None, "grund": a.reason}
 
 
 class MoldDewPointMarginSensor(BaseSensor):

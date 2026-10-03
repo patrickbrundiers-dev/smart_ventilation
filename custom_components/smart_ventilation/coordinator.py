@@ -23,6 +23,7 @@ from .sensor_utils import (
     _is_on,
     _is_raining,
     _num,
+    _relative_humidity_at_surface,
     _relative_humidity_from_absolute,
     _wind_kmh,
 )
@@ -92,6 +93,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._rain_soon = False
         self._forecast_season = None
         self._party_until = None
+        self._mold_assessment_cache_key = None
+        self._mold_assessment_cache = None
         self._init_extras()
         self._init_history()
 
@@ -243,7 +246,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def energy_price(self):
-        return float(self.data.get(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE))
+        return self._stored_float(
+            self.data.get(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE),
+            DEFAULT_ENERGY_PRICE, 0.0, 100.0,
+        )
 
     @property
     def ventilated_today(self):
@@ -2179,6 +2185,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "schimmel_massnahme": self.mold_assessment.action,
             "schimmel_taupunkt_abstand": r(self.mold_assessment.dew_point_margin, 1),
             "schimmel_trend": r(self.mold_rh_trend, 2),
+            "schimmel_score": self.mold_assessment.score,
+            "schimmel_datenqualitaet": self.mold_data_quality,
             "schimmel_h_heute": self.mold_hours_today,
             "schimmel_h_erhoeht_heute": self.mold_elevated_hours_today,
             "co2": r(self.co2, 0),
@@ -2322,33 +2330,53 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def wall_temperature(self):
-        """Geschätzte Oberflächentemperatur an der kältesten Außenwandstelle."""
+        """Konservative Schätzung der inneren Wandoberflächentemperatur."""
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         if indoor is None or outdoor is None:
             return None
         if outdoor >= indoor:
             return indoor
-        return indoor - RSI_CORNER * self.u_value * (indoor - outdoor)
+
+        # 1D-Wärmeübergang mit Rsi; f_Rsi wird konservativ bei 0.70 begrenzt.
+        temperature_factor = max(
+            MIN_WALL_SURFACE_TEMPERATURE_FACTOR,
+            1.0 - R_SI * self.u_value,
+        )
+        return outdoor + temperature_factor * (indoor - outdoor)
 
     @property
     def wall_rh(self):
-        """Geschätzte relative Feuchte an der kältesten Wandoberfläche."""
-        ah = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
-        return _relative_humidity_from_absolute(ah, self.wall_temperature)
+        """Geschätzte relative Feuchte an der kalten Wandoberfläche."""
+        indoor_temperature = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+        return _relative_humidity_at_surface(
+            indoor_temperature,
+            self.indoor_rh,
+            self.wall_temperature,
+        )
 
     @property
     def mold_assessment(self):
-        """Aktuelle Schimmelbewertung inklusive Dauer, Taupunktabstand und Trend."""
-        return assess_mold_risk(
-            self.wall_rh,
-            self.wall_temperature,
-            self.indoor_rh,
-            self.indoor_dew_point,
-            duration_high_minutes=self.mold_minutes_today,
-            duration_elevated_minutes=self.mold_elevated_minutes_today,
-            trend_rh_per_hour=self.mold_rh_trend,
+        """Aktuelle Schimmelbewertung; identische Werte werden nur einmal berechnet."""
+        values = (
+            self.wall_rh, self.wall_temperature, self.indoor_rh, self.indoor_dew_point,
+            self.mold_minutes_today, self.mold_elevated_minutes_today, self.mold_rh_trend,
         )
+        if values == self._mold_assessment_cache_key and self._mold_assessment_cache is not None:
+            return self._mold_assessment_cache
+        self._mold_assessment_cache_key = values
+        self._mold_assessment_cache = assess_mold_risk(
+            *values[:4], duration_high_minutes=values[4],
+            duration_elevated_minutes=values[5], trend_rh_per_hour=values[6],
+        )
+        return self._mold_assessment_cache
+
+    @property
+    def mold_data_quality(self):
+        a = self.mold_assessment
+        if a.level == "unbekannt": return "unavailable"
+        if a.wall_rh is None or a.wall_temperature is None or a.dew_point_margin is None: return "degraded"
+        return "good"
 
     @property
     def mold_risk(self):

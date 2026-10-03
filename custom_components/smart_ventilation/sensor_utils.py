@@ -65,6 +65,30 @@ def _wind_kmh(hass: HomeAssistant, entity_id: str | None) -> float | None:
     return value * 3.6 if unit in ("m/s", "mps") else value
 
 
+def _relative_humidity_at_surface(
+    indoor_temperature_c: float | None,
+    indoor_rh: float | None,
+    surface_temperature_c: float | None,
+) -> float | None:
+    """Berechnet die relative Feuchte an einer kälteren Oberfläche."""
+    if indoor_temperature_c is None or indoor_rh is None or surface_temperature_c is None:
+        return None
+    if not all(math.isfinite(v) for v in (indoor_temperature_c, indoor_rh, surface_temperature_c)):
+        return None
+    indoor_rh = max(0.0, min(100.0, indoor_rh))
+
+    def saturation_vapor_pressure(temp_c: float) -> float:
+        return 6.112 * math.exp((17.62 * temp_c) / (243.12 + temp_c))
+
+    indoor_saturation = saturation_vapor_pressure(indoor_temperature_c)
+    surface_saturation = saturation_vapor_pressure(surface_temperature_c)
+    if indoor_saturation <= 0 or surface_saturation <= 0:
+        return None
+
+    vapor_pressure = indoor_rh / 100.0 * indoor_saturation
+    return max(0.0, min(100.0, 100.0 * vapor_pressure / surface_saturation))
+
+
 def _relative_humidity_from_absolute(
     absolute_humidity: float | None, temperature_c: float | None
 ) -> float | None:

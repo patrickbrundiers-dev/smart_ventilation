@@ -111,6 +111,8 @@ class MoldAlarmSensor(BaseBinary):
             "wand_temperatur": round(a.wall_temperature, 1) if a.wall_temperature is not None else None,
             "taupunkt_abstand": round(a.dew_point_margin, 1) if a.dew_point_margin is not None else None,
             "kritische_stunden_heute": self.coordinator.mold_hours_today,
+            "risiko_score": self.coordinator.mold_assessment.score,
+            "datenqualitaet": self.coordinator.mold_data_quality,
             "kritische_tage_in_folge": self.coordinator.mold_streak_current()[0],
             "grund": a.reason,
             "massnahme": a.action,

@@ -146,3 +146,9 @@ def test_stale_bucket_handles_aware_model_timestamp_with_naive_now():
     now = datetime(2026, 4, 1)
     value = stale_adjusted_ach(model, 8, now=now)
     assert 8 < value < 20
+
+
+def test_robust_ach_rejects_non_finite_values():
+    model, accepted = robust_ach_update(None, float("nan"))
+    assert not accepted
+    assert model == {}
