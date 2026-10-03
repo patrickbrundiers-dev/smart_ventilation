@@ -63,6 +63,51 @@ def targets_for_category(data, category, targets):
     return [t for t in targets if t in allowed]
 
 
+
+# ---------------------------------------------------------------------------
+# Persistente Benachrichtigungs-Sperre
+# ---------------------------------------------------------------------------
+def notification_guard_key(category, title):
+    """Stabiler Schlüssel für dieselbe Benachrichtigungsart eines Ziels."""
+    return f"{str(category or 'generic')}|{str(title or '').strip()}"
+
+
+def load_notification_guard(value):
+    """Bereinigt persistierte Sperrdaten defensiv."""
+    if not isinstance(value, dict):
+        return {}
+    result = {}
+    for key, item in value.items():
+        if not isinstance(key, str) or not isinstance(item, dict):
+            continue
+        at = item.get("at")
+        try:
+            priority = int(item.get("priority", 0))
+        except (TypeError, ValueError):
+            priority = 0
+        if isinstance(at, str):
+            result[key] = {"at": at, "priority": priority}
+    return result
+
+
+def reserve_notification(guard, key, now, cooldown_seconds, priority=0):
+    """Reserviert eine Benachrichtigung vor dem asynchronen Versand."""
+    item = guard.get(key)
+    if item:
+        previous = dt_util.parse_datetime(item.get("at"))
+        if previous is not None:
+            elapsed = (now - previous).total_seconds()
+            if elapsed < max(0, cooldown_seconds) and int(item.get("priority", 0)) >= priority:
+                return False
+    guard[key] = {"at": now.isoformat(), "priority": int(priority)}
+    return True
+
+
+def release_notification(guard, key):
+    """Hebt eine Reservierung bei fehlgeschlagenem Versand wieder auf."""
+    guard.pop(key, None)
+
+
 def owner_map(hass: HomeAssistant, persons: list[str]) -> dict[str, str]:
     """notify.mobile_app_<gerät> -> person.<name>, über die Geräte-Tracker der Person.
 
