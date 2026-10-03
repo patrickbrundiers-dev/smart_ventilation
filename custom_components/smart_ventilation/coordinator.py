@@ -1898,6 +1898,14 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         if not self.anyone_home:
             return
 
+        snooze_over = False
+        if self._snooze_until is not None:
+            if now < self._snooze_until:
+                return
+            self._snooze_until = None
+            snooze_over = True
+            self.hass.async_create_task(self._save())
+
         cooldown_s = int(
             self.data.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
         ) * 60
@@ -1928,12 +1936,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             cooldown_minutes=0 if snooze_over else cooldown_s / 60,
             notification_key=f"reminder|{self._notification_key()}",
         )
-        if not sent:
-            # Versand fehlgeschlagen (z.B. keine erreichbaren Ziele) - Cooldown nicht blockieren,
-            # damit der nächste Versuch nicht bis zum Ablauf des reservierten Fensters warten muss.
-            self.last_notification_at = None
-            self.last_notification_key = None
-
     def _humidity_need(self, indoor, diff):
         """Wegen Feuchte lüften nur, wenn es sich lohnt UND die Raumluft zu feucht ist.
 
