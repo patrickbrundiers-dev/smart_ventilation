@@ -163,7 +163,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.21.1"
+VERSION = "2.22.0"
 
 # Adaptive decision / learning
 ADAPTIVE_SCORE_MIN = 20
