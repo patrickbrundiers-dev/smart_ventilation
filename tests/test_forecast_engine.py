@@ -38,3 +38,14 @@ def test_forecast_window_datetime_values_can_be_external_timestamps():
     now = datetime.now(timezone.utc).isoformat()
     window = ForecastWindow(now, gain=2.0)
     assert window.timestamp == now
+
+def test_forecast_score_rejects_rain_at_probability_limit():
+    assert score_forecast_window(
+        humidity_gain=3, wind=10, temperature_delta=0, rain_probability=50
+    ) == 0
+
+
+def test_forecast_score_rejects_rain_above_amount_limit():
+    assert score_forecast_window(
+        humidity_gain=3, wind=10, temperature_delta=0, rain_amount=0.21
+    ) == 0
