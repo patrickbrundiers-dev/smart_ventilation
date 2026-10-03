@@ -146,6 +146,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.6
+
+- Kleines Aufräumen: In `card_data()` (Daten für die Übersichtskarte) war der Schlüssel `schimmel_h_heute` versehentlich doppelt gesetzt – das zweite (gleichwertige) Vorkommen entfernt. Keine sichtbare Verhaltensänderung.
+
 ### Version 2.22.5
 
 Umfassende Fehlerbereinigung nach einer vollständigen Code-Überprüfung – keine neuen Funktionen, ausschließlich Korrekturen bestehender Logik:

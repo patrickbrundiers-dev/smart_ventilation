@@ -2304,7 +2304,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 "skip": self.own_entity("button", "skip_today"),
                 "party_mode": self.own_entity("button", "party_mode"),
             },
-            "schimmel_h_heute": self.mold_hours_today,
             "heizung_ab": [self._friendly_name(e) for e in (self.session or {}).get("heating") or {}],
             "heizung_extern": [self._friendly_name(e) for e in (self.session or {}).get("heating_external") or {}],
         }
