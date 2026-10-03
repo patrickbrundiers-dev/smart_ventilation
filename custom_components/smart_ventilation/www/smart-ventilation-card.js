@@ -32,7 +32,7 @@ const ago = (iso) => {
   const rtf = new Intl.RelativeTimeFormat("de", { numeric: "auto" });
   const abs = Math.abs(diff);
   if (abs < 3600) return RTF.format(Math.round(diff / 60), "minute");
-  if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour");
+  if (abs < 86400) return RTF.format(Math.round(diff / 3600), "hour");
   return rtf.format(Math.round(diff / 86400), "day");
 };
 const join = (parts) => parts.filter(Boolean).join(" · ");
