@@ -92,6 +92,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._rain_soon = False
         self._forecast_season = None
         self._party_until = None
+        self._mold_assessment_cache_key = None
+        self._mold_assessment_cache = None
         self._init_extras()
         self._init_history()
 
@@ -243,7 +245,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def energy_price(self):
-        return float(self.data.get(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE))
+        return self._stored_float(
+            self.data.get(CONF_ENERGY_PRICE, DEFAULT_ENERGY_PRICE),
+            DEFAULT_ENERGY_PRICE, 0.0, 100.0,
+        )
 
     @property
     def ventilated_today(self):
@@ -2341,16 +2346,19 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def mold_assessment(self):
-        """Aktuelle Schimmelbewertung inklusive Dauer, Taupunktabstand und Trend."""
-        return assess_mold_risk(
-            self.wall_rh,
-            self.wall_temperature,
-            self.indoor_rh,
-            self.indoor_dew_point,
-            duration_high_minutes=self.mold_minutes_today,
-            duration_elevated_minutes=self.mold_elevated_minutes_today,
-            trend_rh_per_hour=self.mold_rh_trend,
+        """Aktuelle Schimmelbewertung; identische Werte werden nur einmal berechnet."""
+        values = (
+            self.wall_rh, self.wall_temperature, self.indoor_rh, self.indoor_dew_point,
+            self.mold_minutes_today, self.mold_elevated_minutes_today, self.mold_rh_trend,
         )
+        if values == self._mold_assessment_cache_key and self._mold_assessment_cache is not None:
+            return self._mold_assessment_cache
+        self._mold_assessment_cache_key = values
+        self._mold_assessment_cache = assess_mold_risk(
+            *values[:4], duration_high_minutes=values[4],
+            duration_elevated_minutes=values[5], trend_rh_per_hour=values[6],
+        )
+        return self._mold_assessment_cache
 
     @property
     def mold_data_quality(self):
