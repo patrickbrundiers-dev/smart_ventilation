@@ -13,7 +13,10 @@ const DOMAIN = "smart_ventilation";
 const LOCALE = "de-DE";
 const RTF = new Intl.RelativeTimeFormat("de", { numeric: "auto" });
 const NUMBER_FORMATTERS = new Map();
-const numberFormatter = (digits) => {\n  if (!NUMBER_FORMATTERS.has(digits)) NUMBER_FORMATTERS.set(digits, new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: digits }));\n  return NUMBER_FORMATTERS.get(digits);\n};
+const numberFormatter = (digits) => {
+  if (!NUMBER_FORMATTERS.has(digits)) NUMBER_FORMATTERS.set(digits, new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: digits }));
+  return NUMBER_FORMATTERS.get(digits);
+};
 
 /* ---------- Hilfen ---------- */
 const esc = (v) =>
