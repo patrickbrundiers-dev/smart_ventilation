@@ -1213,7 +1213,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         best = None
         has_humidity = False
         has_rain_data = False
-        has_rain_data = False
 
         for item in forecast:
             when = dt_util.parse_datetime(str(item.get("datetime", "")))
@@ -1269,9 +1268,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 max_rain_amount=FORECAST_MAX_RAIN_MM,
             ) / 20.0 * wind_factor
 
-            if rain_raw is None and rain_prob_raw is None:
-                score -= 0.5
-
             # Fehlt die Niederschlagsinformation komplett, darf die Stunde nicht so
             # bewertet werden, als wäre sicher kein Regen zu erwarten. Es bleibt eine
             # nutzbare Empfehlung, wird aber konservativ abgewertet.
@@ -1321,7 +1317,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 "aussen_feuchte_abs": round(outdoor_ah, 1),
                 "feuchte_gewinn": round(gain, 1),
                 "regenwahrscheinlichkeit": round(rain_prob),
-                "regen_daten_verfügbar": has_rain_data,
                 "regen_daten_verfügbar": has_rain_data,
             },
         )
