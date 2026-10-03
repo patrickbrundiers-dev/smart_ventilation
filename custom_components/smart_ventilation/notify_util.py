@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CATEGORY_CONF_KEYS, CONF_QUIET_END, CONF_QUIET_END_WEEKEND, CONF_QUIET_START,
