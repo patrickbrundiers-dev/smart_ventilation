@@ -219,7 +219,7 @@ class RoomExtrasMixin:
         return True
 
     async def _vacation_mold_watch(self, now):
-        if not self.on_vacation or self.mold_risk != "hoch":
+        if not self.on_vacation or self.mold_risk not in ("hoch", "kritisch"):
             return
         today = now.date().isoformat()
         if self._vacation_warned == today:
