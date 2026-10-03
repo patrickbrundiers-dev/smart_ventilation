@@ -11,6 +11,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .const import (
+    MOLD_DEWPOINT_MARGIN_CRITICAL, MOLD_RH_CRITICAL, MOLD_RH_ELEVATED,
+    MOLD_RH_HIGH, MOLD_RH_WATCH, MOLD_TREND_WARN_RH_PER_HOUR,
+)
+
 
 @dataclass(frozen=True)
 class MoldAssessment:
@@ -22,6 +27,20 @@ class MoldAssessment:
     dew_point_margin: float | None
     duration_hours: float
     trend_rh_per_hour: float | None
+
+    @property
+    def score(self) -> int:
+        base = {"unbekannt": 0, "niedrig": 10, "beobachten": 30, "erhöht": 50, "hoch": 72, "kritisch": 92}.get(self.level, 0)
+        score = float(base)
+        if self.dew_point_margin is not None and self.dew_point_margin <= MOLD_DEWPOINT_MARGIN_CRITICAL:
+            score = max(score, 95)
+        elif self.dew_point_margin is not None and self.dew_point_margin < 2.0:
+            score += (2.0 - max(0.0, self.dew_point_margin)) * 6.0
+        if self.trend_rh_per_hour is not None and self.trend_rh_per_hour >= MOLD_TREND_WARN_RH_PER_HOUR:
+            score += min(8.0, self.trend_rh_per_hour - MOLD_TREND_WARN_RH_PER_HOUR + 2.0)
+        if self.duration_hours >= 6:
+            score += 5
+        return max(0, min(100, round(score)))
 
 
 def assess_mold_risk(
@@ -46,7 +65,7 @@ def assess_mold_risk(
                 trend_rh_per_hour,
             )
         margin = None if dew_point is None or wall_temperature is None else wall_temperature - dew_point
-        if margin is not None and margin <= 0.5:
+        if margin is not None and margin <= MOLD_DEWPOINT_MARGIN_CRITICAL:
             return MoldAssessment(
                 "kritisch",
                 "Taupunkt liegt sehr nah an der Raumluft",
@@ -57,7 +76,7 @@ def assess_mold_risk(
                 max(0.0, duration_high_minutes) / 60,
                 trend_rh_per_hour,
             )
-        if indoor_rh >= 75:
+        if indoor_rh >= MOLD_RH_HIGH - 5:
             return MoldAssessment(
                 "hoch",
                 "Raumluftfeuchte über 75 % – Wanddaten fehlen",
@@ -68,7 +87,7 @@ def assess_mold_risk(
                 max(0.0, duration_high_minutes) / 60,
                 trend_rh_per_hour,
             )
-        if indoor_rh >= 70:
+        if indoor_rh >= MOLD_RH_ELEVATED:
             return MoldAssessment(
                 "erhöht",
                 "Raumluftfeuchte über 70 % – Wanddaten fehlen",
@@ -119,7 +138,7 @@ def assess_mold_risk(
             trend_rh_per_hour,
         )
 
-    if wall_rh >= 90:
+    if wall_rh >= MOLD_RH_CRITICAL:
         return MoldAssessment(
             "kritisch",
             "Wandfeuchte über 90 %",
@@ -131,7 +150,7 @@ def assess_mold_risk(
             trend_rh_per_hour,
         )
 
-    if wall_rh >= 80:
+    if wall_rh >= MOLD_RH_HIGH:
         action = "Mehrmals täglich kurz stoßlüften"
         reason = "Wandfeuchte über 80 %"
         if high_hours >= 6:
@@ -139,14 +158,14 @@ def assess_mold_risk(
             action = "Jetzt gründlich stoßlüften und Feuchte weiter beobachten"
         elif high_hours >= 2:
             reason += " seit mindestens 2 Stunden"
-        elif trend_rh_per_hour is not None and trend_rh_per_hour >= 2:
+        elif trend_rh_per_hour is not None and trend_rh_per_hour >= MOLD_TREND_WARN_RH_PER_HOUR:
             reason += " und weiter steigend"
             action = "Jetzt lüften, bevor sich die Feuchte weiter erhöht"
         return MoldAssessment(
             "hoch", reason, action, wall_rh, wall_temperature, margin, high_hours, trend_rh_per_hour
         )
 
-    if wall_rh >= 70:
+    if wall_rh >= MOLD_RH_ELEVATED:
         reason = "Wandfeuchte im erhöhten Bereich"
         if elevated_hours >= 6:
             reason += " über längere Zeit"
@@ -163,7 +182,7 @@ def assess_mold_risk(
             trend_rh_per_hour,
         )
 
-    if wall_rh >= 65 or (indoor_rh is not None and indoor_rh >= 70):
+    if wall_rh >= MOLD_RH_WATCH or (indoor_rh is not None and indoor_rh >= MOLD_RH_ELEVATED):
         return MoldAssessment(
             "beobachten",
             "Feuchte nähert sich dem Vorsorgebereich",
