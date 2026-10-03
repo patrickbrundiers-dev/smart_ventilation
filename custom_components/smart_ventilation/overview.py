@@ -229,12 +229,6 @@ class OverviewCoordinator:
             await self._save()
 
         cooldown = int(self.data.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)) * 60
-        if (
-            not snooze_over
-            and self.last_notification_at is not None
-            and (now - self.last_notification_at).total_seconds() < cooldown
-        ):
-            return
 
         due.sort(key=self.urgency, reverse=True)
         lines = [f"• {r.data.get('name')}: {r.recommendation}" for r in due]
@@ -244,13 +238,6 @@ class OverviewCoordinator:
         )
         targets = notify_util.targets_for_category(self.data, CAT_REMINDER, self.notify_targets)
         targets = notify_util.filter_targets(self.hass, targets, self.persons)
-
-        # Cooldown-Fenster sofort reservieren, bevor auf den (async) Versand gewartet wird - siehe
-        # dieselbe Race in coordinator.py::_send_notification_if_needed: der 60-Sekunden-Tick
-        # wartet nicht auf den vorherigen Lauf, ein langsames notify.*-Ziel könnte sonst zwei
-        # sich überlappende Aufrufe beide am (noch alten) last_notification_at vorbeikommen lassen.
-        self.last_notification_at = now
-        await self._save()
 
         sent = await notify_util.send(
             self.hass,
