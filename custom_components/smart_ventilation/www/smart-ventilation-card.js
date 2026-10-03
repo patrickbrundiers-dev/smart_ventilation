@@ -135,6 +135,29 @@ function yearChart(months) {
   return `<div class="trend"><span class="trend-label">Letzte ${months.length} Monate</span><div class="trend-bars">${bars}</div></div>`;
 }
 
+/* ---------- Forecast-Lüftungsfenster ---------- */
+function forecastWindowsPanel(windows) {
+  if (!Array.isArray(windows) || !windows.length) return "";
+  const upcoming = [...windows]
+    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
+    .slice(0, 4);
+  const rows = upcoming.map((w) => {
+    const start = new Date(w.start);
+    const end = new Date(w.end);
+    const time = `${start.toLocaleDateString(LOCALE, { weekday: "short" })} ${start.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })}–${end.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" })}`;
+    const title = `${time}: Nutzen ${fmt(w.score, 0)}/100 · ${fmt(w.gain, 1)} g/m³ trockener`;
+    return `<div class="forecast-window" title="${esc(title)}">
+      <span><ha-icon icon="mdi:weather-windy"></ha-icon>${esc(time)}</span>
+      <b>${fmt(w.score, 0)}</b>
+      <small>${fmt(w.gain, 1)} g/m³</small>
+    </div>`;
+  }).join("");
+  return `<div class="forecast-panel">
+    <div class="forecast-head"><span><ha-icon icon="mdi:calendar-clock"></ha-icon>Günstige Lüftungsfenster</span><small>nach Nutzen</small></div>
+    <div class="forecast-list">${rows}</div>
+  </div>`;
+}
+
 /* ---------- Fensterstatus (bei mehr als einem Fensterkontakt) ---------- */
 function windowStatus(windows) {
   if (!windows || windows.length < 2) return "";
@@ -465,6 +488,7 @@ class SmartVentilationCard extends HTMLElement {
     const trend = this._config.show_trend !== false && !compact ? trendChart(k.trend_tage) : "";
     const year = this._config.show_year !== false && !compact ? yearChart(k.monatsverlauf) : "";
     const winList = !compact ? windowStatus(k.fenster_status) : "";
+    const forecastWindows = !compact ? forecastWindowsPanel(k.lueftungsfenster) : "";
 
     const heuteText = `${fmt(k.heute_anzahl, 0)}× heute · ${fmt(k.heute_min, 0)} Min.`;
     const heuteTone = k.gelueftet && "good";
@@ -495,6 +519,7 @@ class SmartVentilationCard extends HTMLElement {
       !compact && k.entfeuchter && [null, "mdi:air-humidifier", "Entfeuchter läuft"],
       !compact && k.rollo_geschlossen && [null, "mdi:roller-shade-closed", "Rollo geschlossen"],
       !compact && k.rollo_empfehlung && !k.rollo_geschlossen && [null, "mdi:roller-shade", "Rollo schließen empfohlen", "warn"],
+      !compact && has(k.lueftungsnutzen) && [null, "mdi:gauge", `Lüftungsnutzen ${fmt(k.lueftungsnutzen, 0)}/100`, k.lueftungsnutzen >= 70 ? "good" : k.lueftungsnutzen >= 40 ? "info" : "neutral"],
       !compact && k.ruhezeit && !String(k.pausiert || "").startsWith("Ruhezeit") && [null, "mdi:sleep", "Ruhezeit"],
     ]
       .filter(Boolean)
@@ -530,7 +555,7 @@ class SmartVentilationCard extends HTMLElement {
         <div class="headline">${esc(h.title)}</div>
         ${h.sub && !compact ? `<div class="sub">${esc(h.sub)}</div>` : ""}
       </div>
-      ${compact ? "" : `${progress}${actions}${alertHtml}${tiles}${chart}${trend}${year}${winList}`}
+      ${compact ? "" : `${progress}${actions}${alertHtml}${tiles}${forecastWindows}${chart}${trend}${year}${winList}`}
       ${chips ? `<div class="chips">${chips}</div>` : ""}${stats}`;
   }
 
@@ -552,7 +577,7 @@ class SmartVentilationCard extends HTMLElement {
          <span class="t-label"><ha-icon icon="mdi:wall"></ha-icon>Wand</span>
          <span class="t-value">${fmt(k.wand_rh, 0)}<small>%</small></span>
          <span class="meter tone-${risk[0]}"><span style="width:${wallPct}%"></span><i style="left:70%"></i><i style="left:80%"></i></span>
-         <span class="t-sub" title="Wandtemperatur ${fmt(k.wand_t)} °C"><i class="dot tone-${risk[0]}"></i>${esc(risk[1].charAt(0).toUpperCase() + risk[1].slice(1))}</span>
+         <span class="t-sub" title="Wandtemperatur ${fmt(k.wand_t)} °C, Taupunktabstand ${fmt(k.wand_taupunkt_abstand, 1)} °C"><i class="dot tone-${risk[0]}"></i>${esc(risk[1].charAt(0).toUpperCase() + risk[1].slice(1))} · ${has(k.wand_taupunkt_abstand) ? `Taupunkt ${fmt(k.wand_taupunkt_abstand, 1)} °C` : "Taupunkt –"}</span>
        </button>`,
     ];
     if (has(k.co2)) {
@@ -895,6 +920,19 @@ const STYLE = `
   }
   .trend-bar.year-bar { background: color-mix(in srgb, var(--sv-neutral) 40%, transparent); }
   .trend-bar.year-bar.is-today { background: var(--sv-neutral); }
+
+  /* Forecast-Lüftungsfenster */
+  .forecast-panel { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--sv-inner); background: var(--sv-surface); }
+  .forecast-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 13px; font-weight: 600; }
+  .forecast-head span { display: inline-flex; align-items: center; gap: 5px; }
+  .forecast-head ha-icon { --mdc-icon-size: 16px; color: var(--sv-info); }
+  .forecast-head small { font-size: 11px; font-weight: 400; color: var(--sv-text-2); }
+  .forecast-list { display: flex; flex-direction: column; gap: 3px; }
+  .forecast-window { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 8px; align-items: center; font-size: 12px; color: var(--sv-text-2); }
+  .forecast-window span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+  .forecast-window ha-icon { --mdc-icon-size: 14px; color: var(--sv-info); }
+  .forecast-window b { color: var(--sv-text); font-variant-numeric: tabular-nums; }
+  .forecast-window small { min-width: 54px; text-align: right; font-size: 11px; color: var(--sv-text-2); }
 
   /* Fensterstatus (mehrere Fensterkontakte) */
   .win-list { display: flex; flex-wrap: wrap; gap: 6px; }

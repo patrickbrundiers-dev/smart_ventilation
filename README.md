@@ -146,6 +146,16 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.0
+
+- **Wandfeuchte/Taupunkt finalisiert:** Wandoberflächenfeuchte bleibt klar als Schätzung gekennzeichnet; Taupunktabstand und Kondensationsnähe werden getrennt ausgewertet.
+- **Lüftungsnutzen 0–100:** Feuchtegewinn, Wind, Temperatur, CO₂, Wandfeuchte, Taupunktabstand, Bewölkung und Solarstrahlung fließen in einen transparenten Nutzenscore ein.
+- **Forecast-Lüftungsfenster:** Geeignete Stunden der stündlichen Vorhersage werden zu zusammenhängenden Zeitfenstern gebündelt und nach Nutzen sortiert.
+- **Entscheidung umgestellt:** Die bestehende Empfehlung nutzt den neuen Lüftungsnutzen, während harte Schutzsperren für Regen, Gewitter und ungünstige Temperaturen weiterhin Vorrang haben.
+- **Dashboard-Karte erweitert:** Nutzenscore, Taupunktabstand an der Wand und die nächsten günstigen Lüftungsfenster werden angezeigt.
+- **Szenario-Tests:** Wandfeuchte/Taupunkt, Nutzenbewertung und Forecast-Fenster werden mit Grenz-, Sicherheits- und Mehrstunden-Szenarien geprüft.
+
+
 ### Version 2.18.2
 
 Release-/Versionspflege nach 2.18.1:

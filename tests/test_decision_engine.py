@@ -152,3 +152,36 @@ def test_robust_ach_rejects_non_finite_values():
     model, accepted = robust_ach_update(None, float("nan"))
     assert not accepted
     assert model == {}
+
+
+from custom_components.smart_ventilation.decision_engine import ventilation_utility_score
+
+
+def test_ventilation_utility_increases_with_drier_air():
+    low, _ = ventilation_utility_score(
+        humidity_gain=0.5, wind=3, temperature_delta=1, mold_risk="niedrig"
+    )
+    high, reason = ventilation_utility_score(
+        humidity_gain=3.0, wind=8, temperature_delta=3, mold_risk="erhöht"
+    )
+    assert high > low
+    assert "g/m³" in reason
+
+
+def test_ventilation_utility_reacts_to_wall_condensation_risk():
+    safe, _ = ventilation_utility_score(
+        humidity_gain=1.0, temperature_delta=1, dewpoint_margin=4
+    )
+    critical, reason = ventilation_utility_score(
+        humidity_gain=1.0, temperature_delta=1, dewpoint_margin=0
+    )
+    assert critical > safe
+    assert "Kondensation" in reason
+
+
+def test_ventilation_utility_is_bounded():
+    score, _ = ventilation_utility_score(
+        humidity_gain=100, wind=100, temperature_delta=100,
+        co2=5000, mold_risk="kritisch", wall_rh=100, dewpoint_margin=-10
+    )
+    assert 0 <= score <= 100
