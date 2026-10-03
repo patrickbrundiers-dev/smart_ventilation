@@ -611,6 +611,11 @@ async def test_card_shows_pause_after_ventilation(hass: HomeAssistant, freezer: 
     freezer.move_to("2026-12-05 10:00:00+01:00")
     entry = await setup_room(hass)
     rec = eid(hass, "sensor", entry, "recommendation")
+    # Kalte Außenluft + 12.5 g/m³ innen erzeugen nach dem neuen Wandmodell
+    # weiterhin ein relevantes Wandfeuchte-Risiko nach der Lüftung.
+    hass.states.async_set("sensor.aussen_t", -5.0)
+    hass.states.async_set("sensor.innen_ah", 12.5)
+    await hass.async_block_till_done()
     assert hass.states.get(rec).attributes["karte"]["pausiert"] is None
     hass.states.async_set("binary_sensor.fenster_1", "on")
     await hass.async_block_till_done()
@@ -618,7 +623,7 @@ async def test_card_shows_pause_after_ventilation(hass: HomeAssistant, freezer: 
     hass.states.async_set("binary_sensor.fenster_1", "off")
     # Feuchte nach dem Lüften realistisch gesunken, aber Schimmelrisiko noch nicht "niedrig"
     # (bleibt "erhöht", nicht "hoch") – die Pause soll normal gelten, siehe Extrem-Test unten.
-    hass.states.async_set("sensor.innen_ah", 9.0)
+    hass.states.async_set("sensor.innen_ah", 10.5)
     await hass.async_block_till_done()
     await _tick(hass, freezer, 1)
     karte = hass.states.get(rec).attributes["karte"]
@@ -726,6 +731,10 @@ async def test_post_vent_pause_uses_forecast_and_extreme_override(
     pushes = async_mock_service(hass, "notify", "mobile_app_test")
     entry = await setup_room(hass, weather_entity="weather.home")
     rec = eid(hass, "sensor", entry, "recommendation")
+    # Gleiches reproduzierbares Wandfeuchte-Szenario wie im Pause-Test.
+    hass.states.async_set("sensor.aussen_t", -5.0)
+    hass.states.async_set("sensor.innen_ah", 12.5)
+    await hass.async_block_till_done()
     await _tick(hass, freezer, 0.5)                # Vorhersage laden
 
     hass.states.async_set("binary_sensor.fenster_1", "on")
