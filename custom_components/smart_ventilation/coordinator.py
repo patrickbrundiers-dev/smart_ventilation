@@ -2133,7 +2133,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             minutes = min(minutes, 5)
             mode = "Kurz komplett öffnen"
             self.block_reason = sun_reason
-        elif adaptive_score >= ADAPTIVE_SCORE_FULL_OPEN or (minutes <= 12 and (wind is None or wind >= 5)):
+        elif self.adaptive_score >= ADAPTIVE_SCORE_FULL_OPEN or (minutes <= 12 and (wind is None or wind >= 5)):
             mode = "Komplett öffnen"
         else:
             mode = "Kippfenster"
