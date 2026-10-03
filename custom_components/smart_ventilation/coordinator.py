@@ -23,6 +23,7 @@ from .sensor_utils import (
     _is_on,
     _is_raining,
     _num,
+    _relative_humidity_at_surface,
     _relative_humidity_from_absolute,
     _wind_kmh,
 )
@@ -2329,20 +2330,30 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def wall_temperature(self):
-        """Geschätzte Oberflächentemperatur an der kältesten Außenwandstelle."""
+        """Konservative Schätzung der inneren Wandoberflächentemperatur."""
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         if indoor is None or outdoor is None:
             return None
         if outdoor >= indoor:
             return indoor
-        return indoor - RSI_CORNER * self.u_value * (indoor - outdoor)
+
+        # 1D-Wärmeübergang mit Rsi; f_Rsi wird konservativ bei 0.70 begrenzt.
+        temperature_factor = max(
+            MIN_WALL_SURFACE_TEMPERATURE_FACTOR,
+            1.0 - R_SI * self.u_value,
+        )
+        return outdoor + temperature_factor * (indoor - outdoor)
 
     @property
     def wall_rh(self):
-        """Geschätzte relative Feuchte an der kältesten Wandoberfläche."""
-        ah = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
-        return _relative_humidity_from_absolute(ah, self.wall_temperature)
+        """Geschätzte relative Feuchte an der kalten Wandoberfläche."""
+        indoor_temperature = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+        return _relative_humidity_at_surface(
+            indoor_temperature,
+            self.indoor_rh,
+            self.wall_temperature,
+        )
 
     @property
     def mold_assessment(self):
