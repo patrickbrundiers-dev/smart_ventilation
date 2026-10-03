@@ -654,6 +654,17 @@ Bei direkter Sonne wird die Lüftungsdauer begrenzt.
 Das gelernte Modell wird ohne Home-Assistant-Helper dauerhaft im Storage der Integration gespeichert. Die erzeugten Sensoren werden zusätzlich ganz normal vom Home-Assistant-Recorder aufgezeichnet.
 
 
+## 2.21.0 – Hardening & Diagnose
+
+- **Schimmelbewertung gehärtet:** Grenzwerte werden zentral verwaltet; die kritische Tagesserie berücksichtigt den aktuellen Tag korrekt.
+- **Risiko-Score:** Jede Schimmelbewertung liefert zusätzlich einen transparenten Score von 0–100 für Dashboard und Automationen.
+- **Datenqualität:** Neuer Diagnose-Sensor zeigt, ob Wand-, Temperatur- und Taupunktdaten vollständig verfügbar sind.
+- **Forecast-Sicherheit:** Ungültige oder nicht-endliche Wetterwerte werden verworfen statt die Empfehlung zu verfälschen.
+- **Lernmodell:** Nicht-endliche ACH-Werte werden sicher abgewiesen.
+- **Performance:** Identische Schimmel-Messzustände werden im Coordinator zwischengespeichert.
+- **Energie:** Ungültige oder negative Energiepreise werden auf einen sicheren Vorgabewert zurückgeführt.
+- **Versionierung:** Geräteinformationen verwenden jetzt automatisch die aktuelle Integrationsversion.
+
 ## 2.17 – Adaptive Intelligence
 
 Version 2.17 erweitert die Entscheidungslogik ohne die bestehenden harten Sicherheitsregeln zu entfernen:
