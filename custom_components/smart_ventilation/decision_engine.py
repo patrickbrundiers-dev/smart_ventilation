@@ -18,6 +18,93 @@ def _now_iso(now: datetime | None = None) -> str:
     return value.isoformat()
 
 
+def ventilation_utility_score(
+    *,
+    humidity_gain: float | None,
+    wind: float | None,
+    wind_factor: float = 1.0,
+    temperature_delta: float | None,
+    co2: float | None = None,
+    mold_risk: str = "niedrig",
+    wall_rh: float | None = None,
+    dewpoint_margin: float | None = None,
+    forecast_score: float | None = None,
+) -> tuple[int, str]:
+    """Calculate a transparent 0..100 usefulness score for ventilation.
+
+    The score answers only "how useful is ventilation now/at this time?".
+    Hard safety gates such as rain, thunderstorms and excessive outdoor
+    temperature remain outside this function and always take precedence.
+    """
+    score = 0.0
+    reasons: list[str] = []
+
+    if humidity_gain is not None:
+        gain = max(0.0, float(humidity_gain))
+        score += min(40.0, gain * 12.0)
+        if gain >= 2.0:
+            reasons.append(f"{gain:.1f} g/m³ trockener")
+        elif gain >= 1.0:
+            reasons.append("Außenluft trockener")
+
+    if wind is not None:
+        effective_wind = max(0.0, float(wind)) * max(0.0, min(1.0, float(wind_factor)))
+        score += min(15.0, effective_wind / 2.0)
+        if effective_wind >= 10:
+            reasons.append("günstiger Wind")
+
+    if temperature_delta is not None:
+        td = float(temperature_delta)
+        score += min(12.0, max(0.0, td) * 2.0)
+        if td >= 3:
+            reasons.append("Temperatur günstig")
+
+    if co2 is not None:
+        value = float(co2)
+        if value >= 1400:
+            score += 20.0
+            reasons.append("CO₂ sehr hoch")
+        elif value >= 1000:
+            score += 10.0
+            reasons.append("CO₂ erhöht")
+
+    if mold_risk == "kritisch":
+        score += 30.0
+        reasons.append("Schimmelrisiko kritisch")
+    elif mold_risk == "hoch":
+        score += 20.0
+        reasons.append("Schimmelrisiko hoch")
+    elif mold_risk == "erhöht":
+        score += 10.0
+        reasons.append("Wandfeuchte erhöht")
+
+    if wall_rh is not None:
+        wrh = float(wall_rh)
+        if wrh >= 90:
+            score += 15.0
+        elif wrh >= 80:
+            score += 10.0
+        elif wrh >= 70:
+            score += 4.0
+
+    if dewpoint_margin is not None:
+        margin = float(dewpoint_margin)
+        if margin <= 0:
+            score += 20.0
+            reasons.append("Kondensation möglich")
+        elif margin <= 0.5:
+            score += 15.0
+            reasons.append("Wand sehr nah am Taupunkt")
+        elif margin <= 2:
+            score += 6.0
+
+    if forecast_score is not None:
+        score += max(-10.0, min(10.0, (float(forecast_score) - 50.0) * 0.2))
+
+    score = int(round(max(0.0, min(100.0, score))))
+    return score, (" · ".join(reasons) if reasons else "geringer Lüftungsnutzen")
+
+
 def adaptive_ventilation_score(
     *,
     humidity_gain: float | None,
