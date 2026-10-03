@@ -442,9 +442,10 @@ class SmartVentilationCard extends HTMLElement {
       alerts.push(["info", "mdi:radiator-off", "Heizung wird selbst geregelt", `${k.heizung_extern.join(", ")} schaltet beim Fenster öffnen automatisch ab.`]);
     }
     if (k.kuehlt_aus) alerts.push(["bad", "mdi:thermometer-alert", "Raum kühlt aus", `${fmt(k.innen_t)} °C – bitte Fenster schließen.`]);
-    if (k.schimmel === "kritisch") alerts.push(["bad", "mdi:alert-octagon-outline", "Akutes Schimmelrisiko", k.schimmel_massnahme || k.schimmel_grund || "Feuchte sofort reduzieren."]);
-    else if (k.schimmel === "hoch") alerts.push(["bad", "mdi:shield-alert-outline", "Schimmelrisiko hoch", k.schimmel_massnahme || k.schimmel_grund || "Jetzt stoßlüften."]);
-    else if (k.schimmel === "erhöht") alerts.push(["warn", "mdi:shield-alert-outline", "Erhöhte Wandfeuchte", k.schimmel_massnahme || k.schimmel_grund || "Feuchte zeitnah reduzieren."]);
+    const moldScore = Number.isFinite(Number(k.schimmel_score)) ? ` · Score ${Number(k.schimmel_score)}/100` : "";
+    if (k.schimmel === "kritisch") alerts.push(["bad", "mdi:alert-octagon-outline", "Akutes Schimmelrisiko", `${k.schimmel_massnahme || k.schimmel_grund || "Feuchte sofort reduzieren."}${moldScore}`]);
+    else if (k.schimmel === "hoch") alerts.push(["bad", "mdi:shield-alert-outline", "Schimmelrisiko hoch", `${k.schimmel_massnahme || k.schimmel_grund || "Jetzt stoßlüften."}${moldScore}`]);
+    else if (k.schimmel === "erhöht") alerts.push(["warn", "mdi:shield-alert-outline", "Erhöhte Wandfeuchte", `${k.schimmel_massnahme || k.schimmel_grund || "Feuchte zeitnah reduzieren."}${moldScore}`]);
     else if (k.schimmel === "beobachten") alerts.push(["info", "mdi:information-outline", "Feuchte beobachten", k.schimmel_grund || "Feuchte nähert sich dem Vorsorgebereich."]);
     if (k.schimmel_tage >= 3) alerts.push(["bad", "mdi:calendar-alert", `${k.schimmel_tage} kritische Tage in Folge`, "Mehrere Tage erhöhte Wandfeuchte – Ursache und Lüftung prüfen."]);
     if (k.nach_dusche && !k.laeuft) alerts.push(["warn", "mdi:shower-head", "Nach dem Duschen", "Jetzt lüften, bevor sich Feuchte in den Wänden festsetzt."]);
@@ -702,7 +703,7 @@ class SmartVentilationCard extends HTMLElement {
           : r.lueften ? ["warn", "mdi:window-open-variant", r.empfehlung, `${r.minuten} Min.`]
           : ["good", "mdi:check", "Kein Lüften nötig", ""];
         const riskTone = RISK[r.schimmelrisiko];
-        const riskIcon = r.schimmelrisiko === "hoch" ? "mdi:alert-octagon-outline" : "mdi:shield-alert-outline";
+        const riskIcon = r.schimmelrisiko === "kritisch" ? "mdi:alert-octagon-outline" : "mdi:shield-alert-outline";
         // Kleine Symbole neben dem Raumnamen für alles, was sonst erst auf der Einzelraum-Karte
         // sichtbar wäre: Schimmelrisiko, laufender Entfeuchter, empfohlenes (noch offenes) Rollo.
         const badges = [];
