@@ -2211,6 +2211,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "aussen_ah": r(_float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])),
             "wand_t": r(self.wall_temperature),
             "wand_rh": r(self.wall_rh, 0),
+            "wand_taupunkt_abstand": r(self.wall_dewpoint_margin, 1),
+            "wand_kondensation": self.wall_condensation_risk,
             "schimmel": self.mold_risk,
             "schimmel_grund": self.mold_assessment.reason,
             "schimmel_massnahme": self.mold_assessment.action,
@@ -2386,6 +2388,28 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self.indoor_rh,
             self.wall_temperature,
         )
+
+    @property
+    def wall_dewpoint_margin(self):
+        """Estimated temperature distance between wall surface and indoor dew point."""
+        wall_t = self.wall_temperature
+        dew = self.indoor_dew_point
+        if wall_t is None or dew is None:
+            return None
+        return wall_t - dew
+
+    @property
+    def wall_condensation_risk(self):
+        margin = self.wall_dewpoint_margin
+        if margin is None:
+            return "unbekannt"
+        if margin <= 0:
+            return "kondensation"
+        if margin <= MOLD_DEWPOINT_MARGIN_CRITICAL:
+            return "kritisch_nah"
+        if margin <= 2:
+            return "nah"
+        return "sicher"
 
     @property
     def mold_assessment(self):
