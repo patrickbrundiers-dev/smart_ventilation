@@ -159,7 +159,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.20.0"
+VERSION = "2.21.0"
 
 # Adaptive decision / learning
 ADAPTIVE_SCORE_MIN = 20
@@ -237,7 +237,6 @@ TRACE_CARD_POINTS = 60
 # Schimmel-Frühwarnung
 MOLD_CRITICAL_MINUTES = 360
 MOLD_STREAK_WARN = 3
-MOLD_ELEVATED_MINUTES = 360
 MOLD_REWARN_DAYS = 7
 MOLD_LOG_DAYS = 62
 
