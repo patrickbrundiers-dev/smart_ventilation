@@ -28,6 +28,7 @@ from .sensor_utils import (
 )
 from .history import HistoryMixin, month_name
 from .forecast_engine import score_forecast_window
+from .mold_engine import assess_mold_risk
 from .decision_engine import (
     adaptive_ventilation_score,
     robust_ach_update,
@@ -1773,7 +1774,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     def _extreme_now(self):
         """Lage so ernst, dass auch eine laufende Pause nicht mehr gilt (Schimmel oder CO₂ hoch)."""
-        return self.mold_risk == "hoch" or (self.co2 is not None and self.co2 >= CO2_HIGH)
+        return self.mold_alarm or (self.co2 is not None and self.co2 >= CO2_HIGH)
 
     def _post_vent_pause_until(self):
         """Bis wann nach dem Lüften nicht erneut erinnert wird.
@@ -1921,7 +1922,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._humidity_reasons_met = (
             indoor > target_abs
             or (rh is not None and rh >= HUMID_RH)
-            or mold in ("erhöht", "hoch")
+            or mold in ("erhöht", "hoch", "kritisch")
         )
         enter = diff > START_DIFF and self._humidity_reasons_met
         if not self._humidity_active:
@@ -2174,6 +2175,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "wand_t": r(self.wall_temperature),
             "wand_rh": r(self.wall_rh, 0),
             "schimmel": self.mold_risk,
+            "schimmel_grund": self.mold_assessment.reason,
+            "schimmel_massnahme": self.mold_assessment.action,
+            "schimmel_taupunkt_abstand": r(self.mold_assessment.dew_point_margin, 1),
+            "schimmel_trend": r(self.mold_rh_trend, 2),
+            "schimmel_h_heute": self.mold_hours_today,
+            "schimmel_h_erhoeht_heute": self.mold_elevated_hours_today,
             "co2": r(self.co2, 0),
             "luft": self.air_quality,
             "saison": self.season,
@@ -2213,7 +2220,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "entfeuchter": self.dehumidifier_active,
             "rollo_empfehlung": self.shutter_recommended,
             "rollo_geschlossen": self.shutter_closed,
-            "schimmel_tage": self.mold_streak()[0],
+            "schimmel_tage": self.mold_streak_current()[0],
             "fenster_anzahl": len(self.windows),
             "party_modus": self.party_active,
             "party_bis": self._party_until.isoformat() if self.party_active else None,
@@ -2315,7 +2322,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def wall_temperature(self):
-        """Oberflächentemperatur an der kältesten Stelle: θi − Rsi·U·(θi − θe)."""
+        """Geschätzte Oberflächentemperatur an der kältesten Außenwandstelle."""
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         if indoor is None or outdoor is None:
@@ -2326,32 +2333,26 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def wall_rh(self):
-        """Relative Feuchte direkt an der kalten Wand – entscheidend für Schimmel."""
+        """Geschätzte relative Feuchte an der kältesten Wandoberfläche."""
         ah = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         return _relative_humidity_from_absolute(ah, self.wall_temperature)
 
     @property
+    def mold_assessment(self):
+        """Aktuelle Schimmelbewertung inklusive Dauer, Taupunktabstand und Trend."""
+        return assess_mold_risk(
+            self.wall_rh,
+            self.wall_temperature,
+            self.indoor_rh,
+            self.indoor_dew_point,
+            duration_high_minutes=self.mold_minutes_today,
+            duration_elevated_minutes=self.mold_elevated_minutes_today,
+            trend_rh_per_hour=self.mold_rh_trend,
+        )
+
+    @property
     def mold_risk(self):
-        wall = self.wall_rh
-        if wall is not None:
-            if wall >= MOLD_RH_HIGH:
-                return "hoch"
-            if wall >= MOLD_RH_ELEVATED:
-                return "erhöht"
-            return "niedrig"
-        rh = self.indoor_rh
-        dp = self.indoor_dew_point
-        temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
-
-        if rh is None or dp is None or temp is None:
-            return "unbekannt"
-
-        # Air-only estimate: not a building-material surface model.
-        if rh >= 75 or (temp - dp) <= 3:
-            return "hoch"
-        if rh >= 65 or (temp - dp) <= 5:
-            return "erhöht"
-        return "niedrig"
+        return self.mold_assessment.level
 
     @property
     def sun_data(self):

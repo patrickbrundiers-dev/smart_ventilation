@@ -57,6 +57,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         CostMonthSensor(coordinator),
         PreheatSavingsMonthSensor(coordinator),
         MoldStreakSensor(coordinator),
+        MoldTrendSensor(coordinator),
+        MoldDewPointMarginSensor(coordinator),
         NeedMonthSensor(coordinator),
     ])
 
@@ -222,11 +224,62 @@ class OutdoorDewPointSensor(BaseSensor):
 
 class MoldRiskSensor(BaseSensor):
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ["low", "elevated", "high", "unknown"]
+    _attr_options = ["low", "watch", "elevated", "high", "critical", "unknown"]
+
     def __init__(self, c): super().__init__(c, "mold_risk", "Schimmelrisiko")
+
     @property
     def native_value(self):
-        return {"niedrig": "low", "erhöht": "elevated", "hoch": "high"}.get(self.coordinator.mold_risk, "unknown")
+        return {
+            "niedrig": "low",
+            "beobachten": "watch",
+            "erhöht": "elevated",
+            "hoch": "high",
+            "kritisch": "critical",
+        }.get(self.coordinator.mold_risk, "unknown")
+
+    @property
+    def extra_state_attributes(self):
+        a = self.coordinator.mold_assessment
+        return {
+            "wand_feuchte": round(a.wall_rh, 1) if a.wall_rh is not None else None,
+            "wand_temperatur": round(a.wall_temperature, 1) if a.wall_temperature is not None else None,
+            "taupunkt_abstand": round(a.dew_point_margin, 1) if a.dew_point_margin is not None else None,
+            "kritische_stunden_heute": self.coordinator.mold_hours_today,
+            "erhoehte_stunden_heute": self.coordinator.mold_elevated_hours_today,
+            "trend_pro_stunde": self.coordinator.mold_rh_trend,
+            "kritische_tage_in_folge": self.coordinator.mold_streak_current()[0],
+            "grund": a.reason,
+            "massnahme": a.action,
+        }
+
+
+class MoldTrendSensor(BaseSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, c): super().__init__(c, "mold_rh_trend", "Schimmeltrend Wandfeuchte")
+
+    @property
+    def native_value(self):
+        return self.coordinator.mold_rh_trend
+
+    @property
+    def native_unit_of_measurement(self): return "%/h"
+
+
+class MoldDewPointMarginSensor(BaseSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+
+    def __init__(self, c): super().__init__(c, "mold_dewpoint_margin", "Taupunktabstand Wand")
+
+    @property
+    def native_value(self):
+        margin = self.coordinator.mold_assessment.dew_point_margin
+        return round(margin, 1) if margin is not None else None
+
+    @property
+    def native_unit_of_measurement(self): return "°C"
 
 
 class NotificationStatusSensor(BaseSensor):

@@ -749,12 +749,12 @@ async def test_post_vent_pause_uses_forecast_and_extreme_override(
     assert hass.states.get(rec).attributes["karte"]["pausiert"] is not None
     assert len([c for c in pushes if c.data["title"].startswith("Lüften:")]) == before
 
-    # jetzt wird es extrem (Schimmelrisiko hoch) -> Pause gilt nicht mehr, auch wenn die Zeit noch nicht da ist
+    # jetzt wird es extrem (Schimmelrisiko kritisch) -> Pause gilt nicht mehr, auch wenn die Zeit noch nicht da ist
     hass.states.async_set("sensor.innen_ah", 13.0)
     hass.states.async_set("sensor.aussen_ah", 4.0)
     await _tick(hass, freezer, 1)
     karte = hass.states.get(rec).attributes["karte"]
-    assert karte["schimmel"] == "hoch"
+    assert karte["schimmel"] == "kritisch"
     assert karte["pausiert"] is None
 
 async def test_missing_rain_sensor_is_a_hard_safety_block(

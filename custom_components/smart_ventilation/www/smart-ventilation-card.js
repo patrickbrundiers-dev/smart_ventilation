@@ -150,7 +150,7 @@ const SORT_MODES = [
   { key: "kosten", icon: "mdi:currency-eur", label: "Nach Kosten heute" },
   { key: "schimmel", icon: "mdi:shield-alert-outline", label: "Nach Schimmelrisiko" },
 ];
-const RISK_RANK = { hoch: 2, "erhöht": 1, niedrig: 0 };
+const RISK_RANK = { kritisch: 4, hoch: 3, "erhöht": 2, beobachten: 1, niedrig: 0 };
 
 function sortRooms(rooms, mode) {
   if (mode === "kosten") {
@@ -235,7 +235,7 @@ function headline(k) {
   return { title: "Raumklima in Ordnung", sub: k.gelueftet ? "Heute schon ausreichend gelüftet" : "Kein Lüften nötig" };
 }
 
-const RISK = { hoch: ["bad", "hoch"], "erhöht": ["warn", "erhöht"], niedrig: ["good", "niedrig"] };
+const RISK = { kritisch: ["bad", "kritisch"], hoch: ["bad", "hoch"], "erhöht": ["warn", "erhöht"], beobachten: ["info", "beobachten"], niedrig: ["good", "niedrig"] };
 const AIR = { schlecht: "bad", "mäßig": "warn", gut: "good" };
 
 /* ---------- Karte ---------- */
@@ -442,8 +442,11 @@ class SmartVentilationCard extends HTMLElement {
       alerts.push(["info", "mdi:radiator-off", "Heizung wird selbst geregelt", `${k.heizung_extern.join(", ")} schaltet beim Fenster öffnen automatisch ab.`]);
     }
     if (k.kuehlt_aus) alerts.push(["bad", "mdi:thermometer-alert", "Raum kühlt aus", `${fmt(k.innen_t)} °C – bitte Fenster schließen.`]);
-    if (k.schimmel_tage >= 3) alerts.push(["bad", "mdi:alert-octagon-outline", "Schimmelgefahr", `Die Wand war ${k.schimmel_tage} Tage in Folge kritisch feucht.`]);
-    else if (k.schimmel_tage === 2) alerts.push(["warn", "mdi:shield-alert-outline", "Wand zwei Tage feucht", "Morgen droht eine Schimmelwarnung – heute gründlich lüften."]);
+    if (k.schimmel === "kritisch") alerts.push(["bad", "mdi:alert-octagon-outline", "Akutes Schimmelrisiko", k.schimmel_massnahme || k.schimmel_grund || "Feuchte sofort reduzieren."]);
+    else if (k.schimmel === "hoch") alerts.push(["bad", "mdi:shield-alert-outline", "Schimmelrisiko hoch", k.schimmel_massnahme || k.schimmel_grund || "Jetzt stoßlüften."]);
+    else if (k.schimmel === "erhöht") alerts.push(["warn", "mdi:shield-alert-outline", "Erhöhte Wandfeuchte", k.schimmel_massnahme || k.schimmel_grund || "Feuchte zeitnah reduzieren."]);
+    else if (k.schimmel === "beobachten") alerts.push(["info", "mdi:information-outline", "Feuchte beobachten", k.schimmel_grund || "Feuchte nähert sich dem Vorsorgebereich."]);
+    if (k.schimmel_tage >= 3) alerts.push(["bad", "mdi:calendar-alert", `${k.schimmel_tage} kritische Tage in Folge`, "Mehrere Tage erhöhte Wandfeuchte – Ursache und Lüftung prüfen."]);
     if (k.nach_dusche && !k.laeuft) alerts.push(["warn", "mdi:shower-head", "Nach dem Duschen", "Jetzt lüften, bevor sich Feuchte in den Wänden festsetzt."]);
     if (k.regen_bald && k.minuten > 0 && !k.laeuft) alerts.push(["info", "mdi:weather-rainy", "Bald Regen", "Lieber jetzt lüften, bevor es regnet."]);
     if (k.urlaub) alerts.push(["info", "mdi:palm-tree", "Urlaubsmodus", "Keine Erinnerungen – nur Warnungen bei Schimmelgefahr."]);
@@ -541,7 +544,7 @@ class SmartVentilationCard extends HTMLElement {
          <span class="t-value">${fmt(k.aussen_t)}<small>°C</small></span>
          <span class="t-sub">${fmt(k.aussen_ah)} g/m³</span>
        </button>`,
-      `<button class="tile" data-entity="${esc(e.wand || "")}" aria-label="Wand ${fmt(k.wand_rh, 0)} Prozent Feuchte bei ${fmt(k.wand_t)} Grad, Schimmelrisiko ${esc(risk[1])}">
+      `<button class="tile" data-entity="${esc(e.wand || "")}" aria-label="Wand ${fmt(k.wand_rh, 0)} Prozent Feuchte bei ${fmt(k.wand_t)} Grad, Schimmelrisiko ${esc(risk[1])}, Taupunktabstand ${fmt(k.schimmel_taupunkt_abstand, 1)} Grad">
          <span class="t-label"><ha-icon icon="mdi:wall"></ha-icon>Wand</span>
          <span class="t-value">${fmt(k.wand_rh, 0)}<small>%</small></span>
          <span class="meter tone-${risk[0]}"><span style="width:${wallPct}%"></span><i style="left:70%"></i><i style="left:80%"></i></span>

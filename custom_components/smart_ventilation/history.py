@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from collections import deque
 
 from homeassistant.util import dt as dt_util
 
@@ -9,7 +10,7 @@ from .const import (
     ANOMALY_BASELINE_DAYS, ANOMALY_FACTOR, ANOMALY_MIN_MINUTES, ANOMALY_MIN_SAMPLE_DAYS,
     CAT_MOLD, CAT_REPORT, CAT_WARNING, CONF_MONTHLY_REPORT, CONF_NAME, DAY_LOG_DAYS, DOMAIN,
     HISTORY_MONTHS, MOLD_CRITICAL_MINUTES, MOLD_LOG_DAYS, MOLD_REWARN_DAYS, MOLD_RH_HIGH,
-    MOLD_STREAK_WARN, MONTHLY_REPORT_HOUR,
+    MOLD_STREAK_WARN, MOLD_RH_ELEVATED, MONTHLY_REPORT_HOUR,
 )
 from . import notify_util
 
@@ -43,6 +44,8 @@ class HistoryMixin:
 
     def _init_history(self):
         self.mold_log = {}            # {"2026-12-05": Minuten mit Wandfeuchte ≥ 80 %}
+        self.mold_elevated_log = {}    # {"2026-12-05": Minuten mit Wandfeuchte ≥ 70 %}
+        self._mold_rh_samples = deque(maxlen=60)  # letzte Messwerte für den 30-Minuten-Trend
         self.history = {}             # {"2026-11": {...Monatswerte...}}
         self.day_log = {}             # {"2026-09-20": {...Tageswerte für die Karten-Sparkline...}}
         self._mold_warned = None      # {"start": Beginn der Serie, "on": Datum der Warnung}
@@ -54,6 +57,7 @@ class HistoryMixin:
     def _history_store(self):
         return {
             "mold_log": self.mold_log,
+            "mold_elevated_log": self.mold_elevated_log,
             "history": self.history,
             "day_log": self.day_log,
             "mold_warned": self._mold_warned,
@@ -84,6 +88,7 @@ class HistoryMixin:
 
     def _history_load(self, stored):
         self.mold_log = self._stored_mold_log(stored.get("mold_log"))
+        self.mold_elevated_log = self._stored_mold_log(stored.get("mold_elevated_log"))
         self.history = self._stored_history_dict(stored.get("history"))
         self.day_log = self._stored_history_dict(stored.get("day_log"))
         mold_warned = stored.get("mold_warned")
@@ -126,9 +131,18 @@ class HistoryMixin:
             return
 
         wall = self.wall_rh
-        if wall is not None and wall >= MOLD_RH_HIGH:
+        if wall is not None:
+            self._mold_rh_samples.append((now, wall))
+            cutoff_sample = now - timedelta(minutes=30)
+            while self._mold_rh_samples and self._mold_rh_samples[0][0] < cutoff_sample:
+                self._mold_rh_samples.popleft()
             today = now.date().isoformat()
-            self.mold_log[today] = round(self.mold_log.get(today, 0) + step, 1)
+            if wall >= MOLD_RH_ELEVATED:
+                self.mold_elevated_log[today] = round(
+                    self.mold_elevated_log.get(today, 0) + step, 1
+                )
+            if wall >= MOLD_RH_HIGH:
+                self.mold_log[today] = round(self.mold_log.get(today, 0) + step, 1)
 
         if self.recommended_minutes > 0:
             for period in ("day", "week", "month", "total"):
@@ -136,8 +150,9 @@ class HistoryMixin:
                 p["need_minutes"] = p.get("need_minutes", 0.0) + step
 
         cutoff = (now.date() - timedelta(days=MOLD_LOG_DAYS)).isoformat()
-        for day in [d for d in self.mold_log if d < cutoff]:
-            del self.mold_log[day]
+        for log in (self.mold_log, self.mold_elevated_log):
+            for day in [d for d in log if d < cutoff]:
+                del log[day]
 
     # ------------------------------------------------------------------
     # Schimmel-Frühwarnung
@@ -155,15 +170,47 @@ class HistoryMixin:
         return count, (day + timedelta(days=1)) if count else None
 
     @property
+    def mold_minutes_today(self):
+        return max(0.0, float(self.mold_log.get(dt_util.now().date().isoformat(), 0)))
+
+    @property
+    def mold_elevated_minutes_today(self):
+        return max(0.0, float(self.mold_elevated_log.get(dt_util.now().date().isoformat(), 0)))
+
+    @property
     def mold_hours_today(self):
-        return round(self.mold_log.get(dt_util.now().date().isoformat(), 0) / 60, 1)
+        return round(self.mold_minutes_today / 60, 1)
+
+    @property
+    def mold_elevated_hours_today(self):
+        return round(self.mold_elevated_minutes_today / 60, 1)
+
+    @property
+    def mold_rh_trend(self):
+        if len(self._mold_rh_samples) < 2:
+            return None
+        first_t, first_rh = self._mold_rh_samples[0]
+        last_t, last_rh = self._mold_rh_samples[-1]
+        hours = (last_t - first_t).total_seconds() / 3600
+        if hours <= 0:
+            return None
+        return round((last_rh - first_rh) / hours, 2)
+
+    def mold_streak_current(self, today=None):
+        """Kritische Tage in Folge einschließlich heute, sofern heute bereits 6 h erreicht sind."""
+        today = today or dt_util.now().date()
+        count, start = self.mold_streak(today)
+        if self._critical(today):
+            count += 1
+            start = today if start is None else start
+        return count, start
 
     @property
     def mold_alarm(self):
-        return self.mold_streak()[0] >= MOLD_STREAK_WARN
+        return self.mold_risk in ("hoch", "kritisch") or self.mold_streak_current()[0] >= MOLD_STREAK_WARN
 
     async def _mold_early_warning(self, now):
-        streak, start = self.mold_streak(now.date())
+        streak, start = self.mold_streak_current(now.date())
         if streak < MOLD_STREAK_WARN:
             return
         warned = self._mold_warned or {}
@@ -181,7 +228,7 @@ class HistoryMixin:
         previous_warned = self._mold_warned
         self._mold_warned = {"start": start.isoformat(), "on": now.date().isoformat()}
         await self._save()
-        hours = [self.mold_log.get((now.date() - timedelta(days=i)).isoformat(), 0) / 60 for i in range(1, streak + 1)]
+        hours = [self.mold_log.get((now.date() - timedelta(days=i)).isoformat(), 0) / 60 for i in range(0, streak)]
         sent = await self._send(
             f"Schimmelgefahr: {self.data[CONF_NAME]}",
             (

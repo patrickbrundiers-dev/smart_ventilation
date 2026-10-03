@@ -93,7 +93,7 @@ class QuietHoursSensor(BaseBinary):
 
 
 class MoldAlarmSensor(BaseBinary):
-    """An, wenn die Wand mehrere Tage in Folge kritisch feucht war."""
+    """Aktiv bei akutem Schimmelrisiko oder einer anhaltenden kritischen Serie."""
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
 
     def __init__(self, c): super().__init__(c, "mold_alarm", "Schimmelgefahr")
@@ -101,6 +101,20 @@ class MoldAlarmSensor(BaseBinary):
     @property
     def is_on(self):
         return self.coordinator.mold_alarm
+
+    @property
+    def extra_state_attributes(self):
+        a = self.coordinator.mold_assessment
+        return {
+            "risiko": self.coordinator.mold_risk,
+            "wand_feuchte": round(a.wall_rh, 1) if a.wall_rh is not None else None,
+            "wand_temperatur": round(a.wall_temperature, 1) if a.wall_temperature is not None else None,
+            "taupunkt_abstand": round(a.dew_point_margin, 1) if a.dew_point_margin is not None else None,
+            "kritische_stunden_heute": self.coordinator.mold_hours_today,
+            "kritische_tage_in_folge": self.coordinator.mold_streak_current()[0],
+            "grund": a.reason,
+            "massnahme": a.action,
+        }
 
 
 class PartyModeSensor(BaseBinary):
