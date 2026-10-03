@@ -132,3 +132,17 @@ def test_global_learning_ignores_malformed_values_and_candidates():
     unchanged, fallback = robust_global_update([7, "bad"], "invalid")
     assert unchanged == [7.0]
     assert fallback == 7.0
+
+
+def test_stale_bucket_handles_naive_model_timestamp_with_aware_now():
+    model = {"ach": 20, "last_updated": "2026-01-01T00:00:00"}
+    now = datetime(2026, 4, 1, tzinfo=timezone.utc)
+    value = stale_adjusted_ach(model, 8, now=now)
+    assert 8 < value < 20
+
+
+def test_stale_bucket_handles_aware_model_timestamp_with_naive_now():
+    model = {"ach": 20, "last_updated": "2026-01-01T00:00:00+00:00"}
+    now = datetime(2026, 4, 1)
+    value = stale_adjusted_ach(model, 8, now=now)
+    assert 8 < value < 20
