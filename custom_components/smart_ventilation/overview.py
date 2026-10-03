@@ -35,6 +35,7 @@ class OverviewCoordinator:
         self._listeners = []
         self._unsubs = []
         self.last_notification_at = None
+        self._notification_guard = {}
         self._snooze_until = None
         self._skip_date = None
         self._last_report = None
@@ -157,6 +158,7 @@ class OverviewCoordinator:
         stored = await self.store.async_load() or {}
         if stored.get("last_notification_at"):
             self.last_notification_at = dt_util.parse_datetime(stored["last_notification_at"])
+        self._notification_guard = notify_util.load_notification_guard(stored.get("notification_guard", {}))
         if stored.get("skip_date"):
             try:
                 self._skip_date = date.fromisoformat(stored["skip_date"])
@@ -227,12 +229,6 @@ class OverviewCoordinator:
             await self._save()
 
         cooldown = int(self.data.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)) * 60
-        if (
-            not snooze_over
-            and self.last_notification_at is not None
-            and (now - self.last_notification_at).total_seconds() < cooldown
-        ):
-            return
 
         due.sort(key=self.urgency, reverse=True)
         lines = [f"• {r.data.get('name')}: {r.recommendation}" for r in due]
@@ -243,10 +239,12 @@ class OverviewCoordinator:
         targets = notify_util.targets_for_category(self.data, CAT_REMINDER, self.notify_targets)
         targets = notify_util.filter_targets(self.hass, targets, self.persons)
 
-        # Cooldown-Fenster sofort reservieren, bevor auf den (async) Versand gewartet wird - siehe
-        # dieselbe Race in coordinator.py::_send_notification_if_needed: der 60-Sekunden-Tick
-        # wartet nicht auf den vorherigen Lauf, ein langsames notify.*-Ziel könnte sonst zwei
-        # sich überlappende Aufrufe beide am (noch alten) last_notification_at vorbeikommen lassen.
+        key = notify_util.notification_guard_key(CAT_REMINDER, title)
+        if not notify_util.reserve_notification(
+            self._notification_guard, key, now, 0 if snooze_over else cooldown
+        ):
+            return
+        previous_notification_at = self.last_notification_at
         self.last_notification_at = now
         await self._save()
 
@@ -263,12 +261,14 @@ class OverviewCoordinator:
             ],
         )
         if not sent:
-            self.last_notification_at = None
+            notify_util.release_notification(self._notification_guard, key)
+            self.last_notification_at = previous_notification_at
             await self._save()
 
     async def _save(self):
         await self.store.async_save({
             "last_notification_at": self.last_notification_at.isoformat() if self.last_notification_at else None,
+            "notification_guard": self._notification_guard,
             "skip_date": self._skip_date.isoformat() if self._skip_date else None,
             "snooze_until": self._snooze_until.isoformat() if self._snooze_until else None,
             "last_report": self._last_report,

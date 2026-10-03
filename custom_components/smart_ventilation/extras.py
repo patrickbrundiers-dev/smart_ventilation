@@ -634,7 +634,9 @@ class RoomExtrasMixin:
                         "Direkte Sonne am Fenster – am besten Rollo/Jalousie schließen, damit "
                         "sich der Raum nicht aufheizt."
                     )
-                await self._send(title, message, tag, category=CAT_WARNING)
+                await self._send(
+                    title, message, tag, category=CAT_WARNING, cooldown_minutes=0
+                )
             return
 
         if self._shutter_notified:
@@ -648,7 +650,7 @@ class RoomExtrasMixin:
                     f"Rollo öffnen: {name}",
                     "Keine direkte Sonne mehr am Fenster – Rollo/Jalousie kann wieder geöffnet "
                     "werden.",
-                    tag, category=CAT_WARNING,
+                    tag, category=CAT_WARNING, cooldown_minutes=0,
                 )
 
         if was_closed and not self.shutter_closed:
@@ -659,7 +661,7 @@ class RoomExtrasMixin:
                 f"Rollo geöffnet: {name}",
                 "Keine direkte Sonne mehr am Fenster – das Rollo wurde automatisch wieder "
                 "geöffnet.",
-                tag, category=CAT_WARNING,
+                tag, category=CAT_WARNING, cooldown_minutes=0,
             )
 
     # ------------------------------------------------------------------

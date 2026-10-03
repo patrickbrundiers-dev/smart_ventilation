@@ -146,6 +146,14 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.4
+
+- **Benachrichtigungs-Spam-Sperre:** Benachrichtigungen werden zentral nach Kategorie und Zielzustand dedupliziert und persistent gespeichert.
+- **Neustart-sicher:** Aktive Sperren bleiben über Home-Assistant-Neustarts erhalten.
+- **Race-sicher:** Gleichzeitige Auslöser reservieren die Sperre vor dem asynchronen Versand.
+- **Zustandswechsel:** Ein neuer relevanter Zustand kann eine alte Sperre über eine höhere Priorität durchbrechen.
+- **Fehlersicher:** Bei fehlgeschlagenem Versand wird die Reservierung zurückgenommen.
+
 ### Version 2.22.3
 
 - **Bugfix Saisonlogik:** In Übergangsmonaten wird der Sommer-/Wintermodus anhand des gesamten Tagesverlaufs der Stundenprognose bewertet, statt durch einen einzelnen aktuellen Temperaturwert über die 15-°C-Schwelle ausgelöst zu werden.
