@@ -510,7 +510,10 @@ class RoomExtrasMixin:
         done = done_ah or (indoor_ah is None and done_rh)
         stop_for_ventilation = self.open_windows() or ventilation_available
 
-        if stop_for_ventilation or (ran and (done or not need)):
+        # Ausschalten folgt bewusst nur dem Stop-Schwellenwert. Das ist die eigentliche
+        # Hysterese: Ein einmal gestarteter Entfeuchter bleibt innerhalb des Hysteresebands
+        # aktiv, auch wenn der Startbedarf (z. B. RH >= 60 %) bereits unterschritten wurde.
+        if stop_for_ventilation or (ran and done):
             await self._call(domain, "turn_off", {"entity_id": entity_id})
             self._dehum_on_since = None
             self._dehum_off_until = now + timedelta(minutes=DEHUM_RESTART_COOLDOWN_MINUTES)
