@@ -21,7 +21,7 @@ def _now_iso(now: datetime | None = None) -> str:
 def ventilation_utility_score(
     *,
     humidity_gain: float | None,
-    wind: float | None,
+    wind: float | None = None,
     wind_factor: float = 1.0,
     temperature_delta: float | None,
     cloud_cover: float | None = None,
