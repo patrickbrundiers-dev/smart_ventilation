@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from statistics import median
+import math
 from typing import Any
 
 
@@ -106,7 +107,11 @@ def robust_ach_update(
     trust threshold, exponential smoothing reacts to real changes. A compact
     history makes outlier rejection auditable and bounded.
     """
-    if not 0.2 <= ach <= 40:
+    try:
+        ach = float(ach)
+    except (TypeError, ValueError):
+        return model or {}, False
+    if not math.isfinite(ach) or not 0.2 <= ach <= 40:
         return model or {}, False
 
     current = dict(model or {})
