@@ -24,3 +24,15 @@ def test_surface_humidity_handles_missing_inputs():
 def test_surface_humidity_is_bounded():
     result = _relative_humidity_at_surface(20, 100, 10)
     assert result == 100.0
+
+
+def test_winter_scenario_20c_60rh_average_wall():
+    result = _relative_humidity_at_surface(20, 60, 17.4)
+    assert result is not None
+    assert 70.0 < result < 71.5
+
+
+def test_winter_scenario_20c_70rh_cold_wall_is_high():
+    result = _relative_humidity_at_surface(20, 70, 16.1)
+    assert result is not None
+    assert 75.0 < result < 77.0
