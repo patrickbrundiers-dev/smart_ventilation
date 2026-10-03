@@ -509,10 +509,18 @@
         "name": "Schimmelrisiko",
         "state": {
           "low": "Niedrig",
+          "watch": "Beobachten",
           "elevated": "Erhöht",
           "high": "Hoch",
+          "critical": "Kritisch",
           "unknown": "Unbekannt"
         }
+      },
+      "mold_rh_trend": {
+        "name": "Schimmeltrend Wandfeuchte"
+      },
+      "mold_dewpoint_margin": {
+        "name": "Taupunktabstand Wand"
       },
       "notification_status": {
         "name": "Benachrichtigungsstatus"
