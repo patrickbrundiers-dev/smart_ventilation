@@ -125,12 +125,26 @@ def assess_mold_risk(
     high_hours = max(0.0, duration_high_minutes) / 60
     elevated_hours = max(0.0, duration_elevated_minutes) / 60
 
-    # Kondensation/Tauwasser ist die kritischste Situation.
-    if margin is not None and margin <= 0.5:
+    # Echte Kondensation: Wandoberfläche liegt am oder unter dem Taupunkt.
+    if margin is not None and margin <= 0.0:
         return MoldAssessment(
             "kritisch",
-            "Taupunkt wird an der Wand erreicht",
+            "Taupunkt an der Wand erreicht – Kondensation möglich",
             "Sofort Feuchte abführen und Raum ausreichend warm halten",
+            wall_rh,
+            wall_temperature,
+            margin,
+            high_hours,
+            trend_rh_per_hour,
+        )
+
+    # Frühwarnung: sehr kleiner Abstand zum Taupunkt, aber noch keine
+    # rechnerische Kondensation.
+    if margin is not None and margin <= MOLD_DEWPOINT_MARGIN_CRITICAL:
+        return MoldAssessment(
+            "kritisch",
+            "Wand liegt sehr nah am Taupunkt",
+            "Feuchte sofort reduzieren und Wandoberfläche warm halten",
             wall_rh,
             wall_temperature,
             margin,
