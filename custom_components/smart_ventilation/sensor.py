@@ -256,7 +256,6 @@ class MoldRiskSensor(BaseSensor):
 
 class MoldTrendSensor(BaseSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_device_class = SensorDeviceClass.HUMIDITY
 
     def __init__(self, c): super().__init__(c, "mold_rh_trend", "Schimmeltrend Wandfeuchte")
 
