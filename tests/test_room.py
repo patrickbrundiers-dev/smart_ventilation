@@ -518,6 +518,11 @@ async def test_unload_keeps_coordinator_when_platform_unload_fails(hass: HomeAss
     assert result is False
     assert hass.data[DOMAIN].get(entry.entry_id) is coordinator
 
+    # Aufräumen: der (absichtlich) überlebende Coordinator läuft noch mit seinem 30-s-Timer -
+    # ohne diesen manuellen Unload würde pytest-homeassistant-custom-component das Testende als
+    # hängengebliebenen Timer melden, obwohl genau dieses Weiterlaufen hier erwünscht geprüft wird.
+    coordinator.async_unload()
+
 
 async def test_restored_session_does_not_use_stale_sensor_values(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin

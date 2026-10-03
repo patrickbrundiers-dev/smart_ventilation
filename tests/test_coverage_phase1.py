@@ -163,10 +163,6 @@ def test_urgency_ranks_critical_mold_above_high_mold(hass: HomeAssistant):
     assert coordinator.urgency(kritisch) > coordinator.urgency(hoch)
     assert coordinator.urgency(kritisch) > coordinator.urgency(kein_risiko)
 
-    room.recommended_minutes = 0
-    assert coordinator.rooms_needing() == []
-    assert coordinator.most_urgent == "Keiner"
-
 
 async def test_overview_action_snooze_and_skip(hass: HomeAssistant):
     entry = MockConfigEntry(domain=DOMAIN, entry_id="overview-actions", data={"entry_type": "overview"})

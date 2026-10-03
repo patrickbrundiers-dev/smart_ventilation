@@ -600,13 +600,17 @@ class RoomExtrasMixin:
             await self._call(domain, "open_cover", {"entity_id": entity_id})
             self._shutter_closed_since = None
             await self._save()
-        elif state.state == "open":
+        elif state.state == "open" and state.last_changed >= self._shutter_closed_since:
             # Wie beim Entfeuchter (siehe _dehumidifier_control): Wir denken, das Rollo sei von
             # uns geschlossen, aber das Gerät selbst meldet "offen" - der Schließ-Befehl kam nie
             # an, oder jemand hat es von Hand wieder geöffnet, während die Sonnenbedingung noch
-            # besteht (dann würde "ran and not need" nie True). Zustand korrigieren, damit die
-            # Schließ-Logik oben beim nächsten Durchlauf erneut greift, statt dauerhaft von einem
-            # bereits geschlossenen Rollo auszugehen, das in Wirklichkeit offen ist.
+            # besteht (dann würde "ran and not need" nie True). Die last_changed-Prüfung
+            # unterscheidet das von einem Gerät, das seinen alten "offen"-Zustand nach dem
+            # Schließ-Befehl schlicht noch nicht aktualisiert hat (last_changed liegt dann vor
+            # unserem Schließen) - sonst würde jeder trägere Rückmelder sofort wieder als manuell
+            # geöffnet missverstanden. Zustand korrigieren, damit die Schließ-Logik oben beim
+            # nächsten Durchlauf erneut greift, statt dauerhaft von einem bereits geschlossenen
+            # Rollo auszugehen, das in Wirklichkeit offen ist.
             self._shutter_closed_since = None
             await self._save()
 
