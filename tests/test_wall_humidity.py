@@ -32,7 +32,7 @@ def test_winter_scenario_20c_60rh_average_wall():
     assert 70.0 < result < 71.5
 
 
-def test_winter_scenario_20c_70rh_cold_wall_is_elevated():
+def test_winter_scenario_20c_70rh_cold_wall_is_high():
     result = _relative_humidity_at_surface(20, 70, 16.1)
     assert result is not None
-    assert 75.0 < result < 77.0
+    assert 88.0 < result < 90.5
