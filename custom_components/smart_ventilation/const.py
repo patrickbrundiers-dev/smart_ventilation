@@ -132,7 +132,11 @@ U_VALUES = {
     "insulated": 0.35,
     "passive": 0.15,
 }
-RSI_CORNER = 0.35
+# Innere Oberflächen-Temperatur nach dem üblichen Wärmeübergangswiderstand Rsi.
+# Ein konservatives Minimum für den Temperaturfaktor verhindert unrealistisch
+# kalte Wandflächen und damit künstlich erzeugte 100-%-Wandfeuchte.
+R_SI = 0.13  # m²K/W
+MIN_WALL_SURFACE_TEMPERATURE_FACTOR = 0.70
 MOLD_RH_HIGH = 80.0
 MOLD_RH_ELEVATED = 70.0
 MOLD_RH_WATCH = 65.0
