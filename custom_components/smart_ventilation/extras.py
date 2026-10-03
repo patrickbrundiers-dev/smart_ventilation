@@ -596,21 +596,24 @@ class RoomExtrasMixin:
         # anliegt - vermeidet ständiges Auf/Zu, wenn die Sonne kurz hinter einer Wolke
         # verschwindet oder genau an der Winkel-Schwelle entlangwandert.
         ran = (now - self._shutter_closed_since) >= timedelta(minutes=SHUTTER_MIN_RUNTIME_MINUTES)
-        if ran and not need:
+        if not ran:
+            # Innerhalb der Mindestlaufzeit fassen wir ein weiterhin "offen" meldendes Rollo nicht
+            # an - direkt nach dem Schließ-Befehl braucht ein echtes Gerät oft noch etwas, bis es
+            # seinen neuen Zustand zurückmeldet, das darf nicht sofort als manuelles Wiederöffnen
+            # missverstanden werden (siehe test_shutter_notification_with_entity_confirms_automatic_action).
+            return
+        if not need:
             await self._call(domain, "open_cover", {"entity_id": entity_id})
             self._shutter_closed_since = None
             await self._save()
-        elif state.state == "open" and state.last_changed >= self._shutter_closed_since:
-            # Wie beim Entfeuchter (siehe _dehumidifier_control): Wir denken, das Rollo sei von
-            # uns geschlossen, aber das Gerät selbst meldet "offen" - der Schließ-Befehl kam nie
-            # an, oder jemand hat es von Hand wieder geöffnet, während die Sonnenbedingung noch
-            # besteht (dann würde "ran and not need" nie True). Die last_changed-Prüfung
-            # unterscheidet das von einem Gerät, das seinen alten "offen"-Zustand nach dem
-            # Schließ-Befehl schlicht noch nicht aktualisiert hat (last_changed liegt dann vor
-            # unserem Schließen) - sonst würde jeder trägere Rückmelder sofort wieder als manuell
-            # geöffnet missverstanden. Zustand korrigieren, damit die Schließ-Logik oben beim
-            # nächsten Durchlauf erneut greift, statt dauerhaft von einem bereits geschlossenen
-            # Rollo auszugehen, das in Wirklichkeit offen ist.
+        elif state.state == "open":
+            # Wie beim Entfeuchter (siehe _dehumidifier_control): Nach Ablauf der Mindestlaufzeit
+            # erwarten wir, dass ein von uns geschlossenes Rollo das auch so meldet. Steht es
+            # trotzdem weiter auf "offen", kam entweder der Schließ-Befehl nie an, oder jemand hat
+            # es von Hand wieder geöffnet, während die Sonnenbedingung noch besteht (dann würde
+            # "not need" oben nie zutreffen). Zustand korrigieren, damit die Schließ-Logik oben
+            # beim nächsten Durchlauf erneut greift, statt dauerhaft von einem bereits
+            # geschlossenen Rollo auszugehen, das in Wirklichkeit offen ist.
             self._shutter_closed_since = None
             await self._save()
 

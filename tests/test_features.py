@@ -559,7 +559,10 @@ async def test_shutter_resyncs_when_manually_reopened_while_sun_still_shines(
     bleibt, wodurch "ran and not need" nie zutrifft), darf der Coordinator das nicht übersehen -
     sonst denkt er dauerhaft, das Rollo sei von ihm geschlossen, und schließt es nie wieder, wenn
     die Sonne (z. B. am nächsten Tag) erneut direkt aufs Fenster trifft. Analog zur bereits
-    bestehenden Selbstkorrektur beim Entfeuchter."""
+    bestehenden Selbstkorrektur beim Entfeuchter - genau wie dort greift sie erst nach Ablauf der
+    Mindestlaufzeit, damit ein echtes Gerät, das seinen neuen Zustand nur etwas verzögert
+    zurückmeldet, nicht sofort fälschlich als manuell wiedergeöffnet gilt (siehe
+    test_shutter_notification_with_entity_confirms_automatic_action)."""
     freezer.move_to("2026-06-15 12:00:00+02:00")
     close = async_mock_service(hass, "cover", "close_cover")
     hass.states.async_set("cover.rollo", "open")
@@ -570,10 +573,11 @@ async def test_shutter_resyncs_when_manually_reopened_while_sun_still_shines(
     await _tick(hass, freezer, 0.5)
     assert len(close) == 1
 
-    # Von Hand wieder geöffnet, Sonne scheint unverändert weiter direkt aufs Fenster.
-    hass.states.async_set("cover.rollo", "open")
-    await _tick(hass, freezer, 0.5)  # Coordinator merkt den Widerspruch und korrigiert sich
-    assert len(close) == 1  # noch kein erneuter Schließ-Versuch in demselben Tick
+    # Das Rollo bleibt (von Hand wieder geöffnet, oder der Befehl kam nie an) auf "offen" stehen,
+    # während die Sonne unverändert weiter direkt aufs Fenster scheint - "ran and not need" greift
+    # also nie. Erst nach Ablauf der Mindestlaufzeit erkennt die Automatik den Widerspruch.
+    await _tick(hass, freezer, 16)  # über die Mindestlaufzeit (15 Min.) hinaus
+    assert len(close) == 1  # Reset selbst löst noch keinen erneuten Schließ-Versuch aus
 
     await _tick(hass, freezer, 0.5)  # nächster Durchlauf: Schließ-Logik greift wieder
     assert len(close) == 2
