@@ -185,3 +185,29 @@ def test_ventilation_utility_is_bounded():
         co2=5000, mold_risk="kritisch", wall_rh=100, dewpoint_margin=-10
     )
     assert 0 <= score <= 100
+
+
+def test_ventilation_utility_penalizes_heavy_cloud_without_radiation():
+    clear, _ = ventilation_utility_score(
+        humidity_gain=2.0, wind=5, temperature_delta=2,
+        cloud_cover=10, solar_radiation=300,
+    )
+    cloudy, reason = ventilation_utility_score(
+        humidity_gain=2.0, wind=5, temperature_delta=2,
+        cloud_cover=90, solar_radiation=20,
+    )
+    assert cloudy < clear
+    assert "bewölkt" in reason or "stark bewölkt" in reason
+
+
+def test_ventilation_utility_rewards_real_solar_radiation():
+    low, _ = ventilation_utility_score(
+        humidity_gain=2.0, wind=5, temperature_delta=2,
+        cloud_cover=60, solar_radiation=80,
+    )
+    high, reason = ventilation_utility_score(
+        humidity_gain=2.0, wind=5, temperature_delta=2,
+        cloud_cover=60, solar_radiation=250,
+    )
+    assert high > low
+    assert "Einstrahlung" in reason

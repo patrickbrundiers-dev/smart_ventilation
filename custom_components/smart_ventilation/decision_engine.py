@@ -61,6 +61,25 @@ def ventilation_utility_score(
         if td >= 3:
             reasons.append("Temperatur günstig")
 
+    # Wetterfaktoren gehören direkt in den zentralen Nutzenscore, damit
+    # Forecast und aktuelle Entscheidung dieselbe Bewertungslogik verwenden.
+    if cloud_cover is not None:
+        cloud = max(0.0, min(100.0, float(cloud_cover)))
+        if cloud >= 80:
+            score -= 8.0
+            reasons.append("stark bewölkt")
+        elif cloud >= 45:
+            if solar_radiation is not None and float(solar_radiation) >= 180:
+                score += 3.0
+                reasons.append("Einstrahlung trotz Wolken")
+            else:
+                score -= 4.0
+                reasons.append("bewölkt")
+    if solar_radiation is not None:
+        radiation = max(0.0, float(solar_radiation))
+        if radiation >= 180:
+            score += min(6.0, (radiation - 120.0) / 40.0)
+
     if co2 is not None:
         value = float(co2)
         if value >= 1400:
