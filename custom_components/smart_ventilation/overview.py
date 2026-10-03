@@ -239,6 +239,14 @@ class OverviewCoordinator:
         targets = notify_util.targets_for_category(self.data, CAT_REMINDER, self.notify_targets)
         targets = notify_util.filter_targets(self.hass, targets, self.persons)
 
+        key = notify_util.notification_guard_key(CAT_REMINDER, title)
+        if not notify_util.reserve_notification(
+            self._notification_guard, key, now, 0 if snooze_over else cooldown
+        ):
+            return
+        self.last_notification_at = now
+        await self._save()
+
         sent = await notify_util.send(
             self.hass,
             targets,
@@ -252,6 +260,7 @@ class OverviewCoordinator:
             ],
         )
         if not sent:
+            notify_util.release_notification(self._notification_guard, key)
             self.last_notification_at = None
             await self._save()
 
