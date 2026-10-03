@@ -72,6 +72,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.adaptive_reason = "Noch keine Entscheidung"
         self.last_notification_key = None
         self.last_notification_at = None
+        self._notification_guard = {}
         self._listeners = []
         self.stats = {}
         self._auto_season = None
@@ -360,6 +361,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.models = self._stored_models(stored.get("models", {}), self.learned_ach)
         self.ach_observations = self._stored_observations(stored.get("ach_observations", []))
         self.stats = self._stored_stats(stored.get("stats", {}))
+        self._notification_guard = notify_util.load_notification_guard(stored.get("notification_guard", {}))
         self._roll_periods()
 
         if stored.get("skip_date"):
@@ -438,6 +440,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "last_session_end": self._last_session_end.isoformat() if self._last_session_end else None,
             "party_until": self._party_until.isoformat() if self._party_until else None,
             "snooze_until": self._snooze_until.isoformat() if self._snooze_until else None,
+            "notification_guard": self._notification_guard,
             "last_night_low": self._last_night_low,
             **self._extras_store(),
             **self._history_store(),
@@ -1357,10 +1360,40 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             targets = [legacy] if legacy else []
         return [t for t in targets if isinstance(t, str) and t.startswith("notify.")]
 
-    async def _send(self, title, message, tag, actions=None, targets=None, category=None):
+    async def _send(self, title, message, tag, actions=None, targets=None, category=None, *, guard=True, cooldown_minutes=None, notification_key=None, priority=0):
         targets = self.notify_targets if targets is None else targets
         targets = notify_util.targets_for_category(self.data, category, targets)
-        return await notify_util.send(self.hass, targets, title, message, tag, actions)
+        if not targets:
+            return False
+
+        key = notification_key or notify_util.notification_guard_key(category, title)
+        reserved = False
+        if guard:
+            minutes = cooldown_minutes
+            if minutes is None:
+                minutes = int(self.data.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN))
+            reserved = notify_util.reserve_notification(
+                self._notification_guard,
+                key,
+                dt_util.now(),
+                max(0, int(minutes * 60)),
+                priority,
+            )
+            if not reserved:
+                return False
+            if category == CAT_REMINDER:
+                self.last_notification_key = key
+                self.last_notification_at = dt_util.now()
+            await self._save()
+
+        sent = await notify_util.send(self.hass, targets, title, message, tag, actions)
+        if not sent and reserved:
+            notify_util.release_notification(self._notification_guard, key)
+            if category == CAT_REMINDER:
+                self.last_notification_at = None
+                self.last_notification_key = None
+            await self._save()
+        return sent
 
     def _session_energy_kwh(self, session, elapsed):
         """Wärmeverlust durch Luftaustausch: 0,34 Wh/(m³K) · V · ΔT · (1 − e^(−n·t))."""
@@ -1865,48 +1898,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         if not self.anyone_home:
             return
 
-        key = self._notification_key()
-        if key is None:
-            return
-
-        now = dt_util.now()
-        if self.in_quiet_hours(now) or self._skip_date == now.date():
-            return
-
-        snooze_over = False
-        if self._snooze_until is not None:
-            if now < self._snooze_until:
-                return
-            self._snooze_until = None
-            snooze_over = True  # "In 30 Min. erinnern" – Cooldown einmal überspringen
-            # Persistieren, sonst überlebt ein bereits abgelaufener (also ungültiger) Snooze-
-            # Zeitstempel einen Neustart kurz danach und löst beim nächsten Aufruf hier erneut
-            # unnötig "snooze_over" aus.
-            self.hass.async_create_task(self._save())
-
         cooldown_s = int(
             self.data.get(CONF_NOTIFICATION_COOLDOWN, DEFAULT_NOTIFICATION_COOLDOWN)
         ) * 60
         if self._rain_soon:
-            # Regen-Vorwarnung: Erinnerung vorziehen, bevor man nicht mehr gefahrlos lüften kann
             cooldown_s = min(cooldown_s, RAIN_SOON_COOLDOWN_MINUTES * 60)
         if self.party_active:
             cooldown_s = min(cooldown_s, PARTY_MODE_COOLDOWN_MINUTES * 60)
-
-        # Cooldown gilt global, nicht nur pro identischer Meldung
-        if (
-            not snooze_over
-            and self.last_notification_at is not None
-            and (now - self.last_notification_at).total_seconds() < cooldown_s
-        ):
-            return
-
-        # Cooldown-Fenster sofort reservieren, bevor auf den (async) Versand gewartet wird -
-        # sonst können zwei fast gleichzeitig gestartete Aufrufe (z.B. zwei schnelle
-        # Coordinator-Updates, die beide einen eigenen Task erzeugen) den Cooldown-Check beide
-        # noch mit dem alten last_notification_at bestehen und doppelt senden.
-        self.last_notification_key = key
-        self.last_notification_at = now
 
         sent = await self._send(
             f"Lüften: {self.data[CONF_NAME]}",
@@ -1926,6 +1924,9 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                  "title": "Heute nicht mehr"},
             ],
             category=CAT_REMINDER,
+            guard=True,
+            cooldown_minutes=0 if snooze_over else cooldown_s / 60,
+            notification_key=f"reminder|{self._notification_key()}",
         )
         if not sent:
             # Versand fehlgeschlagen (z.B. keine erreichbaren Ziele) - Cooldown nicht blockieren,
