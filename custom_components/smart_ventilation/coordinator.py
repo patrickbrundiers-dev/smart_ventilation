@@ -1898,6 +1898,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         if not self.anyone_home:
             return
 
+        now = dt_util.now()
         snooze_over = False
         if self._snooze_until is not None:
             if now < self._snooze_until:
