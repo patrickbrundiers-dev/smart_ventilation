@@ -244,6 +244,7 @@ class OverviewCoordinator:
             self._notification_guard, key, now, 0 if snooze_over else cooldown
         ):
             return
+        previous_notification_at = self.last_notification_at
         self.last_notification_at = now
         await self._save()
 
@@ -261,7 +262,7 @@ class OverviewCoordinator:
         )
         if not sent:
             notify_util.release_notification(self._notification_guard, key)
-            self.last_notification_at = None
+            self.last_notification_at = previous_notification_at
             await self._save()
 
     async def _save(self):
