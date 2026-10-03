@@ -228,7 +228,9 @@ class HistoryMixin:
         previous_warned = self._mold_warned
         self._mold_warned = {"start": start.isoformat(), "on": now.date().isoformat()}
         await self._save()
-        hours = [self.mold_log.get((now.date() - timedelta(days=i)).isoformat(), 0) / 60 for i in range(0, streak)]
+        end_day = now.date() if self._critical(now.date()) else now.date() - timedelta(days=1)
+        days = [start + timedelta(days=i) for i in range(streak) if start + timedelta(days=i) <= end_day]
+        hours = [self.mold_log.get(day.isoformat(), 0) / 60 for day in days]
         sent = await self._send(
             f"Schimmelgefahr: {self.data[CONF_NAME]}",
             (
