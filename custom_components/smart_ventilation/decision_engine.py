@@ -69,7 +69,7 @@ def ventilation_utility_score(
             score -= 8.0
             reasons.append("stark bewölkt")
         elif cloud >= 45:
-            if solar_radiation is not None and float(solar_radiation) >= 180:
+            if radiation is not None and radiation >= 180:
                 score += 3.0
                 reasons.append("Einstrahlung trotz Wolken")
             else:
