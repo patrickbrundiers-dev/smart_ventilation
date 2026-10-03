@@ -711,6 +711,9 @@ async def test_dehumidifier_uses_absolute_humidity_hysteresis(
     await setup_room(hass, dehumidifier_entity="switch.entfeuchter", season_mode="summer")
 
     hass.states.async_set("sensor.regen", 1.2)
+    # Außenluft absichtlich ähnlich feucht: Lüften ist damit tatsächlich nicht sinnvoll
+    # verfügbar, sodass der Hysterese-Test nicht von der Lüftungsentscheidung abhängt.
+    hass.states.async_set("sensor.aussen_ah", 10.0)
     hass.states.async_set("sensor.innen_ah", 10.4)
     await _tick(hass, freezer, 0.5)
     assert len(on) == 1
