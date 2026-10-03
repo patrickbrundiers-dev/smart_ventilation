@@ -189,6 +189,11 @@ def stale_adjusted_ach(
     try:
         updated = datetime.fromisoformat(str(stamp))
         current = now or datetime.now(updated.tzinfo)
+        if updated.tzinfo is None:
+            if current.tzinfo is not None:
+                current = current.replace(tzinfo=None)
+        elif current.tzinfo is None:
+            current = current.replace(tzinfo=updated.tzinfo)
         age_days = max(0.0, (current - updated).total_seconds() / 86400)
     except (TypeError, ValueError):
         # Corrupt/unknown timestamps must not be treated as permanently fresh.
