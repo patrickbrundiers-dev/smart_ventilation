@@ -1774,7 +1774,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     def _extreme_now(self):
         """Lage so ernst, dass auch eine laufende Pause nicht mehr gilt (Schimmel oder CO₂ hoch)."""
-        return self.mold_risk == "hoch" or (self.co2 is not None and self.co2 >= CO2_HIGH)
+        return self.mold_alarm or (self.co2 is not None and self.co2 >= CO2_HIGH)
 
     def _post_vent_pause_until(self):
         """Bis wann nach dem Lüften nicht erneut erinnert wird.
@@ -1922,7 +1922,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._humidity_reasons_met = (
             indoor > target_abs
             or (rh is not None and rh >= HUMID_RH)
-            or mold in ("erhöht", "hoch")
+            or mold in ("erhöht", "hoch", "kritisch")
         )
         enter = diff > START_DIFF and self._humidity_reasons_met
         if not self._humidity_active:
