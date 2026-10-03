@@ -509,9 +509,25 @@
         "name": "Mould risk",
         "state": {
           "low": "Low",
+          "watch": "Watch",
           "elevated": "Elevated",
           "high": "High",
+          "critical": "Critical",
           "unknown": "Unknown"
+        }
+      },
+      "mold_rh_trend": {
+        "name": "Wall humidity trend"
+      },
+      "mold_dewpoint_margin": {
+        "name": "Wall dew-point margin"
+      },
+      "mold_data_quality": {
+        "name": "Mould data quality",
+        "state": {
+          "good": "Good",
+          "degraded": "Degraded",
+          "unavailable": "Unavailable"
         }
       },
       "notification_status": {
