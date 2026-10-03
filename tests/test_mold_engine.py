@@ -54,3 +54,13 @@ def test_mold_uses_room_air_fallback_when_wall_data_is_missing():
     result = assess_mold_risk(None, None, 76, 14)
     assert result.level == "hoch"
     assert "Wanddaten fehlen" in result.reason
+
+
+def test_mold_score_increases_with_condensation_risk():
+    result = assess_mold_risk(82, 16, 75, 15.6, trend_rh_per_hour=2.5)
+    assert result.score >= 95
+
+
+def test_mold_score_is_bounded():
+    result = assess_mold_risk(95, 15, 90, 14, duration_high_minutes=720, trend_rh_per_hour=10)
+    assert 0 <= result.score <= 100
