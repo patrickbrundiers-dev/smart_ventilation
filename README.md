@@ -146,6 +146,12 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.1
+
+- **Bugfix Entscheidungsengine:** Bewölkung und reale Solarstrahlung werden jetzt tatsächlich im zentralen Lüftungsnutzen berücksichtigt.
+- **Forecast-Konsistenz:** Doppelte Wettergewichtungen im Forecast wurden entfernt; aktuelle Entscheidung und Forecast verwenden dieselbe zentrale Wetterbewertung.
+- **Regressionstests:** Grenzfälle für starke Bewölkung und reale Einstrahlung ergänzt.
+
 ### Version 2.22.0
 
 - **Wandfeuchte/Taupunkt finalisiert:** Wandoberflächenfeuchte bleibt klar als Schätzung gekennzeichnet; Taupunktabstand und Kondensationsnähe werden getrennt ausgewertet.
