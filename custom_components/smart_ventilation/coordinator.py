@@ -1892,6 +1892,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
     async def _send_notification_if_needed(self):
         if not self.notify_targets or not self.reminder_allowed():
             return
+        if self.in_quiet_hours():
+            return
         if self._combined_by_overview():
             return
         # Niemand zu Hause -> keine Erinnerung (Hinweis kommt beim Heimkommen)
