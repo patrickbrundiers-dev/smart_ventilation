@@ -28,10 +28,11 @@ from .sensor_utils import (
     _wind_kmh,
 )
 from .history import HistoryMixin, month_name
-from .forecast_engine import score_forecast_window
+from .forecast_engine import ForecastWindow, build_forecast_windows, score_forecast_window
 from .mold_engine import assess_mold_risk
 from .decision_engine import (
     adaptive_ventilation_score,
+    ventilation_utility_score,
     robust_ach_update,
     robust_global_update,
     stale_adjusted_ach,
@@ -78,6 +79,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.best_time = None
         self.best_info = {}
         self.best_reason = "Keine Wetter-Entität gewählt"
+        self.forecast_windows = []
+        self.ventilation_utility = 0
         self._forecast_checked = None
         self._action_remove = None
         self._snooze_until = None
@@ -1218,6 +1221,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         season = self.season
         max_warmer = float(self.data.get(CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF))
         best = None
+        candidates = []
         has_humidity = False
         has_rain_data = False
 
@@ -1264,7 +1268,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             wind_factor = self._forecast_wind_factor(item)
             cloud = _num(item.get("cloud_coverage"))
             radiation = _num(item.get("solar_radiation")) or _num(item.get("global_radiation"))
-            score = score_forecast_window(
+            forecast_score = score_forecast_window(
                 humidity_gain=gain,
                 wind=wind,
                 temperature_delta=(indoor_t - temp) if indoor_t is not None else 0.0,
@@ -1273,7 +1277,17 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 min_gain=FORECAST_MIN_GAIN,
                 max_rain_probability=FORECAST_MAX_RAIN_PROB,
                 max_rain_amount=FORECAST_MAX_RAIN_MM,
-            ) / 20.0 * wind_factor
+            ) * wind_factor
+            score, _ = ventilation_utility_score(
+                humidity_gain=gain,
+                wind=wind,
+                wind_factor=wind_factor,
+                temperature_delta=(indoor_t - temp) if indoor_t is not None else 0.0,
+                mold_risk=self.mold_risk,
+                wall_rh=self.wall_rh,
+                dewpoint_margin=self.mold_assessment.dew_point_margin,
+                forecast_score=forecast_score,
+            )
 
             # Fehlt die Niederschlagsinformation komplett, darf die Stunde nicht so
             # bewertet werden, als wäre sicher kein Regen zu erwarten. Es bleibt eine
@@ -1303,9 +1317,20 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             elif indoor_t is not None:
                 score -= 0.3 * max(0.0, temp - indoor_t)
 
+            candidate = ForecastWindow(
+                timestamp=when.isoformat(),
+                gain=gain,
+                wind=wind,
+                rain_probability=rain_prob,
+                rain_amount=rain,
+                temperature_delta=(indoor_t - temp) if indoor_t is not None else 0.0,
+                score=float(score),
+            )
+            candidates.append(candidate)
             if best is None or score > best[0]:
                 best = (score, when, temp, outdoor_ah, gain, rain_prob)
 
+        self.forecast_windows = build_forecast_windows(candidates)
         if not has_humidity:
             self._set_best(None, "Vorhersage enthält keine Luftfeuchte", {"ok": True})
             return
@@ -1325,6 +1350,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 "feuchte_gewinn": round(gain, 1),
                 "regenwahrscheinlichkeit": round(rain_prob),
                 "regen_daten_verfügbar": has_rain_data,
+                "nutzen": round(float(best[0]), 0),
             },
         )
 
@@ -2065,19 +2091,19 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 cloud_cover = float(weather_state.attributes.get("cloud_coverage"))
             except (TypeError, ValueError):
                 cloud_cover = None
-        adaptive_score, adaptive_reason = adaptive_ventilation_score(
+        utility_score, utility_reason = ventilation_utility_score(
             humidity_gain=diff,
             wind=wind,
             wind_factor=1.0,
             temperature_delta=temp_diff,
-            cloud_cover=cloud_cover,
-            solar_radiation=radiation,
-            rain=_is_raining(self.hass, self.data[CONF_RAIN]),
             co2=co2,
             mold_risk=self.mold_risk,
+            wall_rh=self.wall_rh,
+            dewpoint_margin=self.mold_assessment.dew_point_margin,
         )
-        self.adaptive_score = adaptive_score
-        self.adaptive_reason = adaptive_reason
+        self.adaptive_score = utility_score
+        self.ventilation_utility = utility_score
+        self.adaptive_reason = utility_reason
 
         minutes = 0.0
         if need_humidity:
@@ -2168,6 +2194,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "blockiert": self.block_reason,
             "entscheidungsgrund": self.adaptive_reason,
             "entscheidungs_score": self.adaptive_score,
+            "lueftungsnutzen": self.ventilation_utility,
             "laeuft": self.session is not None,
             "dauer_s": self.current_duration_seconds,
             "fortschritt": self.progress,
@@ -2193,6 +2220,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "luft": self.air_quality,
             "saison": self.season,
             "bester_zeitpunkt": self.best_reason if self.data.get(CONF_WEATHER) else None,
+            "lueftungsfenster": self.forecast_windows,
             "heute_anzahl": today["count"],
             "heute_ok": today["ok"],
             "heute_min": today["minutes"],
