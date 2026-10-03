@@ -33,14 +33,71 @@ def assess_mold_risk(
     duration_elevated_minutes: float = 0.0,
     trend_rh_per_hour: float | None = None,
 ) -> MoldAssessment:
-    if wall_rh is None or wall_temperature is None:
+    if wall_rh is None:
+        if indoor_rh is None:
+            return MoldAssessment(
+                "unbekannt",
+                "Feuchtedaten fehlen",
+                "Sensorwerte prüfen",
+                None,
+                wall_temperature,
+                None,
+                max(0.0, duration_high_minutes) / 60,
+                trend_rh_per_hour,
+            )
+        margin = None if dew_point is None or wall_temperature is None else wall_temperature - dew_point
+        if margin is not None and margin <= 0.5:
+            return MoldAssessment(
+                "kritisch",
+                "Taupunkt liegt sehr nah an der Raumluft",
+                "Sofort Feuchte abführen und Raum ausreichend warm halten",
+                None,
+                wall_temperature,
+                margin,
+                max(0.0, duration_high_minutes) / 60,
+                trend_rh_per_hour,
+            )
+        if indoor_rh >= 75:
+            return MoldAssessment(
+                "hoch",
+                "Raumluftfeuchte über 75 % – Wanddaten fehlen",
+                "Jetzt stoßlüften und Wanddaten wiederherstellen",
+                None,
+                wall_temperature,
+                margin,
+                max(0.0, duration_high_minutes) / 60,
+                trend_rh_per_hour,
+            )
+        if indoor_rh >= 70:
+            return MoldAssessment(
+                "erhöht",
+                "Raumluftfeuchte über 70 % – Wanddaten fehlen",
+                "Feuchte zeitnah durch Stoßlüften reduzieren",
+                None,
+                wall_temperature,
+                margin,
+                max(0.0, duration_high_minutes) / 60,
+                trend_rh_per_hour,
+            )
+        return MoldAssessment(
+            "beobachten" if indoor_rh >= 65 else "niedrig",
+            "Raumluftfeuchte erhöht – Wanddaten fehlen" if indoor_rh >= 65 else "Feuchte im unkritischen Bereich – Wanddaten fehlen",
+            "Raumklima beobachten und Wanddaten wiederherstellen" if indoor_rh >= 65 else "Keine besondere Maßnahme",
+            None,
+            wall_temperature,
+            margin,
+            max(0.0, duration_high_minutes) / 60,
+            trend_rh_per_hour,
+        )
+
+    if wall_temperature is None:
         return MoldAssessment(
             "unbekannt",
-            "Wanddaten fehlen",
+            "Wandtemperatur fehlt",
             "Sensorwerte prüfen",
             wall_rh,
-            wall_temperature,
-            None if dew_point is None or wall_temperature is None else wall_temperature - dew_point,
+            None,
+            None,
             max(0.0, duration_high_minutes) / 60,
             trend_rh_per_hour,
         )
