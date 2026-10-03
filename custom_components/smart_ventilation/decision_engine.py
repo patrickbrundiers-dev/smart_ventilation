@@ -5,7 +5,7 @@ math can be tested quickly and independently from the HA test matrix.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from statistics import median
 import math
 from typing import Any, Iterable, Mapping
@@ -52,7 +52,7 @@ def forecast_season_signal(
             continue
         if when.tzinfo is None and current.tzinfo is not None:
             when = when.replace(tzinfo=current.tzinfo)
-        if when < current - __import__("datetime").timedelta(minutes=30):
+        if when < current - timedelta(minutes=30):
             continue
         if when.date() != current.date() or not 7 <= when.hour < 22:
             continue
