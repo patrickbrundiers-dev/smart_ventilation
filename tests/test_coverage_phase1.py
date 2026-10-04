@@ -297,25 +297,52 @@ async def test_overview_setup_loads_state_and_unload(hass: HomeAssistant):
 
 
 async def test_overview_tick_respects_combine_and_calls_reports(hass: HomeAssistant):
-    entry = MockConfigEntry(domain=DOMAIN, entry_id="overview-tick", data={"entry_type": "overview"})
+    """Prüft das beobachtbare Ergebnis von _tick() (wird tatsächlich eine Sammel-Benachrichtigung
+    verschickt bzw. unterdrückt?) statt nur zu mocken, dass _send_combined() aufgerufen wurde -
+    letzteres hätte z. B. eine kaputte Weiterleitung an notify_util.send() nicht bemerkt.
+    _send_weekly_report()/_send_monthly_report() greifen hier nicht (weekly_report/monthly_report
+    stehen nicht in den Entry-Daten), sodass eine eventuelle Benachrichtigung eindeutig von der
+    Sammel-Benachrichtigung stammen muss."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="overview-tick",
+        data={"entry_type": "overview", "notify_services": ["notify.mobile_app_test"], "notification_cooldown": 0},
+    )
     entry.add_to_hass(hass)
     coordinator = OverviewCoordinator(hass, entry)
     listener = MagicMock()
     coordinator._listeners = [listener]
-    coordinator._send_combined = AsyncMock()
-    coordinator._send_weekly_report = AsyncMock()
-    coordinator._send_monthly_report = AsyncMock()
+    room = _room("Bad")
+    room.reminder_allowed = MagicMock(return_value=True)
+    hass.data[DOMAIN] = {"room": room}
 
-    await coordinator._tick()
+    with patch("custom_components.smart_ventilation.overview.notify_util.anyone_home", return_value=True), patch(
+        "custom_components.smart_ventilation.overview.notify_util.in_quiet_hours", return_value=False
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.targets_for_category", return_value=["notify.mobile_app_test"]
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.filter_targets", return_value=["notify.mobile_app_test"]
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.send", new=AsyncMock(return_value=True)
+    ) as send:
+        coordinator._save = AsyncMock()
+        await coordinator._tick()
     listener.assert_called_once()
-    coordinator._send_combined.assert_awaited_once()
-    coordinator._send_weekly_report.assert_awaited_once()
-    coordinator._send_monthly_report.assert_awaited_once()
+    send.assert_awaited_once()
+    assert coordinator.last_notification_at is not None
 
     coordinator.data["combine_notifications"] = False
-    coordinator._send_combined.reset_mock()
-    await coordinator._tick()
-    coordinator._send_combined.assert_not_awaited()
+    coordinator.last_notification_at = None
+    listener.reset_mock()
+    with patch("custom_components.smart_ventilation.overview.notify_util.anyone_home", return_value=True), patch(
+        "custom_components.smart_ventilation.overview.notify_util.in_quiet_hours", return_value=False
+    ), patch(
+        "custom_components.smart_ventilation.overview.notify_util.send", new=AsyncMock(return_value=True)
+    ) as send:
+        await coordinator._tick()
+    listener.assert_called_once()
+    send.assert_not_awaited()
+    assert coordinator.last_notification_at is None
 
 
 async def test_overview_combined_notification_success_and_failure(hass: HomeAssistant):

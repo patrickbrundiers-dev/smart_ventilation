@@ -146,6 +146,19 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.13
+
+- **Testabdeckung:** Die restlichen Punkte aus der Verbesserungs-Review umgesetzt – neue, bisher fehlende Tests sowie zwei bestehende Tests robuster gemacht:
+  - Party-Modus (Aktivierung/vorzeitiges Beenden/automatisches Ablaufen nach `PARTY_MODE_HOURS`, abgesenktes Feuchteziel) war komplett ungetestet.
+  - „Willkommen zu Hause“-Erinnerung (`coordinator.py::_welcome_home`) war komplett ungetestet.
+  - `_resume_session()` nach einem Neustart: Von den drei Fällen (Fenster noch offen, alle Fenster sicher zu, Fensterzustand noch unbekannt) war bisher kein einziger getestet.
+  - Der in `_state_changed()` dokumentierte Schutz gegen ein verspätetes Abschluss-Task, das eine inzwischen neu gestartete Sitzung kappen könnte, hatte keine Regressionsabsicherung.
+  - Entfeuchter-Neustart-Cooldown (`DEHUM_RESTART_COOLDOWN_MINUTES`) und dessen Umgehung bei Schimmelrisiko „hoch“ waren ungetestet.
+  - `mold_engine.py`: drei Zweige ohne jede Testabdeckung ergänzt (komplett fehlende Feuchtedaten, kritische Taupunkt-Marge ohne Wandfeuchte-Sensor, Wandfeuchte ohne Wandtemperatur) plus die „länger erhöht“-Begründung im „erhöht“-Zweig.
+  - `test_overview_tick_respects_combine_and_calls_reports` mockte bisher die drei privaten Versand-Methoden selbst und prüfte nur, dass sie aufgerufen wurden – ein Fehler in der eigentlichen Weiterleitung an `notify_util.send()` wäre so nicht aufgefallen. Prüft jetzt das beobachtbare Ergebnis (wird tatsächlich eine Benachrichtigung verschickt bzw. bei `combine_notifications: false` unterdrückt).
+  - `test_season_uses_daily_forecast_trend_without_waiting` setzte die private Ausgangslage „bereits als Sommer eingestuft“ bisher direkt per Attribut. Die Automatik erreicht diesen Zustand jetzt ganz regulär selbst (warme Außentemperatur beim ersten Durchlauf, noch ohne eindeutigen Vorhersage-Trend).
+  - Geprüft, aber bewusst nicht umgestellt: `test_preheat_ignores_slow_auto_label_but_respects_manual_summer` setzt die gleiche Ausgangslage weiterhin direkt. Eine rein reale Nachbildung bräuchte mehrere Tag/Nacht-Zyklen (nachts kalt genug für einen Kandidatenwechsel, tagsüber wieder warm genug, um dessen Bestätigung über `SEASON_CONFIRM_HOURS` wiederholt zurückzusetzen) – die hier simulierte einzelne, durchgehend kalte Nacht dauert mit über 10 Stunden für sich allein schon länger als die 6-Stunden-Bestätigungszeit und würde das Automatik-Label ohne den Eingriff real auf „winter“ kippen lassen.
+
 ### Version 2.22.12
 
 - **UX/Config/Karte:** Weitere Punkte aus der Verbesserungs-Review umgesetzt:

@@ -72,6 +72,37 @@ def test_mold_score_is_bounded():
     assert 0 <= result.score <= 100
 
 
+def test_mold_unknown_when_all_humidity_data_is_missing():
+    """Fehlen sowohl Wand- als auch Raumluftfeuchte komplett, gibt es keine Grundlage für eine
+    Einschätzung - das muss "unbekannt" bleiben statt z. B. optimistisch "niedrig" zu raten."""
+    result = assess_mold_risk(None, None, None, None)
+    assert result.level == "unbekannt"
+    assert "fehlen" in result.reason
+
+
+def test_mold_critical_from_dewpoint_margin_even_without_wall_humidity_sensor():
+    """Auch ohne Wandfeuchte-Sensor: Ist (z. B. über einen reinen Wandtemperatur-Sensor) bekannt,
+    dass die Wandoberfläche sehr nah am Taupunkt liegt, muss das trotzdem als "kritisch" statt
+    nur anhand der Raumluftfeuchte (hier 60 % - für sich allein nur "niedrig") bewertet werden."""
+    result = assess_mold_risk(None, 16.0, 60, 15.6)
+    assert result.level == "kritisch"
+    assert "Taupunkt" in result.reason
+
+
+def test_mold_unknown_when_wall_humidity_known_but_wall_temperature_missing():
+    """Eine Wandfeuchte ohne zugehörige Wandtemperatur lässt sich nicht einordnen (Taupunkt-Marge
+    unberechenbar) - muss "unbekannt" bleiben statt die Wandfeuchte isoliert zu bewerten."""
+    result = assess_mold_risk(70, None, 60, 12)
+    assert result.level == "unbekannt"
+    assert "Wandtemperatur" in result.reason
+
+
+def test_mold_elevated_explains_long_duration():
+    result = assess_mold_risk(72, 18, 60, 12, duration_elevated_minutes=400)
+    assert result.level == "erhöht"
+    assert "über längere Zeit" in result.reason
+
+
 def test_mold_score_is_monotonic_across_dewpoint_margin_critical_threshold():
     """Eine minimal SICHERERE Taupunkt-Marge (weiter weg vom Taupunkt) darf nie einen HÖHEREN
     Score liefern als eine knappere Marge - vorher kippte die Formel an der Schwelle

@@ -10,7 +10,7 @@ from homeassistant.helpers import intent
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed, async_mock_service
 
-from custom_components.smart_ventilation.const import DOMAIN
+from custom_components.smart_ventilation.const import DEHUM_RESTART_COOLDOWN_MINUTES, DOMAIN
 
 from .conftest import eid, setup_room
 
@@ -61,6 +61,23 @@ async def test_everyone_left_with_window_open(hass: HomeAssistant, freezer: Froz
     hass.states.async_set("person.patrick", "not_home")
     await hass.async_block_till_done()
     assert any(t.startswith("Fenster offen") for t in _titles(pushes))
+
+
+async def test_welcome_home_reminds_if_ventilation_needed(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Kommt eine Person heim und ist gerade Lüften fällig, erinnert coordinator.py::_welcome_home
+    einmalig daran - das Gegenstück zu _left_with_window_open (siehe
+    test_everyone_left_with_window_open direkt oberhalb), bisher aber ungetestet.
+    device_trackers ordnet notify.mobile_app_test person.patrick zu (siehe notify_util.owner_map),
+    sonst würde die an "nur diese Person" gerichtete Nachricht niemanden erreichen."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    hass.states.async_set("person.patrick", "not_home", {"device_trackers": ["device_tracker.test"]})
+    await setup_room(hass, persons=["person.patrick"])
+    hass.states.async_set("person.patrick", "home", {"device_trackers": ["device_tracker.test"]})
+    await hass.async_block_till_done()
+    assert any(t.startswith("Willkommen zu Hause") for t in _titles(pushes))
 
 
 async def test_vacation_silences_reminders_and_watches_mold(hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin) -> None:
@@ -149,7 +166,13 @@ async def test_preheat_ignores_slow_auto_label_but_respects_manual_summer(
 
     # Automatik-Label simuliert absichtlich den Fall, dass es (weil die letzten Tage vorher
     # warm waren) noch nicht auf "winter" umgesprungen ist - genau das kann seit 2.3.19 einige
-    # Tage dauern, obwohl es nachts längst kalt genug ist.
+    # Tage dauern, obwohl es nachts längst kalt genug ist. Bewusst NICHT über einen rein echten
+    # Sensor-Ablauf nachgestellt: eine einzelne durchgehend kalte Nacht wie hier (>10 h) würde
+    # SEASON_CONFIRM_HOURS (6 h) selbst schon überschreiten und das Label regulär auf "winter"
+    # kippen lassen - die hier gewollte Trägheit über mehrere Tage (mit dazwischen wieder
+    # wärmeren Tagesabschnitten, die den Bestätigungs-Timer immer wieder zurücksetzen) ließe
+    # sich nur über eine mehrtägige Tick-Sequenz nachbilden, ohne belastbaren zusätzlichen Nutzen
+    # gegenüber dem direkten, klar kommentierten Setzen der Ausgangslage hier.
     room._auto_season = "summer"
     room._season_pending = None
     room._season_pending_since = None
@@ -397,6 +420,64 @@ async def test_dehumidifier_runs_when_rain_blocks(hass: HomeAssistant, freezer: 
     hass.states.async_set("sensor.innen_ah", 8.0)         # trocken genug
     await _tick(hass, freezer, 16)
     assert len(off) == 1
+
+
+async def test_dehumidifier_restart_cooldown_blocks_then_allows_after_expiry(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Nach dem Ausschalten darf der Entfeuchter laut DEHUM_RESTART_COOLDOWN_MINUTES nicht
+    sofort wieder anspringen, selbst wenn der Bedarf zwischenzeitlich erneut besteht
+    (Pingpong-Schutz) - erst nach Ablauf der Cooldown-Zeit wieder."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    on = async_mock_service(hass, "switch", "turn_on")
+    off = async_mock_service(hass, "switch", "turn_off")
+    hass.states.async_set("switch.entfeuchter", "off")
+    await setup_room(hass, dehumidifier_entity="switch.entfeuchter")
+    hass.states.async_set("sensor.regen", 1.2)            # Regen -> Lüften blockiert
+    hass.states.async_set("sensor.innen_ah", 12.5)        # ~70 % rel. Feuchte
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 1
+
+    hass.states.async_set("sensor.innen_ah", 8.0)         # trocken genug
+    await _tick(hass, freezer, 16)
+    assert len(off) == 1
+
+    # Direkt wieder feucht, aber noch innerhalb der Cooldown-Zeit -> darf NICHT sofort
+    # wieder anspringen.
+    hass.states.async_set("sensor.innen_ah", 12.5)
+    await _tick(hass, freezer, DEHUM_RESTART_COOLDOWN_MINUTES - 1)
+    assert len(on) == 1
+
+    # Cooldown abgelaufen -> jetzt darf er wieder anspringen.
+    await _tick(hass, freezer, 2)
+    assert len(on) == 2
+
+
+async def test_dehumidifier_restart_cooldown_bypassed_when_mold_risk_high(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Bei hohem Schimmelrisiko (mold_risk == "hoch") darf der Entfeuchter die
+    Neustart-Cooldown-Zeit überspringen und sofort wieder anspringen, statt wie im Normalfall
+    DEHUM_RESTART_COOLDOWN_MINUTES abzuwarten."""
+    freezer.move_to("2026-12-05 10:00:00+01:00")
+    on = async_mock_service(hass, "switch", "turn_on")
+    off = async_mock_service(hass, "switch", "turn_off")
+    hass.states.async_set("switch.entfeuchter", "off")
+    await setup_room(hass, dehumidifier_entity="switch.entfeuchter")
+    hass.states.async_set("sensor.regen", 1.2)            # Regen -> Lüften blockiert
+    hass.states.async_set("sensor.innen_ah", 12.5)        # ~70 % rel. Feuchte
+    await _tick(hass, freezer, 0.5)
+    assert len(on) == 1
+
+    hass.states.async_set("sensor.innen_ah", 8.0)         # trocken genug
+    await _tick(hass, freezer, 16)
+    assert len(off) == 1
+
+    # Sehr hohe Luftfeuchte (ohne Wandsensoren stuft das Schimmelrisiko allein anhand der
+    # Raumluftfeuchte auf "hoch" ein) -> Cooldown wird trotz frischem Ausschalten ignoriert.
+    hass.states.async_set("sensor.innen_ah", 14.0)
+    await _tick(hass, freezer, 1)
+    assert len(on) == 2
 
 
 async def test_dehumidifier_runs_even_when_outdoor_air_is_more_humid(

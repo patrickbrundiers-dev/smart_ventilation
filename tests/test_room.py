@@ -13,7 +13,7 @@ from pytest_homeassistant_custom_component.common import (
     async_mock_service,
 )
 
-from custom_components.smart_ventilation.const import DOMAIN
+from custom_components.smart_ventilation.const import DOMAIN, PARTY_MODE_HOURS, PARTY_MODE_TARGET_REDUCTION
 
 from .conftest import eid, setup_entry, setup_room, set_room_states, ROOM_DATA
 
@@ -35,6 +35,143 @@ async def test_entities_and_recommendation(hass: HomeAssistant, berlin) -> None:
     wall = float(hass.states.get(eid(hass, "sensor", entry, "wall_temperature")).state)
     assert 10 < wall < 20.5
     assert hass.states.get(eid(hass, "button", entry, "reset_learning")) is not None
+
+
+async def test_party_mode_activates_and_auto_expires(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Party-Modus (button.py::PartyModeButton -> coordinator.async_toggle_party_mode): Aktivierung
+    ist als binary_sensor mit "aktiv_bis"-Zeitstempel sichtbar, erneutes "Drücken" beendet ihn
+    vorzeitig, und ohne erneuten Tastendruck schaltet er sich nach PARTY_MODE_HOURS selbst ab."""
+    entry = await setup_room(hass)
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    party = eid(hass, "binary_sensor", entry, "party_mode")
+    assert hass.states.get(party).state == "off"
+
+    await coordinator.async_toggle_party_mode()
+    await hass.async_block_till_done()
+    state = hass.states.get(party)
+    assert state.state == "on"
+    assert state.attributes["aktiv_bis"] is not None
+
+    # Erneutes "Drücken" beendet ihn vorzeitig.
+    await coordinator.async_toggle_party_mode()
+    await hass.async_block_till_done()
+    assert hass.states.get(party).state == "off"
+
+    # Jetzt bis zum automatischen Ablauf laufen lassen, ohne erneut zu "drücken".
+    await coordinator.async_toggle_party_mode()
+    await hass.async_block_till_done()
+    assert hass.states.get(party).state == "on"
+    await _tick(hass, freezer, PARTY_MODE_HOURS * 60 + 1)
+    assert hass.states.get(party).state == "off"
+
+
+async def test_party_mode_lowers_humidity_target(hass: HomeAssistant, berlin) -> None:
+    """Party-Modus senkt das Tagesziel vorübergehend um PARTY_MODE_TARGET_REDUCTION ("aggressiver:
+    früher als 'zu feucht' gelten", siehe coordinator.py::_humidity_need) - Raumluft zwischen dem
+    normalen und dem abgesenkten Ziel muss ohne Party-Modus als "nicht zu feucht", mit
+    Party-Modus als "zu feucht" gelten."""
+    entry = await setup_room(hass, target_absolute_humidity=12.0)
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    indoor = 12.0 - PARTY_MODE_TARGET_REDUCTION / 2  # zwischen Normal- und Party-Ziel
+
+    assert coordinator._humidity_need(indoor, diff=5.0) is False
+
+    await coordinator.async_toggle_party_mode()
+    assert coordinator._humidity_need(indoor, diff=5.0) is True
+
+
+async def _restart_with_running_session(hass: HomeAssistant, entry):
+    """Eine echte, laufende Sitzung erzeugen (Fenster auf) und dann so tun, als wäre HA neu
+    gestartet: Listener abmelden (die reale Zustandsänderungen sonst sofort selbst verarbeiten
+    würden) und die Sitzung als "restored" markieren, wie es async_setup() nach einem echten
+    Neustart tut. Die drei _resume_session()-Fälle (Fenster noch offen/sicher zu/unbekannt)
+    unterscheiden sich danach nur noch in den Fensterzuständen, die der jeweilige Test setzt."""
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    assert coordinator.session is not None
+    coordinator.async_unload()
+    coordinator.session["restored"] = True
+    return coordinator
+
+
+async def test_resume_session_keeps_running_if_window_still_open(hass: HomeAssistant, berlin) -> None:
+    """_resume_session(): Fenster nach dem Neustart weiterhin offen -> Sitzung läuft unverändert
+    weiter, das nächste reale Schließen entscheidet (bisher ungetestet)."""
+    entry = await setup_room(hass)
+    coordinator = await _restart_with_running_session(hass, entry)
+    started = coordinator.session["started"]
+    # fenster_1 bleibt "on" (siehe _restart_with_running_session), fenster_2 "off" wie beim Setup -
+    # EIN offenes Fenster reicht laut _resume_session, um die Sitzung weiterlaufen zu lassen.
+
+    await coordinator._resume_session()
+
+    assert coordinator.session is not None
+    assert coordinator.session["started"] == started
+
+
+async def test_resume_session_finishes_if_all_windows_safely_closed(hass: HomeAssistant, berlin) -> None:
+    """_resume_session(): alle Fensterzustände nach dem Neustart bekannt und zu -> die Sitzung
+    wird sauber abgeschlossen (Haupt-/Erfolgsfall, als Kontrast zu den beiden Lücken daneben)."""
+    entry = await setup_room(hass)
+    coordinator = await _restart_with_running_session(hass, entry)
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    hass.states.async_set("binary_sensor.fenster_2", "off")
+
+    await coordinator._resume_session()
+
+    assert coordinator.session is None
+
+
+async def test_resume_session_waits_if_window_state_unknown(hass: HomeAssistant, berlin) -> None:
+    """_resume_session(): Fensterzustand nach dem Neustart noch unbekannt (Sensor meldet sich
+    noch nicht) -> weder weiterlaufen noch abschließen, das nächste reale Ereignis entscheidet
+    (bisher ungetestet)."""
+    entry = await setup_room(hass)
+    coordinator = await _restart_with_running_session(hass, entry)
+    started = coordinator.session["started"]
+    hass.states.async_remove("binary_sensor.fenster_1")
+    hass.states.async_remove("binary_sensor.fenster_2")
+
+    await coordinator._resume_session()
+
+    assert coordinator.session is not None
+    assert coordinator.session["started"] == started
+
+
+async def test_finish_session_race_guard_does_not_cut_short_newer_session(
+    hass: HomeAssistant, berlin
+) -> None:
+    """Regression für den in _state_changed() dokumentierten Race-Schutz: die beim
+    Fenster-Schließen zum Abschließen anstehende Sitzung wird synchron als Parameter mitgegeben
+    (siehe `session=self.session` dort) statt sie bei der späteren Ausführung des Tasks erst aus
+    self.session neu zu lesen - und _finish_session() räumt self.session nur, wenn es wirklich
+    noch dieselbe (hier: die längst abgeschlossene, ursprüngliche) Sitzung ist. Ohne diesen Schutz
+    würde ein schnelles Wieder-Öffnen zwischen Planen und Ausführen des Abschluss-Tasks eine
+    bereits neu gestartete Sitzung kappen, statt nur die ursprüngliche zu beenden."""
+    entry = await setup_room(hass)
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    old_session = coordinator.session
+    assert old_session is not None
+
+    hass.states.async_set("binary_sensor.fenster_1", "off")
+    await hass.async_block_till_done()
+    assert coordinator.session is None  # alte Sitzung regulär beendet
+
+    hass.states.async_set("binary_sensor.fenster_1", "on")
+    await hass.async_block_till_done()
+    new_session = coordinator.session
+    assert new_session is not None and new_session is not old_session
+
+    # Den (verspäteten) Abschluss-Task für die ALTE Sitzung nachholen, wie er bei einem schnellen
+    # Doppel-Toggle erst nach dem Start der neuen Sitzung ausgeführt worden wäre.
+    await coordinator._finish_session(session=old_session)
+
+    assert coordinator.session is new_session  # unverändert, NICHT auf None gekappt
 
 
 async def test_auto_season_uses_calendar_month(
@@ -135,14 +272,16 @@ async def test_season_uses_daily_forecast_trend_without_waiting(
         "weather", "get_forecasts", _handle_get_forecasts,
         supports_response=SupportsResponse.ONLY,
     )
-    entry = await setup_room(hass, season_mode="auto", weather_entity="weather.home")
+    # Warme Außentemperatur schon beim Start (und noch keine eindeutige Tagesvorhersage), damit
+    # die Automatik ganz regulär auf "Sommer" einschwingt - genau die Ausgangslage, die vorher
+    # per direktem Setzen der privaten Attribute simuliert wurde.
+    set_room_states(hass, **{"sensor.aussen_t": 20.0})
+    entry = await setup_entry(
+        hass, {**ROOM_DATA, "season_mode": "auto", "weather_entity": "weather.home"},
+        "schlafzimmer", "Schlafzimmer",
+    )
     room = hass.data[DOMAIN][entry.entry_id]
-    room._auto_season = "summer"  # simuliert: bisher als Sommer eingestuft
-    room._season_pending = None
-    room._season_pending_since = None
-
-    hass.states.async_set("sensor.aussen_t", 20.0)  # aktuell noch warm
-    await hass.async_block_till_done()
+    assert hass.states.get(eid(hass, "sensor", entry, "season")).state == "summer"
 
     now = dt_util.now()
     forecast_holder["daily"] = [

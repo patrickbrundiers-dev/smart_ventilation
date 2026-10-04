@@ -181,6 +181,28 @@ async def test_room_form_rejects_preheat_temp_at_or_above_comfort_temp(hass: Hom
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
+async def test_room_form_rejects_same_sensor_for_indoor_and_outdoor_temperature(
+    hass: HomeAssistant,
+) -> None:
+    """Derselbe same_sensor_*-Mechanismus wie beim Feuchte-Test oben, hier aber für den bisher
+    ungetesteten elif-Zweig same_sensor_temp (Innen-/Außentemperatur identisch)."""
+    set_room_states(hass)
+    room_input = {
+        **ROOM_INPUT,
+        "outdoor": {**ROOM_INPUT["outdoor"], "outdoor_temperature": "sensor.innen_t"},
+    }
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], room_input)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "same_sensor_temp"}
+
+    fixed = {**room_input, "outdoor": {**room_input["outdoor"], "outdoor_temperature": "sensor.aussen_t"}}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], fixed)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
 async def test_room_twice_aborts(hass: HomeAssistant) -> None:
     await setup_room(hass)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
@@ -200,6 +222,26 @@ async def test_overview_wizard(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["entry_type"] == "overview"
     await hass.async_block_till_done()
+
+
+async def test_overview_twice_aborts(hass: HomeAssistant) -> None:
+    """async_step_overview setzt eine feste unique_id ("overview") - eine zweite Übersicht darf
+    es analog zu test_room_twice_aborts nicht geben, war bisher aber ungetestet."""
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "overview"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"messages": {"combine_notifications": True}, "reports": {}}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "overview"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"messages": {"combine_notifications": True}, "reports": {}}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
 
 
 def _options_input(entry, **changes):
