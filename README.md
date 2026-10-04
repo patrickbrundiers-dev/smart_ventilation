@@ -146,6 +146,13 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.11
+
+- **Architektur:** Die beiden letzten, bewusst zurückgestellten (größeren) Punkte aus der Verbesserungs-Review umgesetzt – reine Struktur-Refactorings, keine Verhaltensänderung:
+  - Die Heizungs-Hierarchie-Logik (Better Thermostat → Climate Group Helper/Gruppe → Thermostate, ~135 Zeilen) ist jetzt ein eigenes `HeatingMixin` (`heating.py`) statt Teil von `coordinator.py`.
+  - Die ~90-zeilige `season`-Property ist in vier benannte Schritte aufgeteilt (`_season_from_fixed_month`, `_season_from_forecast_trend`, `_season_from_live_temperature`, `_confirm_season_candidate`).
+  - Die sieben strukturell identischen „diese Runde blockiert“-Zweige in `_update_recommendation()` (Regen-/Gewittersicherheit, Hitzesperre, kein Lüftungsbedarf) nutzen jetzt die gemeinsame Hilfsmethode `_set_blocked()` statt jeweils fünf Zeilen Attribut-Zuweisung zu wiederholen.
+
 ### Version 2.22.10
 
 - **Performance:** Letzter noch offener Punkt aus der Verbesserungs-Review: `room_list()`/`totals()`/`day_trend()` der Übersicht (`overview.py`) wurden pro Tick bis zu 4× komplett über alle Räume neu aufgebaut (Sensor-Entities lesen sie unabhängig über `native_value`/`extra_state_attributes`, teils verschachtelt über `rooms_needing()`/`most_urgent`) – jetzt wie beim Raum-Coordinator einmal pro Tick berechnet und wiederverwendet. Keine sichtbare Verhaltensänderung, mit neuem Regressionstest abgesichert.

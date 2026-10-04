@@ -28,6 +28,7 @@ from .sensor_utils import (
     _relative_humidity_from_absolute,
     _wind_kmh,
 )
+from .heating import HeatingMixin
 from .history import HistoryMixin, month_name
 from .forecast_engine import ForecastWindow, build_forecast_windows, score_forecast_window
 from .mold_engine import assess_mold_risk
@@ -47,7 +48,7 @@ from .decision_engine import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
+class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
         self.entry = entry
@@ -1014,7 +1015,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 )
 
     # ------------------------------------------------------------------
-    # Heizung beim Lüften absenken und danach wiederherstellen
+    # Service-Aufrufe (u. a. von HeatingMixin und RoomExtrasMixin genutzt)
     # ------------------------------------------------------------------
     async def _call(self, domain, service, data):
         try:
@@ -1025,135 +1026,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 "Serviceaufruf %s.%s mit %s fehlgeschlagen", domain, service, data, exc_info=True
             )
             return False
-
-    async def _check_heating(self):
-        # Session synchron festhalten: die folgende Schleife wartet auf mehrere echte
-        # climate.*-Serviceaufrufe, währenddessen kann das Fenster zugehen (_finish_session setzt
-        # self.session dann auf None) oder sogar eine neue Sitzung beginnen - siehe denselben
-        # Schutz in _finish_session().
-        session = self.session
-        if not self.climates or not session or session.get("heating") is not None:
-            return
-        if self.current_duration_seconds < HEATING_DELAY_SECONDS:
-            return
-
-        saved = {}
-        external = {}
-        for entity_id in self._heating_targets():
-            if manager := self._window_managed_by(entity_id):
-                external[entity_id] = manager   # regelt selbst beim Fensteröffnen -> nicht eingreifen
-                continue
-            state = self.hass.states.get(entity_id)
-            if state is None or state.state in ("off", "unavailable", "unknown"):
-                continue
-            modes = state.attributes.get("hvac_modes") or []
-            if "off" in modes:
-                if await self._call("climate", "set_hvac_mode",
-                                    {"entity_id": entity_id, "hvac_mode": "off"}):
-                    saved[entity_id] = {"mode": state.state}
-            else:
-                target = state.attributes.get("temperature")
-                if target is None:
-                    continue
-                low = state.attributes.get("min_temp", 7)
-                if await self._call("climate", "set_temperature",
-                                    {"entity_id": entity_id, "temperature": low}):
-                    saved[entity_id] = {"temperature": target}
-
-        if self.session is session:
-            session["heating"] = saved
-            session["heating_external"] = external
-            await self._save()
-        else:
-            # Die Sitzung wurde inzwischen abgeschlossen oder durch eine neue ersetzt, während wir
-            # noch auf die Thermostat-Befehle gewartet haben. _finish_session() kannte "saved" zu
-            # dem Zeitpunkt noch nicht (heating war noch None) und konnte die eben abgesenkten
-            # Thermostate deshalb nicht wiederherstellen - das holen wir hier nach, statt sie
-            # dauerhaft abgesenkt zu lassen.
-            await self._restore_heating(saved)
-
-    # --- Heizungs-Hierarchie: Better Thermostat -> (Climate Group Helper / Gruppe) -> Thermostate ---
-    def _climate_children(self, entity_id):
-        """Direkt untergeordnete Thermostate: bei Better Thermostat die gesteuerten Geräte, bei Gruppen die Mitglieder."""
-        bt = self._integration_config(entity_id, "better_thermostat")
-        if bt is not None:
-            heaters = bt.get("thermostat") or []
-            return [h.get("trv") for h in heaters if isinstance(h, dict) and h.get("trv")]
-        state = self.hass.states.get(entity_id)
-        members = state.attributes.get("entity_id") if state is not None else None
-        if isinstance(members, (list, tuple)):
-            return [m for m in members if str(m).startswith("climate.")]
-        return []
-
-    def _integration_config(self, entity_id, domain):
-        """Einstellungen (data + options) der Integration, falls die Entität zu `domain` gehört."""
-        entry = er.async_get(self.hass).async_get(entity_id)
-        if entry is None or entry.platform != domain or not entry.config_entry_id:
-            return None
-        config = self.hass.config_entries.async_get_entry(entry.config_entry_id)
-        if config is None:
-            return None
-        return {**config.data, **config.options}
-
-    def _heating_targets(self):
-        """Welche Thermostate schalten? Immer die oberste Ebene, jede nur einmal.
-
-        - Liegt ein gewähltes Thermostat/eine Gruppe unter einem Better Thermostat,
-          wird das Better Thermostat geschaltet (sonst würde BT dagegen regeln).
-        - Ist ein Thermostat Mitglied einer ebenfalls gewählten Gruppe, wird nur die Gruppe geschaltet.
-        """
-        parent = {}
-        for state in self.hass.states.async_all("climate"):
-            for child in self._climate_children(state.entity_id):
-                # Better Thermostat hat Vorrang als übergeordnete Ebene
-                if child not in parent or self._integration_config(state.entity_id, "better_thermostat") is not None:
-                    parent[child] = state.entity_id
-        selected = set(self.climates)
-        result = []
-        for entity_id in self.climates:
-            chain, node = [], entity_id
-            while node in parent and node not in chain:
-                chain.append(node)
-                node = parent[node]
-            chain.append(node)
-            ancestors = chain[1:]
-            bt = [a for a in ancestors if self._integration_config(a, "better_thermostat") is not None]
-            chosen = [a for a in ancestors if a in selected]
-            if bt:
-                result.append(bt[-1])
-            elif chosen:
-                result.append(chosen[-1])
-            else:
-                result.append(entity_id)
-        return list(dict.fromkeys(result))
-
-    def _window_managed_by(self, entity_id, _seen=None):
-        """Regelt diese Heizung (oder eine Ebene darunter) beim Fensteröffnen selbst?"""
-        seen = _seen or set()
-        if entity_id in seen:
-            return None
-        seen.add(entity_id)
-        bt = self._integration_config(entity_id, "better_thermostat")
-        if bt is not None and bt.get("window_sensors"):
-            return "Better Thermostat"
-        cgh = self._integration_config(entity_id, "climate_group_helper")
-        if cgh is not None and (cgh.get("room_sensor") or cgh.get("zone_sensor")) and str(
-            cgh.get("window_mode") or "disabled"
-        ) not in ("disabled", "off"):
-            return "Climate Group Helper"
-        for child in self._climate_children(entity_id):
-            if manager := self._window_managed_by(child, seen):
-                return manager
-        return None
-
-    async def _restore_heating(self, saved):
-        for entity_id, before in (saved or {}).items():
-            if "mode" in before:
-                await self._call("climate", "set_hvac_mode",
-                                 {"entity_id": entity_id, "hvac_mode": before["mode"]})
-            elif "temperature" in before:
-                await self._call("climate", "set_temperature",
-                                 {"entity_id": entity_id, "temperature": before["temperature"]})
 
     # ------------------------------------------------------------------
     # Bester Lüftungszeitpunkt aus der stündlichen Wettervorhersage
@@ -1631,7 +1503,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         mode = self.data.get(CONF_SEASON_MODE, DEFAULT_SEASON_MODE)
         if mode in (SEASON_SUMMER, SEASON_WINTER):
             return mode
+        return (
+            self._season_from_fixed_month()
+            or self._season_from_forecast_trend()
+            or self._season_from_live_temperature()
+        )
 
+    def _season_from_fixed_month(self):
+        """Dezember-Februar/Juni-August gelten fest als Winter/Sommer - ein einzelner milder
+        Wintertag oder kühler Sommertag soll den Modus hier nicht umschalten. None, wenn der
+        aktuelle Monat in keinen der beiden Blöcke fällt (Übergangsmonat)."""
         month = dt_util.now().month
         if month in SEASON_FIXED_WINTER_MONTHS:
             self._auto_season = SEASON_WINTER
@@ -1641,7 +1522,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self._auto_season = SEASON_SUMMER
             self._season_pending = None
             return SEASON_SUMMER
+        return None
 
+    def _season_from_forecast_trend(self):
+        """In den Übergangsmonaten: zeigt die mehrtägige Wettervorhersage schon einen eindeutigen
+        Trend (Hoch UND Tief mehrere Tage klar auf einer Seite der Heizgrenze), wird das sofort
+        übernommen - ein verlässlicheres Signal als ein paar Stunden lokale Messwerte. None, wenn
+        kein (neuer) eindeutiger Trend vorliegt."""
         if (
             self.data.get(CONF_WEATHER)
             and self._forecast_season in (SEASON_SUMMER, SEASON_WINTER)
@@ -1651,7 +1538,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self._season_pending = None
             self._season_pending_since = None
             return self._auto_season
+        return None
 
+    def _season_from_live_temperature(self):
+        """Letzte Stufe, wenn weder ein fester Monat noch ein eindeutiger Forecast-Trend
+        entscheidet: aktuelle Außentemperatur mit Hysterese + Bestätigungsdauer, siehe
+        _confirm_season_candidate(). Liefert immer einen definitiven Wert (nie None)."""
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         threshold = float(self.data.get(CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD))
 
@@ -1684,6 +1576,12 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             self._season_pending = None
             return self._auto_season
 
+        return self._confirm_season_candidate(candidate)
+
+    def _confirm_season_candidate(self, candidate):
+        """Ein Kandidatenwechsel (siehe _season_from_live_temperature) wird erst übernommen,
+        wenn er SEASON_CONFIRM_HOURS lang ununterbrochen anliegt - sonst würde der Modus an
+        Tagen mit großer Tag/Nacht-Schwankung mehrmals täglich hin- und herspringen."""
         now = dt_util.now()
         if candidate is None or candidate == self._auto_season:
             # Zurück in die Mitte oder wieder wie bisher -> ein evtl. laufender Wechsel zählt nicht mehr.
@@ -2059,6 +1957,18 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._humidity_active = not (diff_clearly_below or reasons_clearly_below)
         return self._humidity_active
 
+    def _set_blocked(self, recommendation, adaptive_reason, *, mode="Geschlossen", block_reason=None, minutes=0):
+        """Gemeinsamer Teil der früh zurückkehrenden "diese Runde nicht/nicht mehr lüften"-Zweige
+        in _update_recommendation() (Regen/Gewitter-Sicherheit, Hitzesperre, kein Lüftungsbedarf).
+        `block_reason` ist optional, da manche dieser Zweige (z. B. "kein Bedarf") den am Anfang
+        der Runde zurückgesetzten Wert "" bewusst unverändert lassen."""
+        self.recommendation = recommendation
+        self.recommended_minutes = minutes
+        self.recommended_mode = mode
+        if block_reason is not None:
+            self.block_reason = block_reason
+        self.adaptive_reason = adaptive_reason
+
     def _update_recommendation(self):
         # Macht die Pro-Runde-Caches (context_model, _sun_info/_sun_effect, siehe __init__) für
         # diesen Durchlauf ungültig, BEVOR irgendetwas unten sie liest (u. a. _sun_effect() hier
@@ -2104,51 +2014,45 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 # Lüften - nur die Außenluft ist gerade nicht (mehr) trockener, Lüften würde die
                 # Lage also nicht verbessern. "Raumklima in Ordnung" wäre hier irreführend: das
                 # Klima ist NICHT in Ordnung, es lässt sich nur gerade nichts dagegen tun.
-                self.recommendation = "Raumluft feucht – Außenluft aktuell nicht trockener"
-                self.recommended_minutes = 0
-                self.recommended_mode = "Keine Lüftung"
-                self.block_reason = "Außenluft nicht trockener"
-                self.adaptive_reason = "Außenluft nicht trockener"
+                self._set_blocked(
+                    "Raumluft feucht – Außenluft aktuell nicht trockener",
+                    "Außenluft nicht trockener",
+                    mode="Keine Lüftung", block_reason="Außenluft nicht trockener",
+                )
                 return
-            self.recommendation = "Keine Lüftung erforderlich"
-            self.recommended_minutes = 0
-            self.recommended_mode = "Keine Lüftung"
-            self.adaptive_reason = "Keine Lüftung erforderlich"
+            self._set_blocked(
+                "Keine Lüftung erforderlich", "Keine Lüftung erforderlich", mode="Keine Lüftung",
+            )
             return
 
         # Regen/Gewitter sind harte Sicherheitsregeln: Ein konfiguriertes,
         # aber nicht verfügbares Sicherheitssignal darf niemals als "trocken/sicher"
         # interpretiert werden.
         if self._sensor_unavailable(self.data.get(CONF_RAIN)):
-            self.recommendation = "Nicht lüften – Regensensor nicht verfügbar"
-            self.recommended_minutes = 0
-            self.recommended_mode = "Geschlossen"
-            self.block_reason = "Regensensor nicht verfügbar"
-            self.adaptive_reason = "Regensensor nicht verfügbar – Lüftung blockiert"
+            self._set_blocked(
+                "Nicht lüften – Regensensor nicht verfügbar",
+                "Regensensor nicht verfügbar – Lüftung blockiert",
+                block_reason="Regensensor nicht verfügbar",
+            )
             return
 
         if self._sensor_unavailable(self.data.get(CONF_THUNDERSTORM)):
-            self.recommendation = "Nicht lüften – Gewittersensor nicht verfügbar"
-            self.recommended_minutes = 0
-            self.recommended_mode = "Geschlossen"
-            self.block_reason = "Gewittersensor nicht verfügbar"
-            self.adaptive_reason = "Gewittersensor nicht verfügbar – Lüftung blockiert"
+            self._set_blocked(
+                "Nicht lüften – Gewittersensor nicht verfügbar",
+                "Gewittersensor nicht verfügbar – Lüftung blockiert",
+                block_reason="Gewittersensor nicht verfügbar",
+            )
             return
 
         if _is_raining(self.hass, self.data[CONF_RAIN]):
-            self.recommendation = "Nicht lüften – Regen"
-            self.recommended_minutes = 0
-            self.recommended_mode = "Geschlossen"
-            self.block_reason = "Regen"
-            self.adaptive_reason = "Regen blockiert"
+            self._set_blocked("Nicht lüften – Regen", "Regen blockiert", block_reason="Regen")
             return
 
         if _has_risk(self.hass, self.data.get(CONF_THUNDERSTORM)):
-            self.recommendation = "Nicht lüften – Gewitter erwartet"
-            self.recommended_minutes = 0
-            self.recommended_mode = "Geschlossen"
-            self.block_reason = "Gewitter erwartet"
-            self.adaptive_reason = "Gewitter erwartet – Lüftung blockiert"
+            self._set_blocked(
+                "Nicht lüften – Gewitter erwartet", "Gewitter erwartet – Lüftung blockiert",
+                block_reason="Gewitter erwartet",
+            )
             return
 
         temp_block, temp_reason = self._temperature_block()
@@ -2158,11 +2062,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         # fürs Lüften, keine Sperre.
         preheat_override = temp_block and need_preheat
         if temp_block and not co2_override and not preheat_override:
-            self.recommendation = "Nicht lüften – draußen zu warm"
-            self.recommended_minutes = 0
-            self.recommended_mode = "Geschlossen"
-            self.block_reason = temp_reason
-            self.adaptive_reason = temp_reason
+            self._set_blocked("Nicht lüften – draußen zu warm", temp_reason, block_reason=temp_reason)
             return
 
         sun_active, direct_sun, sun_reason = self._sun_effect()
