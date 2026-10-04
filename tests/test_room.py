@@ -881,3 +881,31 @@ async def test_context_model_shared_across_sensors_but_not_stale(hass: HomeAssis
     ach_after = float(hass.states.get(ach_entity).state)
     assert ach_after != ach_before  # Cache wurde nicht übersehen - der neue Wert kommt an
     assert hass.states.get(rec_entity).attributes["context_model_ach"] == ach_after  # beide Entities konsistent
+
+
+async def test_wall_values_shared_across_sensors_but_not_stale(hass: HomeAssistant) -> None:
+    """wall_rh/wall_temperature/indoor_rh (u. a. von mold_assessment, card_data UND eigenen
+    Sensor-Entities genutzt) werden seit der Performance-Optimierung ebenfalls pro Durchlauf
+    gecacht - müssen also innerhalb einer Runde konsistent sein (Karte und eigene Entity zeigen
+    denselben Wert), dürfen nach einer echten Temperaturänderung aber nicht hängen bleiben."""
+    entry = await setup_room(hass)
+    wall_t_entity = eid(hass, "sensor", entry, "wall_temperature")
+    wall_rh_entity = eid(hass, "sensor", entry, "wall_humidity")
+    rec_entity = eid(hass, "sensor", entry, "recommendation")
+
+    wall_t_before = float(hass.states.get(wall_t_entity).state)
+    wall_rh_before = float(hass.states.get(wall_rh_entity).state)
+    karte_before = hass.states.get(rec_entity).attributes["karte"]
+    assert karte_before["wand_t"] == wall_t_before  # beide auf 1 Nachkommastelle gerundet
+    assert karte_before["wand_rh"] == round(wall_rh_before)  # Karte rundet "wand_rh" auf 0 Stellen
+
+    # Deutlich kälter draußen -> niedrigere Wandtemperatur, höhere Wandfeuchte.
+    hass.states.async_set("sensor.aussen_t", -15.0)
+    await hass.async_block_till_done()
+
+    wall_t_after = float(hass.states.get(wall_t_entity).state)
+    wall_rh_after = float(hass.states.get(wall_rh_entity).state)
+    assert wall_t_after != wall_t_before  # Cache wurde nicht übersehen - der neue Wert kommt an
+    karte_after = hass.states.get(rec_entity).attributes["karte"]
+    assert karte_after["wand_t"] == wall_t_after  # beide Entities konsistent
+    assert karte_after["wand_rh"] == round(wall_rh_after)

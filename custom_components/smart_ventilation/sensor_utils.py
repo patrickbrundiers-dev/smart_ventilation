@@ -58,10 +58,15 @@ def _wind_kmh(hass: HomeAssistant, entity_id: str | None) -> float | None:
     if not entity_id:
         return None
     state = hass.states.get(entity_id)
-    value = _float_state(hass, entity_id)
-    if value is None:
+    if state is None:
         return None
-    unit = state.attributes.get("unit_of_measurement", "") if state else ""
+    try:
+        value = float(state.state)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value):
+        return None
+    unit = state.attributes.get("unit_of_measurement", "")
     return value * 3.6 if unit in ("m/s", "mps") else value
 
 

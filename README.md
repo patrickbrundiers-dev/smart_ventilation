@@ -146,6 +146,15 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.8
+
+- **Performance:** Weitere Punkte aus der Verbesserungs-Review umgesetzt:
+  - `_sun_info`/`_sun_effect` (Sonnenstand, direkte Sonne am Fenster) sowie `wall_temperature`/`wall_rh`/`indoor_rh`/`outdoor_rh`/`indoor_dew_point`/`outdoor_dew_point` wurden bisher von mehreren Stellen (Karte, Schimmelbewertung, eigene Sensor-Entities, Rollo-/Entfeuchter-Steuerung) unabhängig voneinander neu berechnet – jetzt wie `context_model` pro Durchlauf nur einmal.
+  - Dabei wurde der Zeitpunkt der Cache-Invalidierung bewusst an den Anfang von `_update_recommendation()` gelegt (statt wie zuvor bei `context_model` erst in `_notify_listeners()`) – sonst hätte `_update_recommendation()` bei einer Sonnenstand-Änderung kurzzeitig noch mit dem alten Sonnenstand gerechnet, während die zugehörige Sensor-Anzeige schon den neuen gezeigt hätte.
+  - `own_entity()` (Entity-IDs für die Klick-Ziele der Karte) wird nach dem ersten erfolgreichen Nachschlagen dauerhaft zwischengespeichert statt bei jedem Kartenaufbau erneut die Entity-Registry zu befragen.
+  - `_wind_kmh()` fragte denselben Sensor-Zustand zweimal ab.
+  - Keine sichtbare Verhaltensänderung, mit zwei neuen Regressionstests abgesichert.
+
 ### Version 2.22.7
 
 - **Performance:** `context_model` (die Wind-/Winkel-/Temperatur-Luftwechselschätzung) wurde bisher von jeder einzelnen Raum-Sensor-Entität separat neu berechnet (inkl. mehrerer Sensor-Abfragen) – bei ca. 35 Entitäten pro Raum also bis zu 35× derselbe Berechnung pro Benachrichtigungsrunde. Wird jetzt wie die bereits bestehende Schimmelbewertung nur einmal pro Runde berechnet und von allen Entitäten gemeinsam genutzt. Keine sichtbare Verhaltensänderung, nur weniger überflüssige Arbeit bei jedem Sensor-Update.

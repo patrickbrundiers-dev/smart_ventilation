@@ -488,6 +488,39 @@ async def test_shutter_recommended_only_in_summer_with_direct_sun(
     assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is True
 
 
+async def test_sun_effect_not_stale_within_same_state_change(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Performance-Optimierung: _sun_effect() wird seit v2.22.7 pro Durchlauf gecacht (siehe
+    _notify_round in coordinator.py). Der Cache wird ganz am Anfang von _update_recommendation()
+    ungültig gemacht, BEVOR die Methode _sun_effect() selbst liest - würde das stattdessen erst
+    beim anschließenden _notify_listeners() passieren, würde _update_recommendation() hier mit
+    der alten (vor der Änderung gültigen) Sonnenposition rechnen, während die separat
+    gecachte "rollo_empfehlung" in derselben Kartenansicht schon die neue zeigen würde. Prüft,
+    dass EIN einzelner State-Change (keine weitere Zeit vergangen) für beides sofort die neue
+    Sonnenposition liefert."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    entry = await setup_room(hass, use_sun=True, season_mode="summer")
+    rec = eid(hass, "sensor", entry, "recommendation")
+
+    # Sonne noch nicht am Fenster (Azimut weit von der Fensterausrichtung 106° entfernt).
+    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 40, "azimuth": 250})
+    await hass.async_block_till_done()
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["rollo_empfehlung"] is False
+    assert "Direkte Sonne" not in (karte["blockiert"] or "")
+
+    # Ein einzelner State-Change auf direkte Sonne - kein zusätzlicher 30-s-Tick dazwischen.
+    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106})
+    await hass.async_block_till_done()
+    karte = hass.states.get(rec).attributes["karte"]
+    assert karte["rollo_empfehlung"] is True
+    # _update_recommendation() selbst muss die neue Sonnenposition im selben Durchlauf gesehen
+    # haben, nicht erst eine Runde später - sonst widersprächen sich Empfehlungstext/Blockiergrund
+    # und das separat berechnete rollo_empfehlung-Flag innerhalb derselben Kartenansicht.
+    assert "Direkte Sonne" in karte["blockiert"]
+
+
 async def test_shutter_not_recommended_in_winter_despite_direct_sun(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:

@@ -104,16 +104,21 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._party_until = None
         self._mold_assessment_cache_key = None
         self._mold_assessment_cache = None
-        # context_model wird von jeder Raum-Sensor-Entity einzeln gelesen (BaseSensor.
-        # extra_state_attributes, ACHSensor) - ohne Cache würde dieselbe Wind-/Winkel-/
-        # Temperatur-Abfrage bei jeder Listener-Benachrichtigung ca. 30x unnötig wiederholt.
-        # _notify_listeners() erhöht die Generation vor jeder Runde; der erste Lesezugriff
-        # danach berechnet neu, alle weiteren innerhalb derselben Runde bekommen den Cache -
-        # unproblematisch, da innerhalb der synchronen Callback-Schleife kein await stattfindet
-        # und sich die zugrunde liegenden Sensorwerte währenddessen nicht ändern können.
-        self._context_model_cache = None
-        self._context_model_cache_gen = -1
-        self._context_model_gen = 0
+        # Mehrere abgeleitete Werte (context_model, _sun_info/_sun_effect, wall_rh/wall_temperature/
+        # indoor_rh/... - siehe _per_round()) werden pro Durchlauf von mehreren Sensor-Entities
+        # bzw. mehreren Properties unabhängig voneinander gelesen - ohne Cache würden dieselben
+        # hass.states.get-Abfragen dabei unnötig wiederholt. _notify_round zählt den Durchlauf
+        # hoch - am Anfang von _update_recommendation() (nicht in _notify_listeners(), siehe
+        # dort) sowie an jeder anderen Stelle, die Cache-relevante Werte wie self.models ändert,
+        # ohne vorher _update_recommendation() aufzurufen (siehe Lernaktualisierung in
+        # _finish_session()). Der erste Lesezugriff pro Runde berechnet neu, alle weiteren
+        # bekommen den Cache - unproblematisch, da innerhalb der synchronen
+        # Benachrichtigungsschleife kein await stattfindet und sich die zugrunde liegenden
+        # Sensorwerte währenddessen nicht ändern können (gleiches Prinzip wie beim bereits
+        # bestehenden mold_assessment-Cache).
+        self._notify_round = 0
+        self._round_cache = {}
+        self._own_entity_cache = {}
         self._init_extras()
         self._init_history()
 
@@ -360,12 +365,27 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @callback
     def _notify_listeners(self):
-        # Macht den context_model-Cache für diese Benachrichtigungsrunde ungültig - der erste
-        # Lesezugriff (die erste Sensor-Entity) berechnet neu und aktuell, alle weiteren in
-        # derselben Runde bekommen denselben, bereits berechneten Wert (siehe context_model()).
-        self._context_model_gen += 1
+        # _notify_round selbst wird NICHT hier erhöht, sondern am Anfang von
+        # _update_recommendation() (siehe dort) - sonst würde der direkt davor frisch berechnete
+        # context_model/_sun_effect-Cache hier sofort wieder ungültig, und jede Sensor-Entity
+        # müsste in dieser Schleife erneut rechnen statt den gemeinsamen Wert zu nutzen. Pfade,
+        # die ohne vorheriges _update_recommendation() etwas Cache-Relevantes ändern (siehe
+        # Lernaktualisierung in _finish_session()), erhöhen die Runde selbst, direkt an der
+        # Änderungsstelle.
         for update_callback in list(self._listeners):
             update_callback()
+
+    def _per_round(self, key, compute):
+        """Ergebnis von `compute` für den aktuellen Durchlauf (siehe _notify_round)
+        zwischenspeichern - mehrere unabhängige Properties/Sensor-Entities lesen denselben
+        abgeleiteten Wert sonst pro Durchlauf mehrfach neu (gleiches Prinzip wie der schon
+        länger bestehende mold_assessment-Cache)."""
+        cached = self._round_cache.get(key)
+        if cached is not None and cached[0] == self._notify_round:
+            return cached[1]
+        value = compute()
+        self._round_cache[key] = (self._notify_round, value)
+        return value
 
     async def async_setup(self):
         stored = await self.store.async_load() or {}
@@ -1568,6 +1588,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self.learned_ach = self.learned_ach * 0.7 + robust_mean * 0.3
         self.samples += 1
 
+        # self.models/learned_ach gerade geändert, aber kein _update_recommendation() davor in
+        # diesem Durchlauf (das würde den context_model-Cache ungültig machen) - ohne diesen
+        # expliziten Bump würden die Sensoren beim folgenden _notify_listeners() noch den
+        # Luftwechsel von VOR dieser Lernaktualisierung zeigen.
+        self._notify_round += 1
         await self._save()
         self._notify_listeners()
 
@@ -1701,6 +1726,11 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return 15
 
     def _sun_info(self):
+        # Wird pro Runde von mehreren Stellen gelesen (sun_data - zwei eigene Sensor-Entities -
+        # und _sun_effect()) - siehe _notify_round-Kommentar in __init__.
+        return self._per_round("sun_info", self._compute_sun_info)
+
+    def _compute_sun_info(self):
         if not self.data.get(CONF_USE_SUN, True):
             return None
 
@@ -1719,6 +1749,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return elevation, azimuth
 
     def _sun_effect(self):
+        # Wird pro Runde von shutter_recommended (Karte + Rollo-Steuerung) UND
+        # _update_recommendation() unabhängig voneinander aufgerufen - ebenfalls pro Runde
+        # gecacht statt die (potenziell mehrere Sensor-/Wetter-Abfragen umfassende) Berechnung
+        # mehrfach zu wiederholen.
+        return self._per_round("sun_effect", self._compute_sun_effect)
+
+    def _compute_sun_effect(self):
         info = self._sun_info()
         if info is None:
             return False, False, ""
@@ -2009,6 +2046,14 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return self._humidity_active
 
     def _update_recommendation(self):
+        # Macht die Pro-Runde-Caches (context_model, _sun_info/_sun_effect, siehe __init__) für
+        # diesen Durchlauf ungültig, BEVOR irgendetwas unten sie liest (u. a. _sun_effect() hier
+        # in dieser Methode selbst) - ganz am Anfang und vor jedem früh zurückkehrenden Zweig,
+        # damit die Entscheidung in diesem Durchlauf nie auf einem veralteten Cache-Treffer aus
+        # dem letzten Durchlauf basiert. Das anschließende _notify_listeners() erhöht die Runde
+        # bewusst NICHT nochmal, sonst würde der hier frisch berechnete Wert sofort wieder
+        # verworfen, bevor die Sensor-Entities ihn lesen können.
+        self._notify_round += 1
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
 
@@ -2217,10 +2262,25 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return (state.name if state is not None else None) or entity_id
 
     def own_entity(self, platform, key):
-        """Entity-ID einer eigenen Entität (für Klick-Ziele in der Karte)."""
-        return er.async_get(self.hass).async_get_entity_id(
+        """Entity-ID einer eigenen Entität (für Klick-Ziele in der Karte).
+
+        Das Ergebnis ändert sich für eine gegebene (platform, key)-Kombination nie wieder,
+        sobald die Entität einmal registriert ist (feste unique_id) - card_data() ruft das
+        pro Durchlauf mehrfach auf, daher nach dem ersten erfolgreichen Lookup zwischenspeichern
+        statt die Entity-Registry erneut zu befragen. Vor der Registrierung (z. B. ganz am
+        Anfang von async_setup) liefert die Registry None - das bewusst NICHT cachen, sonst
+        bliebe die Karte dauerhaft ohne Klick-Ziel.
+        """
+        cache_key = (platform, key)
+        cached = self._own_entity_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        entity_id = er.async_get(self.hass).async_get_entity_id(
             platform, DOMAIN, f"{self.entry.entry_id}_{key}"
         )
+        if entity_id is not None:
+            self._own_entity_cache[cache_key] = entity_id
+        return entity_id
 
     def card_data(self):
         """Alles, was die Dashboard-Karte braucht, in einem Attribut."""
@@ -2338,8 +2398,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             return None
         return round(abs(indoor - outdoor), 1)
 
-    @property
-    def indoor_rh(self):
+    def _compute_indoor_rh(self):
         # Falls ein echter RH-Sensor konfiguriert ist: direkt verwenden statt aus AH+Temperatur
         # zurückzurechnen (spart eine Umrechnung samt deren Rundungsfehler). Ohne Sensor oder wenn
         # er gerade keinen Wert liefert (z. B. "unavailable"), wie bisher aus AH ableiten.
@@ -2352,7 +2411,13 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return _relative_humidity_from_absolute(ah, temp)
 
     @property
-    def outdoor_rh(self):
+    def indoor_rh(self):
+        # Wird pro Durchlauf von mehreren Stellen gelesen (card_data, mold_assessment,
+        # wall_rh/indoor_dew_point, eigene Sensor-Entity, Entfeuchter-Steuerung in extras.py) -
+        # pro Durchlauf gecacht statt jedes Mal neu von hass.states.get abzuleiten.
+        return self._per_round("indoor_rh", self._compute_indoor_rh)
+
+    def _compute_outdoor_rh(self):
         rh_entity = self.data.get(CONF_OUTDOOR_RH)
         direct = _float_state(self.hass, rh_entity) if rh_entity else None
         if direct is not None:
@@ -2362,14 +2427,22 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return _relative_humidity_from_absolute(ah, temp)
 
     @property
+    def outdoor_rh(self):
+        return self._per_round("outdoor_rh", self._compute_outdoor_rh)
+
+    @property
     def indoor_dew_point(self):
-        temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
-        return _dew_point(temp, self.indoor_rh)
+        def compute():
+            temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+            return _dew_point(temp, self.indoor_rh)
+        return self._per_round("indoor_dew_point", compute)
 
     @property
     def outdoor_dew_point(self):
-        temp = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
-        return _dew_point(temp, self.outdoor_rh)
+        def compute():
+            temp = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
+            return _dew_point(temp, self.outdoor_rh)
+        return self._per_round("outdoor_dew_point", compute)
 
     def _signed_temp_diff(self):
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
@@ -2398,9 +2471,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
     def u_value(self):
         return U_VALUES.get(self.data.get(CONF_BUILDING, DEFAULT_BUILDING), 1.0)
 
-    @property
-    def wall_temperature(self):
-        """Konservative Schätzung der inneren Wandoberflächentemperatur."""
+    def _compute_wall_temperature(self):
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
         if indoor is None or outdoor is None:
@@ -2416,14 +2487,25 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         return outdoor + temperature_factor * (indoor - outdoor)
 
     @property
+    def wall_temperature(self):
+        """Konservative Schätzung der inneren Wandoberflächentemperatur.
+
+        Wird pro Durchlauf von mehreren Stellen gelesen (card_data, mold_assessment,
+        wall_rh/wall_dewpoint_margin, eigene Sensor-Entity) - pro Durchlauf gecacht.
+        """
+        return self._per_round("wall_temperature", self._compute_wall_temperature)
+
+    @property
     def wall_rh(self):
         """Geschätzte relative Feuchte an der kalten Wandoberfläche."""
-        indoor_temperature = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
-        return _relative_humidity_at_surface(
-            indoor_temperature,
-            self.indoor_rh,
-            self.wall_temperature,
-        )
+        def compute():
+            indoor_temperature = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
+            return _relative_humidity_at_surface(
+                indoor_temperature,
+                self.indoor_rh,
+                self.wall_temperature,
+            )
+        return self._per_round("wall_rh", compute)
 
     @property
     def wall_dewpoint_margin(self):
@@ -2481,17 +2563,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             return None
         return {"elevation": info[0], "azimuth": info[1]}
 
+    def _compute_context_model(self):
+        wind, angle, temp_diff = self._context()
+        ach, key = self._model_ach(wind, angle, temp_diff)
+        return {"ach": round(ach, 2), "bucket": key}
+
     @property
     def context_model(self):
         """Geschätzter Luftwechsel für die aktuelle Wind-/Winkel-/Temperatur-Kombination.
 
-        Pro Benachrichtigungsrunde (siehe _notify_listeners()) nur einmal berechnet, nicht pro
-        Sensor-Entity neu - jede Raum-Sensor-Entity liest diesen Wert sonst einzeln.
+        Pro Durchlauf (siehe _notify_round) nur einmal berechnet, nicht pro Sensor-Entity neu -
+        jede Raum-Sensor-Entity liest diesen Wert sonst einzeln.
         """
-        if self._context_model_cache is not None and self._context_model_cache_gen == self._context_model_gen:
-            return self._context_model_cache
-        wind, angle, temp_diff = self._context()
-        ach, key = self._model_ach(wind, angle, temp_diff)
-        self._context_model_cache = {"ach": round(ach, 2), "bucket": key}
-        self._context_model_cache_gen = self._context_model_gen
-        return self._context_model_cache
+        return self._per_round("context_model", self._compute_context_model)
