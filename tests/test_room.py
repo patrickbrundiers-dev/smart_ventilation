@@ -859,3 +859,25 @@ async def test_missing_thunderstorm_sensor_is_a_hard_safety_block(
     hass.states.async_set("binary_sensor.gewitter_erwartet", "off")
     await hass.async_block_till_done()
     assert hass.states.get(rec).attributes["karte"]["minuten"] > 0
+
+
+async def test_context_model_shared_across_sensors_but_not_stale(hass: HomeAssistant) -> None:
+    """context_model (Wind-/Winkel-/Temperatur-Luftwechselschätzung) wird seit der
+    Performance-Optimierung pro Benachrichtigungsrunde einmal berechnet statt separat von jeder
+    einzelnen Sensor-Entity - zwei verschiedene Entities müssen innerhalb derselben Runde
+    denselben Wert sehen (Cache greift), und nach einer echten Windänderung muss der nächste
+    Wert trotzdem aktuell sein (Cache bleibt nicht fälschlich an einem alten Wert hängen)."""
+    entry = await setup_room(hass)
+    ach_entity = eid(hass, "sensor", entry, "context_model_ach")
+    rec_entity = eid(hass, "sensor", entry, "recommendation")
+
+    ach_before = float(hass.states.get(ach_entity).state)
+    assert hass.states.get(rec_entity).attributes["context_model_ach"] == ach_before
+
+    # Deutlich stärkerer Wind -> ein anderer Bucket/Luftwechsel-Wert.
+    hass.states.async_set("sensor.wind", 40)
+    await hass.async_block_till_done()
+
+    ach_after = float(hass.states.get(ach_entity).state)
+    assert ach_after != ach_before  # Cache wurde nicht übersehen - der neue Wert kommt an
+    assert hass.states.get(rec_entity).attributes["context_model_ach"] == ach_after  # beide Entities konsistent

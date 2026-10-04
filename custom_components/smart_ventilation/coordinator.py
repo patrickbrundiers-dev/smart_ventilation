@@ -104,6 +104,16 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         self._party_until = None
         self._mold_assessment_cache_key = None
         self._mold_assessment_cache = None
+        # context_model wird von jeder Raum-Sensor-Entity einzeln gelesen (BaseSensor.
+        # extra_state_attributes, ACHSensor) - ohne Cache würde dieselbe Wind-/Winkel-/
+        # Temperatur-Abfrage bei jeder Listener-Benachrichtigung ca. 30x unnötig wiederholt.
+        # _notify_listeners() erhöht die Generation vor jeder Runde; der erste Lesezugriff
+        # danach berechnet neu, alle weiteren innerhalb derselben Runde bekommen den Cache -
+        # unproblematisch, da innerhalb der synchronen Callback-Schleife kein await stattfindet
+        # und sich die zugrunde liegenden Sensorwerte währenddessen nicht ändern können.
+        self._context_model_cache = None
+        self._context_model_cache_gen = -1
+        self._context_model_gen = 0
         self._init_extras()
         self._init_history()
 
@@ -350,6 +360,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @callback
     def _notify_listeners(self):
+        # Macht den context_model-Cache für diese Benachrichtigungsrunde ungültig - der erste
+        # Lesezugriff (die erste Sensor-Entity) berechnet neu und aktuell, alle weiteren in
+        # derselben Runde bekommen denselben, bereits berechneten Wert (siehe context_model()).
+        self._context_model_gen += 1
         for update_callback in list(self._listeners):
             update_callback()
 
@@ -2469,6 +2483,15 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def context_model(self):
+        """Geschätzter Luftwechsel für die aktuelle Wind-/Winkel-/Temperatur-Kombination.
+
+        Pro Benachrichtigungsrunde (siehe _notify_listeners()) nur einmal berechnet, nicht pro
+        Sensor-Entity neu - jede Raum-Sensor-Entity liest diesen Wert sonst einzeln.
+        """
+        if self._context_model_cache is not None and self._context_model_cache_gen == self._context_model_gen:
+            return self._context_model_cache
         wind, angle, temp_diff = self._context()
         ach, key = self._model_ach(wind, angle, temp_diff)
-        return {"ach": round(ach, 2), "bucket": key}
+        self._context_model_cache = {"ach": round(ach, 2), "bucket": key}
+        self._context_model_cache_gen = self._context_model_gen
+        return self._context_model_cache

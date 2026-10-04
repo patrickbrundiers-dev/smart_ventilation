@@ -146,6 +146,10 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.7
+
+- **Performance:** `context_model` (die Wind-/Winkel-/Temperatur-Luftwechselschätzung) wurde bisher von jeder einzelnen Raum-Sensor-Entität separat neu berechnet (inkl. mehrerer Sensor-Abfragen) – bei ca. 35 Entitäten pro Raum also bis zu 35× derselbe Berechnung pro Benachrichtigungsrunde. Wird jetzt wie die bereits bestehende Schimmelbewertung nur einmal pro Runde berechnet und von allen Entitäten gemeinsam genutzt. Keine sichtbare Verhaltensänderung, nur weniger überflüssige Arbeit bei jedem Sensor-Update.
+
 ### Version 2.22.6
 
 - Kleines Aufräumen: In `card_data()` (Daten für die Übersichtskarte) war der Schlüssel `schimmel_h_heute` versehentlich doppelt gesetzt – das zweite (gleichwertige) Vorkommen entfernt. Keine sichtbare Verhaltensänderung.
