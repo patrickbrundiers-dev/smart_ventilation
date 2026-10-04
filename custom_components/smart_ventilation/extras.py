@@ -431,6 +431,13 @@ class RoomExtrasMixin:
             category=CAT_WARNING,
         )
 
+    def _reset_warm_warned(self):
+        """Für eine neue Lüftungssitzung: die "Fenster schließen"-Warnung (siehe
+        _warm_outside_warning) darf wieder feuern. Eigene Methode, damit der Coordinator beim
+        Sitzungsstart nicht direkt in diesen von RoomExtrasMixin verwalteten State schreibt
+        (siehe _init_extras)."""
+        self._warm_warned = False
+
     # ------------------------------------------------------------------
     # Luftentfeuchter
     # ------------------------------------------------------------------

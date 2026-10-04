@@ -744,7 +744,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             "learning_blocked": False,
             "trace": [[0, indoor, _float_state(self.hass, self.data[CONF_INDOOR_TEMP])]],
         }
-        self._warm_warned = False
+        self._reset_warm_warned()
         self._session_start_diff = diff
         self._target_notified = False
         self.hass.async_create_task(self._save())

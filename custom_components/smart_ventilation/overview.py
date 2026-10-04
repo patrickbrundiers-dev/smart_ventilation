@@ -44,6 +44,23 @@ class OverviewCoordinator:
         self._last_report = None
         self._last_month_report = None
 
+        # room_list()/totals()/day_trend() iterieren jeweils über alle Räume und werden pro Tick
+        # von mehreren Sensor-Entities unabhängig gelesen (native_value + extra_state_attributes je
+        # Entity, teils über rooms_needing()/most_urgent verschachtelt) - ohne Cache bis zu 4x pro
+        # Tick komplett neu aufgebaut. _tick_id wird einmal pro _tick()-Durchlauf erhöht (siehe
+        # _per_tick()), genau wie self._notify_round beim Raum-Coordinator für denselben Zweck.
+        self._tick_id = 0
+        self._tick_cache = {}
+
+    def _per_tick(self, key, compute):
+        """Ergebnis von `compute` für den aktuellen Tick zwischenspeichern, siehe _tick_id."""
+        cached = self._tick_cache.get(key)
+        if cached is not None and cached[0] == self._tick_id:
+            return cached[1]
+        value = compute()
+        self._tick_cache[key] = (self._tick_id, value)
+        return value
+
     # ------------------------------------------------------------------
     @property
     def combine(self):
@@ -84,6 +101,9 @@ class OverviewCoordinator:
         return round(score, 2)
 
     def room_list(self):
+        return self._per_tick("room_list", self._compute_room_list)
+
+    def _compute_room_list(self):
         rooms = []
         for room in self.rooms():
             s = room.period_stats("day")
@@ -118,6 +138,9 @@ class OverviewCoordinator:
         return [r for r in self.room_list() if r["lueften"]]
 
     def totals(self):
+        return self._per_tick("totals", self._compute_totals)
+
+    def _compute_totals(self):
         """Aufsummierte Heizkosten-Bilanz durchs Lüften heute, über alle Räume."""
         kwh = cost = kwh_saved = cost_saved = 0.0
         for room in self.rooms():
@@ -136,6 +159,9 @@ class OverviewCoordinator:
         }
 
     def day_trend(self, days=7):
+        return self._per_tick(("day_trend", days), lambda: self._compute_day_trend(days))
+
+    def _compute_day_trend(self, days):
         """7-Tage-Trend über alle Räume aufsummiert, für die Sparkline auf der Übersichtskarte."""
         out = None
         for room in self.rooms():
@@ -204,6 +230,9 @@ class OverviewCoordinator:
             self.hass.async_create_task(self._save())
 
     async def _tick(self, _now=None):
+        # Macht room_list()/totals()/day_trend() (siehe _per_tick) für diesen Durchlauf ungültig,
+        # BEVOR die Sensor-Entities unten benachrichtigt werden und ihrerseits diese Werte lesen.
+        self._tick_id += 1
         for update_callback in list(self._listeners):
             update_callback()
         if self.combine:

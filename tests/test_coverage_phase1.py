@@ -144,6 +144,29 @@ def test_overview_room_list_and_urgency(hass: HomeAssistant):
     assert coordinator.most_urgent == "Bad"
 
 
+def test_overview_room_list_cached_per_tick_but_not_stale_across_ticks(hass: HomeAssistant):
+    """room_list()/totals()/day_trend() werden pro Tick gecacht (siehe _per_tick in overview.py) -
+    mehrere Sensor-Entities (native_value + extra_state_attributes, teils über rooms_needing()/
+    most_urgent verschachtelt) lesen sonst pro Tick bis zu 4x denselben Wert neu. Zwei Dinge
+    müssen stimmen: innerhalb eines Ticks liefert ein zweiter Aufruf denselben gecachten Wert,
+    auch wenn sich der Raum währenddessen ändert; nach dem nächsten Tick (_tick_id erhöht sich,
+    wie es _tick() am Anfang jedes Durchlaufs tut) wird der neue Wert gesehen."""
+    entry = MockConfigEntry(domain=DOMAIN, entry_id="overview-test", data={"entry_type": "overview"})
+    entry.add_to_hass(hass)
+    room = _room("Bad")
+    hass.data[DOMAIN] = {"r1": room}
+    coordinator = OverviewCoordinator(hass, entry)
+
+    assert coordinator.room_list()[0]["minuten"] == 15
+    room.recommended_minutes = 99  # Änderung "mitten im Tick" - darf den Cache nicht umwerfen
+    assert coordinator.room_list()[0]["minuten"] == 15
+    assert coordinator.rooms_needing()[0]["minuten"] == 15
+    assert coordinator.totals()["heute_kwh"] == 0.4
+
+    coordinator._tick_id += 1  # simuliert den nächsten _tick()-Durchlauf
+    assert coordinator.room_list()[0]["minuten"] == 99
+
+
 def test_urgency_ranks_critical_mold_above_high_mold(hass: HomeAssistant):
     """MOLD_WEIGHT kannte "kritisch" bisher nicht -> .get(..., 0.0) gab einem Raum mit akutem
     Schimmelrisiko denselben (Null-)Dringlichkeits-Bonus wie einem Raum ganz ohne Risiko. Ein

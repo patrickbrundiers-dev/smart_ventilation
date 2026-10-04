@@ -146,6 +146,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.10
+
+- **Performance:** Letzter noch offener Punkt aus der Verbesserungs-Review: `room_list()`/`totals()`/`day_trend()` der Übersicht (`overview.py`) wurden pro Tick bis zu 4× komplett über alle Räume neu aufgebaut (Sensor-Entities lesen sie unabhängig über `native_value`/`extra_state_attributes`, teils verschachtelt über `rooms_needing()`/`most_urgent`) – jetzt wie beim Raum-Coordinator einmal pro Tick berechnet und wiederverwendet. Keine sichtbare Verhaltensänderung, mit neuem Regressionstest abgesichert.
+- **Architektur:** `_warm_warned` (Zustand der „Fenster schließen“-Warnung) wurde vom Coordinator bisher direkt in den von `RoomExtrasMixin` verwalteten State geschrieben statt über eine Methode – jetzt über `_reset_warm_warned()`.
+
 ### Version 2.22.9
 
 - **Architektur:** Weitere Punkte aus der Verbesserungs-Review umgesetzt (reine Lesbarkeits-/Wartbarkeits-Refactorings, keine Verhaltensänderung):
