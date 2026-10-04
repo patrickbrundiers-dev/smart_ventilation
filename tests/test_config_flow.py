@@ -133,6 +133,54 @@ async def test_room_form_rejects_same_sensor_for_indoor_and_outdoor_humidity(has
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
+async def test_room_form_rejects_same_sensor_for_indoor_and_outdoor_relative_humidity(
+    hass: HomeAssistant,
+) -> None:
+    """Dieselbe Lücke wie beim same_sensor_humidity-Test oben, nur für die optionalen rel.
+    Feuchte-Sensoren (indoor_relative_humidity/outdoor_relative_humidity) statt der absoluten
+    Pflichtfelder - auch hier muss die Eingabe abgelehnt werden statt stillschweigend
+    gespeichert zu werden."""
+    set_room_states(hass)
+    hass.states.async_set("sensor.innen_rh", 55)
+    room_input = {
+        **ROOM_INPUT,
+        "indoor": {**ROOM_INPUT["indoor"], "indoor_relative_humidity": "sensor.innen_rh"},
+        "outdoor": {**ROOM_INPUT["outdoor"], "outdoor_relative_humidity": "sensor.innen_rh"},
+    }
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], room_input)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "same_sensor_rh"}
+
+    hass.states.async_set("sensor.aussen_rh", 70)
+    fixed = {**room_input, "outdoor": {**room_input["outdoor"], "outdoor_relative_humidity": "sensor.aussen_rh"}}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], fixed)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_room_form_rejects_preheat_temp_at_or_above_comfort_temp(hass: HomeAssistant) -> None:
+    """Vorheizen wärmt bis ca. preheat_temperature, Kühlen öffnet ab ca. comfort_temperature
+    wieder - liegt preheat_temperature bei/über comfort_temperature, würde Vorheizen den Raum
+    sofort wieder über die Kühl-Schwelle treiben. Muss beim Einrichten abgelehnt werden."""
+    set_room_states(hass)
+    room_input = {
+        **ROOM_INPUT,
+        "behavior": {"comfort_temperature": 20.0, "preheat_temperature": 20.0},
+    }
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "room"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], room_input)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "preheat_above_comfort"}
+
+    fixed = {**room_input, "behavior": {"comfort_temperature": 23.0, "preheat_temperature": 19.0}}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], fixed)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
 async def test_room_twice_aborts(hass: HomeAssistant) -> None:
     await setup_room(hass)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
@@ -215,6 +263,27 @@ def _frontend_input(schema) -> dict:
         if suggested is not None:
             result[str(marker)] = suggested
     return result
+
+
+async def test_options_rejects_preheat_temp_at_or_above_comfort_temp(hass: HomeAssistant) -> None:
+    """_validate_room() (same_sensor_*/preheat_above_comfort) läuft laut async_step_init auch im
+    Options-Flow, war dort aber bisher ungetestet - nur der Einrichtungs-Flow hatte Tests dafür."""
+    entry = await setup_room(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        _options_input(entry, comfort_temperature=20.0, preheat_temperature=20.0),
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "preheat_above_comfort"}
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        _options_input(entry, comfort_temperature=23.0, preheat_temperature=19.0),
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.options["preheat_temperature"] == 19.0
 
 
 async def test_options_save_unchanged_like_frontend(hass: HomeAssistant) -> None:

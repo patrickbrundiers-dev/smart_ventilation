@@ -146,6 +146,16 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.12
+
+- **UX/Config/Karte:** Weitere Punkte aus der Verbesserungs-Review umgesetzt:
+  - Schimmelrisiko „kritisch" hatte kein eigenes Icon und fiel auf das beruhigende Entwarnungs-Symbol zurück – jetzt `mdi:alert-octagon` (deutlich auffälliger als „hoch").
+  - Die Same-Sensor-Prüfung beim Einrichten/Ändern eines Raums deckte die optionalen rel. Feuchte-Sensoren (`indoor_relative_humidity`/`outdoor_relative_humidity`) nicht ab – dieselbe Lücke, die bei den Pflichtfeldern für absolute Feuchte/Temperatur schon geschlossen war.
+  - Neue Plausibilitätsprüfung: Vorheiz-Zieltemperatur darf nicht bei/über der Komfort-/Kühltemperatur liegen (sonst würde Vorheizen den Raum sofort wieder über die Kühl-Schwelle treiben).
+  - Karte: Schnellaktionen (Snooze, Party-Modus, Überspringen) zeigen jetzt Lade-Feedback (gedimmt + drehendes Icon) während des Service-Aufrufs und einen kurzen Fehlerhinweis (roter Rahmen + Tooltip), statt dass ein Fehlschlag nur in der Browser-Konsole landete.
+  - Karte: Technische Stack-Trace-Details beim seltenen Fall „Karte konnte nicht angezeigt werden" stehen jetzt hinter einem einklappbaren „Technische Details"-Abschnitt statt direkt sichtbar zu sein – die volle Information bleibt weiterhin in der Browser-Konsole.
+  - Geprüft, aber nicht geändert: `PeriodSensor` (Tag/Woche/Monat) nutzt bewusst `TOTAL_INCREASING`, wie bereits `HeatLossTodaySensor`/`EnergyTotalSensor` im selben Modul – das ist für einen zu Periodenbeginn auf 0 zurückspringenden Zähler genau der dafür vorgesehene state_class (Home Assistant interpretiert einen Rücksprung automatisch als Zählerwechsel). Die ursprüngliche Review-Notiz bezog sich auf eine andere, nicht übertragbare Einschränkung bei `device_class: monetary` (siehe Begründung bei `CostMonthSensor`).
+
 ### Version 2.22.11
 
 - **Architektur:** Die beiden letzten, bewusst zurückgestellten (größeren) Punkte aus der Verbesserungs-Review umgesetzt – reine Struktur-Refactorings, keine Verhaltensänderung:

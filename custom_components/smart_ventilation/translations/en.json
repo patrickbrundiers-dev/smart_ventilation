@@ -243,13 +243,17 @@
     },
     "error": {
       "same_sensor_humidity": "Indoor and outdoor humidity are the same sensor - the difference would always be 0.",
-      "same_sensor_temp": "Indoor and outdoor temperature are the same sensor - the difference would always be 0."
+      "same_sensor_temp": "Indoor and outdoor temperature are the same sensor - the difference would always be 0.",
+      "same_sensor_rh": "Indoor and outdoor relative humidity are the same sensor - the difference would always be 0.",
+      "preheat_above_comfort": "The preheat target temperature should be below the comfort/cooling temperature, otherwise preheating would immediately push the room back above the cooling threshold."
     }
   },
   "options": {
     "error": {
       "same_sensor_humidity": "Indoor and outdoor humidity are the same sensor - the difference would always be 0.",
-      "same_sensor_temp": "Indoor and outdoor temperature are the same sensor - the difference would always be 0."
+      "same_sensor_temp": "Indoor and outdoor temperature are the same sensor - the difference would always be 0.",
+      "same_sensor_rh": "Indoor and outdoor relative humidity are the same sensor - the difference would always be 0.",
+      "preheat_above_comfort": "The preheat target temperature should be below the comfort/cooling temperature, otherwise preheating would immediately push the room back above the cooling threshold."
     },
     "step": {
       "init": {

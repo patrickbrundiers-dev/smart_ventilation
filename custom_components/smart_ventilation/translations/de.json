@@ -243,13 +243,17 @@
     },
     "error": {
       "same_sensor_humidity": "Innen- und Außenfeuchte sind derselbe Sensor - die Differenz wäre dann immer 0.",
-      "same_sensor_temp": "Innen- und Außentemperatur sind derselbe Sensor - die Differenz wäre dann immer 0."
+      "same_sensor_temp": "Innen- und Außentemperatur sind derselbe Sensor - die Differenz wäre dann immer 0.",
+      "same_sensor_rh": "Innen- und Außenluftfeuchte (rel.) sind derselbe Sensor - die Differenz wäre dann immer 0.",
+      "preheat_above_comfort": "Vorheiz-Zieltemperatur sollte unter der Komfort-/Kühltemperatur liegen, sonst würde Vorheizen den Raum sofort wieder über die Kühl-Schwelle treiben."
     }
   },
   "options": {
     "error": {
       "same_sensor_humidity": "Innen- und Außenfeuchte sind derselbe Sensor - die Differenz wäre dann immer 0.",
-      "same_sensor_temp": "Innen- und Außentemperatur sind derselbe Sensor - die Differenz wäre dann immer 0."
+      "same_sensor_temp": "Innen- und Außentemperatur sind derselbe Sensor - die Differenz wäre dann immer 0.",
+      "same_sensor_rh": "Innen- und Außenluftfeuchte (rel.) sind derselbe Sensor - die Differenz wäre dann immer 0.",
+      "preheat_above_comfort": "Vorheiz-Zieltemperatur sollte unter der Komfort-/Kühltemperatur liegen, sonst würde Vorheizen den Raum sofort wieder über die Kühl-Schwelle treiben."
     },
     "step": {
       "init": {

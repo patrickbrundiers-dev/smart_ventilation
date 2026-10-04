@@ -357,9 +357,13 @@ class SmartVentilationCard extends HTMLElement {
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     const msg = `${err?.name || "Fehler"}: ${err?.message || err}`;
     const where = String(err?.stack || "").split("\n").slice(1, 3).map((l) => l.trim()).join(" | ");
+    // Die ersten beiden Stack-Zeilen sind nur für die Fehlersuche hilfreich (Datei/Zeile im
+    // Karten-Code) und für die Nutzerin selbst Rauschen - hinter <details> statt direkt sichtbar,
+    // volle Details stehen ohnehin schon in der Browser-Konsole (siehe `set hass` oben).
+    const details = where ? `<details class="err-where"><summary>Technische Details</summary>${esc(where)}</details>` : "";
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card><div class="alert tone-bad">
       <ha-icon icon="mdi:alert-circle-outline"></ha-icon><div><b>Smart Ventilation: Karte konnte nicht angezeigt werden</b>
-      <span>${esc(msg)}</span><span class="err-where">${esc(where)}</span></div></div></ha-card>`;
+      <span>${esc(msg)}</span>${details}</div></div></ha-card>`;
   }
 
   getCardSize() {
@@ -420,7 +424,7 @@ class SmartVentilationCard extends HTMLElement {
     this.shadowRoot.querySelectorAll("[data-press]").forEach((el) => {
       const press = (ev) => {
         ev.stopPropagation();
-        this._press(el.dataset.entity);
+        this._press(el.dataset.entity, el);
       };
       el.addEventListener("click", press);
       el.addEventListener("keydown", (ev) => {
@@ -455,9 +459,22 @@ class SmartVentilationCard extends HTMLElement {
     this._bindChart();
   }
 
-  _press(entityId) {
+  _press(entityId, el) {
     if (!entityId || !this._hass) return;
-    this._hass.callService("button", "press", { entity_id: entityId }).catch((err) => console.error("smart-ventilation-card", err));
+    // Bis die Antwort da ist (oder bis zum nächsten echten Kartenupdate) gibt es sonst gar keine
+    // Rückmeldung, ob der Klick angekommen ist - bei einem Fehler landete er bisher nur in der
+    // Browser-Konsole, unsichtbar für die Nutzerin.
+    el?.classList.add("is-loading");
+    el?.classList.remove("is-error");
+    this._hass.callService("button", "press", { entity_id: entityId })
+      .catch((err) => {
+        console.error("smart-ventilation-card", err);
+        if (!el) return;
+        el.classList.add("is-error");
+        el.title = `Aktion fehlgeschlagen: ${err?.message || err}`;
+        setTimeout(() => el.classList.remove("is-error"), 3000);
+      })
+      .finally(() => el?.classList.remove("is-loading"));
   }
 
   /* ---------- Raum ---------- */
@@ -854,6 +871,15 @@ const STYLE = `
   .action-btn:hover { background: var(--sv-surface-hover); color: var(--sv-text); }
   .action-btn ha-icon { --mdc-icon-size: 15px; }
 
+  /* Lade-/Fehler-Feedback für Schnellaktionen (Snooze/Party/Überspringen, siehe _press) - ohne
+     das blieb ein Klick bis zum nächsten Kartenupdate ohne jede Rückmeldung, ein fehlgeschlagener
+     Service-Call landete nur in der Browser-Konsole. */
+  [data-press].is-loading { opacity: .55; pointer-events: none; }
+  [data-press].is-loading ha-icon { animation: sv-spin .8s linear infinite; }
+  [data-press].is-error { border-color: var(--sv-bad) !important; color: var(--sv-bad) !important; animation: sv-shake .3s; }
+  @keyframes sv-spin { to { transform: rotate(360deg); } }
+  @keyframes sv-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+
   /* Hinweise */
   .alert { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--sv-inner);
     background: color-mix(in srgb, var(--tone) 12%, transparent); border: 1px solid color-mix(in srgb, var(--tone) 28%, transparent); }
@@ -992,7 +1018,8 @@ const STYLE = `
 
   .empty { display: flex; gap: 12px; align-items: center; color: var(--sv-text-2); font-size: 13px; }
   .empty div { display: flex; flex-direction: column; } .empty b { color: var(--sv-text); }
-  .err-where { font-size: 11px; opacity: .7; word-break: break-all; }
+  .err-where { font-size: 11px; opacity: .7; word-break: break-all; margin-top: 4px; }
+  .err-where summary { cursor: pointer; }
 
   @container (max-width: 340px) {
     .tile { padding: 9px 10px; }

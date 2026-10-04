@@ -363,6 +363,19 @@ def _validate_room(data: dict) -> dict:
         errors["base"] = "same_sensor_humidity"
     elif data.get(CONF_INDOOR_TEMP) and data.get(CONF_INDOOR_TEMP) == data.get(CONF_OUTDOOR_TEMP):
         errors["base"] = "same_sensor_temp"
+    elif data.get(CONF_INDOOR_RH) and data.get(CONF_INDOOR_RH) == data.get(CONF_OUTDOOR_RH):
+        # Dieselbe Lücke wie bei CONF_INDOOR_HUMIDITY/CONF_OUTDOOR_HUMIDITY oben, nur für die
+        # optionalen rel. Feuchte-Sensoren (Wand-/Schimmelbewertung) statt der absoluten Feuchte.
+        errors["base"] = "same_sensor_rh"
+    elif (
+        data.get(CONF_PREHEAT_TEMP) is not None
+        and data.get(CONF_COMFORT_TEMP) is not None
+        and float(data[CONF_PREHEAT_TEMP]) >= float(data[CONF_COMFORT_TEMP])
+    ):
+        # Vorheizen wärmt bis ca. preheat_temp, Kühlen öffnet ab ca. comfort_temp wieder (siehe
+        # extras.py::preheat_plan/_shutter_control) - liegt preheat_temp bei/über comfort_temp,
+        # würde "vorheizen" den Raum gleich wieder über die Kühl-Schwelle treiben.
+        errors["base"] = "preheat_above_comfort"
     return errors
 
 

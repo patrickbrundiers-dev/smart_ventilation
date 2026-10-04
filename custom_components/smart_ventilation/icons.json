@@ -54,6 +54,7 @@
         "state": {
           "elevated": "mdi:shield-alert-outline",
           "high": "mdi:alert-octagon-outline",
+          "critical": "mdi:alert-octagon",
           "unknown": "mdi:shield-off-outline"
         }
       },
