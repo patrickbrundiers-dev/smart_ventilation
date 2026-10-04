@@ -427,29 +427,43 @@ async def test_dehumidifier_restart_cooldown_blocks_then_allows_after_expiry(
 ) -> None:
     """Nach dem Ausschalten darf der Entfeuchter laut DEHUM_RESTART_COOLDOWN_MINUTES nicht
     sofort wieder anspringen, selbst wenn der Bedarf zwischenzeitlich erneut besteht
-    (Pingpong-Schutz) - erst nach Ablauf der Cooldown-Zeit wieder."""
+    (Pingpong-Schutz) - erst nach Ablauf der Cooldown-Zeit wieder. Ruft _dehumidifier_control()
+    direkt mit einem fest vorgegebenen "now" auf (statt über den 30-s-Takt mehrere Minuten
+    "echt" verstreichen zu lassen) - das macht den genauen Zeitablauf exakt nachvollziehbar,
+    unabhängig davon, wie oft der Feedback-Takt des Test-Frameworks beim Zeitsprung intern
+    nachholend auslöst."""
     freezer.move_to("2026-12-05 10:00:00+01:00")
     on = async_mock_service(hass, "switch", "turn_on")
     off = async_mock_service(hass, "switch", "turn_off")
     hass.states.async_set("switch.entfeuchter", "off")
-    await setup_room(hass, dehumidifier_entity="switch.entfeuchter")
-    hass.states.async_set("sensor.regen", 1.2)            # Regen -> Lüften blockiert
-    hass.states.async_set("sensor.innen_ah", 12.5)        # ~70 % rel. Feuchte
-    await _tick(hass, freezer, 0.5)
+    entry = await setup_room(hass, dehumidifier_entity="switch.entfeuchter")
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    hass.states.async_set("sensor.regen", 1.2)  # Regen -> Lüften blockiert
+
+    async def run(now, ah):
+        freezer.move_to(now)
+        hass.states.async_set("sensor.innen_ah", ah)
+        coordinator._notify_round += 1  # macht indoor_rh (siehe _per_round) für diesen Durchlauf neu
+        await coordinator._dehumidifier_control(now)
+
+    now = dt_util.now()
+    await run(now, 12.5)  # ~70 % rel. Feuchte -> Bedarf
     assert len(on) == 1
 
-    hass.states.async_set("sensor.innen_ah", 8.0)         # trocken genug
-    await _tick(hass, freezer, 16)
+    now = now + timedelta(minutes=16)
+    await run(now, 8.0)  # trocken genug, Mindestlaufzeit vorbei -> aus
     assert len(off) == 1
+    assert coordinator._dehum_off_until == now + timedelta(minutes=DEHUM_RESTART_COOLDOWN_MINUTES)
 
     # Direkt wieder feucht, aber noch innerhalb der Cooldown-Zeit -> darf NICHT sofort
     # wieder anspringen.
-    hass.states.async_set("sensor.innen_ah", 12.5)
-    await _tick(hass, freezer, DEHUM_RESTART_COOLDOWN_MINUTES - 1)
+    now = now + timedelta(minutes=DEHUM_RESTART_COOLDOWN_MINUTES - 1)
+    await run(now, 12.5)
     assert len(on) == 1
 
     # Cooldown abgelaufen -> jetzt darf er wieder anspringen.
-    await _tick(hass, freezer, 2)
+    now = now + timedelta(minutes=2)
+    await run(now, 12.5)
     assert len(on) == 2
 
 
@@ -458,25 +472,39 @@ async def test_dehumidifier_restart_cooldown_bypassed_when_mold_risk_high(
 ) -> None:
     """Bei hohem Schimmelrisiko (mold_risk == "hoch") darf der Entfeuchter die
     Neustart-Cooldown-Zeit überspringen und sofort wieder anspringen, statt wie im Normalfall
-    DEHUM_RESTART_COOLDOWN_MINUTES abzuwarten."""
+    DEHUM_RESTART_COOLDOWN_MINUTES abzuwarten. Siehe
+    test_dehumidifier_restart_cooldown_blocks_then_allows_after_expiry zum direkten Aufruf von
+    _dehumidifier_control() mit festem "now"."""
     freezer.move_to("2026-12-05 10:00:00+01:00")
     on = async_mock_service(hass, "switch", "turn_on")
     off = async_mock_service(hass, "switch", "turn_off")
     hass.states.async_set("switch.entfeuchter", "off")
-    await setup_room(hass, dehumidifier_entity="switch.entfeuchter")
-    hass.states.async_set("sensor.regen", 1.2)            # Regen -> Lüften blockiert
-    hass.states.async_set("sensor.innen_ah", 12.5)        # ~70 % rel. Feuchte
-    await _tick(hass, freezer, 0.5)
+    entry = await setup_room(hass, dehumidifier_entity="switch.entfeuchter")
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    hass.states.async_set("sensor.regen", 1.2)  # Regen -> Lüften blockiert
+
+    async def run(now, ah):
+        freezer.move_to(now)
+        hass.states.async_set("sensor.innen_ah", ah)
+        coordinator._notify_round += 1
+        await coordinator._dehumidifier_control(now)
+
+    now = dt_util.now()
+    await run(now, 12.5)  # ~70 % rel. Feuchte -> Bedarf
     assert len(on) == 1
 
-    hass.states.async_set("sensor.innen_ah", 8.0)         # trocken genug
-    await _tick(hass, freezer, 16)
+    now = now + timedelta(minutes=16)
+    await run(now, 8.0)  # trocken genug, Mindestlaufzeit vorbei -> aus
     assert len(off) == 1
+    assert coordinator._dehum_off_until == now + timedelta(minutes=DEHUM_RESTART_COOLDOWN_MINUTES)
 
-    # Sehr hohe Luftfeuchte (ohne Wandsensoren stuft das Schimmelrisiko allein anhand der
-    # Raumluftfeuchte auf "hoch" ein) -> Cooldown wird trotz frischem Ausschalten ignoriert.
-    hass.states.async_set("sensor.innen_ah", 14.0)
-    await _tick(hass, freezer, 1)
+    # Direkt danach (klar innerhalb der Cooldown-Zeit) sehr hohe Luftfeuchte: Ohne
+    # Wandsensoren stuft das Schimmelrisiko allein anhand der Raumluftfeuchte auf "hoch" ein
+    # (siehe mold_engine.py) - das lässt den Entfeuchter die Cooldown-Zeit überspringen.
+    now = now + timedelta(minutes=1)
+    assert coordinator._dehum_off_until > now  # zur Kontrolle: Cooldown wäre hier sonst noch aktiv
+    await run(now, 14.0)
+    assert coordinator.mold_risk == "hoch"
     assert len(on) == 2
 
 
