@@ -431,7 +431,11 @@ async def test_dehumidifier_restart_cooldown_blocks_then_allows_after_expiry(
     direkt mit einem fest vorgegebenen "now" auf (statt über den 30-s-Takt mehrere Minuten
     "echt" verstreichen zu lassen) - das macht den genauen Zeitablauf exakt nachvollziehbar,
     unabhängig davon, wie oft der Feedback-Takt des Test-Frameworks beim Zeitsprung intern
-    nachholend auslöst."""
+    nachholend auslöst. Nutzt für den Bedarf 11,0 g/m³ (~62 % rel. Feuchte) statt eines höheren
+    Werts: wall_rh (siehe coordinator.py::wall_rh - auch ohne eigenen Wandfeuchte-Sensor aus
+    Innen-/Außentemperatur geschätzt) läge bei den hier recht kalten -3 °C Außentemperatur sonst
+    selbst schnell im Bereich "hoch" und würde über den eigentlich zu testenden Cooldown hinweg
+    unbeabsichtigt mit bypassen (siehe die zweite, dafür extra ausgelegte Test-Funktion unten)."""
     freezer.move_to("2026-12-05 10:00:00+01:00")
     on = async_mock_service(hass, "switch", "turn_on")
     off = async_mock_service(hass, "switch", "turn_off")
@@ -447,8 +451,9 @@ async def test_dehumidifier_restart_cooldown_blocks_then_allows_after_expiry(
         await coordinator._dehumidifier_control(now)
 
     now = dt_util.now()
-    await run(now, 12.5)  # ~70 % rel. Feuchte -> Bedarf
+    await run(now, 11.0)  # ~62 % rel. Feuchte -> Bedarf, Schimmelrisiko bleibt "erhöht"
     assert len(on) == 1
+    assert coordinator.mold_risk != "hoch"
 
     now = now + timedelta(minutes=16)
     await run(now, 8.0)  # trocken genug, Mindestlaufzeit vorbei -> aus
@@ -458,12 +463,12 @@ async def test_dehumidifier_restart_cooldown_blocks_then_allows_after_expiry(
     # Direkt wieder feucht, aber noch innerhalb der Cooldown-Zeit -> darf NICHT sofort
     # wieder anspringen.
     now = now + timedelta(minutes=DEHUM_RESTART_COOLDOWN_MINUTES - 1)
-    await run(now, 12.5)
+    await run(now, 11.0)
     assert len(on) == 1
 
     # Cooldown abgelaufen -> jetzt darf er wieder anspringen.
     now = now + timedelta(minutes=2)
-    await run(now, 12.5)
+    await run(now, 11.0)
     assert len(on) == 2
 
 
@@ -474,7 +479,9 @@ async def test_dehumidifier_restart_cooldown_bypassed_when_mold_risk_high(
     Neustart-Cooldown-Zeit überspringen und sofort wieder anspringen, statt wie im Normalfall
     DEHUM_RESTART_COOLDOWN_MINUTES abzuwarten. Siehe
     test_dehumidifier_restart_cooldown_blocks_then_allows_after_expiry zum direkten Aufruf von
-    _dehumidifier_control() mit festem "now"."""
+    _dehumidifier_control() mit festem "now" und zur Wahl von 11,0 g/m³ für die erste Bedarfsphase
+    (statt eines Werts, der die hier aus Innen-/Außentemperatur geschätzte Wandfeuchte schon
+    selbst auf "hoch" treiben würde)."""
     freezer.move_to("2026-12-05 10:00:00+01:00")
     on = async_mock_service(hass, "switch", "turn_on")
     off = async_mock_service(hass, "switch", "turn_off")
@@ -490,7 +497,7 @@ async def test_dehumidifier_restart_cooldown_bypassed_when_mold_risk_high(
         await coordinator._dehumidifier_control(now)
 
     now = dt_util.now()
-    await run(now, 12.5)  # ~70 % rel. Feuchte -> Bedarf
+    await run(now, 11.0)  # ~62 % rel. Feuchte -> Bedarf, Schimmelrisiko noch "erhöht"
     assert len(on) == 1
 
     now = now + timedelta(minutes=16)
@@ -498,12 +505,12 @@ async def test_dehumidifier_restart_cooldown_bypassed_when_mold_risk_high(
     assert len(off) == 1
     assert coordinator._dehum_off_until == now + timedelta(minutes=DEHUM_RESTART_COOLDOWN_MINUTES)
 
-    # Direkt danach (klar innerhalb der Cooldown-Zeit) sehr hohe Luftfeuchte: Ohne
-    # Wandsensoren stuft das Schimmelrisiko allein anhand der Raumluftfeuchte auf "hoch" ein
-    # (siehe mold_engine.py) - das lässt den Entfeuchter die Cooldown-Zeit überspringen.
+    # Direkt danach (klar innerhalb der Cooldown-Zeit) hohe Luftfeuchte, die die geschätzte
+    # Wandfeuchte (siehe coordinator.py::wall_rh) auf "hoch" treibt -> das lässt den Entfeuchter
+    # die Cooldown-Zeit überspringen.
     now = now + timedelta(minutes=1)
     assert coordinator._dehum_off_until > now  # zur Kontrolle: Cooldown wäre hier sonst noch aktiv
-    await run(now, 14.0)
+    await run(now, 13.0)
     assert coordinator.mold_risk == "hoch"
     assert len(on) == 2
 
