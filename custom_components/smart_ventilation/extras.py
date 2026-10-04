@@ -13,7 +13,8 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CAT_MOLD, CAT_REPORT, CAT_SHOWER, CAT_WARNING,
     CONF_MAX_TEMP_DIFF, DEFAULT_MAX_TEMP_DIFF,
-    CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_SHUTTER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP, CONF_TARGET_ABS,
+    CONF_COMFORT_TEMP, CONF_DEHUMIDIFIER, CONF_SHUTTER, CONF_INDOOR_HUMIDITY, CONF_INDOOR_TEMP,
+    CONF_TARGET_ABS, DEFAULT_TARGET_ABS,
     CONF_NAME, CONF_OUTDOOR_HUMIDITY, CONF_OUTDOOR_TEMP, CONF_SHOWER, CONF_SHOWER_DETECT,
     CONF_VACATION, CONF_VACATION_KEYWORD, CONF_WEEKLY_REPORT, COOL_MAX_EXTRA_HUMIDITY,
     COOL_MIN_DIFF, DEFAULT_COMFORT_TEMP, DEFAULT_TARGET_DIFF, DEHUM_MIN_RUNTIME_MINUTES,
@@ -280,7 +281,8 @@ class RoomExtrasMixin:
         cross = len(self.windows) >= 2
         n, _ = self._model_ach(wind, angle, temp_diff, cross)
         target = max(self.comfort_temp, to + 0.5)
-        return max(10, min(60, -60 / n * math.log((target - to) / (ti - to)) if ti > target else 10))
+        minutes = self._minutes_for_ratio(n, (target - to) / (ti - to)) if ti > target else 10
+        return max(10, min(60, minutes))
 
     # ------------------------------------------------------------------
     # Vorheizen per Lüften (nach kalter Nacht wärmere Luft tagsüber nutzen)
@@ -328,7 +330,35 @@ class RoomExtrasMixin:
         cross = len(self.windows) >= 2
         n, _ = self._model_ach(wind, angle, temp_diff, cross)
         target = min(self.preheat_temp, to - 0.5)
-        return max(10, min(60, -60 / n * math.log((to - target) / (to - ti)) if ti < target else 10))
+        minutes = self._minutes_for_ratio(n, (to - target) / (to - ti)) if ti < target else 10
+        return max(10, min(60, minutes))
+
+    def _forecast_window_text(self, forecast, predicate):
+        """Durchsucht die Stundenvorhersage nach dem ersten zusammenhängenden Zeitfenster, in
+        dem `predicate(item, temp)` zutrifft, und formatiert es als "Heute/Morgen ab HH:MM
+        [bis HH:MM] Uhr" - gemeinsame Such-/Formatierungslogik für preheat_plan() und
+        cooling_plan(), die sich nur im Prädikat (warm genug/kühl genug) unterscheiden."""
+        now = dt_util.now()
+        start = end = None
+        for item in forecast:
+            when = dt_util.parse_datetime(str(item.get("datetime", "")))
+            temp = item.get("temperature")
+            if when is None or temp is None:
+                continue
+            when = dt_util.as_local(when)
+            if when < now - timedelta(minutes=30) or when > now + timedelta(hours=24):
+                continue
+            match = predicate(item, float(temp))
+            if start is None and match:
+                start = when
+            elif start is not None and not match:
+                end = when
+                break
+        if start is None:
+            return None
+        day = "Heute" if start.date() == now.date() else "Morgen"
+        text = f"{day} ab {start.strftime('%H:%M')}"
+        return f"{text} bis {end.strftime('%H:%M')} Uhr" if end else f"{text} Uhr"
 
     def preheat_plan(self, forecast):
         """Aus der Stundenvorhersage: ab wann es heute/morgen warm genug zum Vorheizen wird,
@@ -345,64 +375,32 @@ class RoomExtrasMixin:
             or self._last_night_low >= threshold
         ):
             return None
-        now = dt_util.now()
-        start = end = None
-        for item in forecast:
-            when = dt_util.parse_datetime(str(item.get("datetime", "")))
-            temp = item.get("temperature")
-            if when is None or temp is None:
-                continue
-            when = dt_util.as_local(when)
-            if when < now - timedelta(minutes=30) or when > now + timedelta(hours=24):
-                continue
+
+        def warm(item, temp):
             rain = item.get("precipitation") or 0.0
             rain_prob = item.get("precipitation_probability") or 0.0
-            warm = (
-                float(temp) >= ti + PREHEAT_MIN_WARMER
+            return (
+                temp >= ti + PREHEAT_MIN_WARMER
                 and rain <= FORECAST_MAX_RAIN_MM
                 and rain_prob < FORECAST_MAX_RAIN_PROB
                 and self._forecast_wind_factor(item) >= MIN_FORECAST_WIND_FACTOR
             )
-            if start is None and warm:
-                start = when
-            elif start is not None and not warm:
-                end = when
-                break
-        if start is None:
-            return None
-        day = "Heute" if start.date() == now.date() else "Morgen"
-        text = f"{day} ab {start.strftime('%H:%M')}"
-        return f"{text} bis {end.strftime('%H:%M')} Uhr" if end else f"{text} Uhr"
+
+        return self._forecast_window_text(forecast, warm)
 
     def cooling_plan(self, forecast):
         """Aus der Stundenvorhersage: ab wann abends kühler, bis wann morgens noch kühl."""
         ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
         if self.season != SEASON_SUMMER or ti is None or ti <= self.comfort_temp:
             return None
-        now = dt_util.now()
-        start = end = None
-        for item in forecast:
-            when = dt_util.parse_datetime(str(item.get("datetime", "")))
-            temp = item.get("temperature")
-            if when is None or temp is None:
-                continue
-            when = dt_util.as_local(when)
-            if when < now - timedelta(minutes=30) or when > now + timedelta(hours=24):
-                continue
-            cool = (
-                float(temp) <= ti - COOL_MIN_DIFF
+
+        def cool(item, temp):
+            return (
+                temp <= ti - COOL_MIN_DIFF
                 and self._forecast_wind_factor(item) >= MIN_FORECAST_WIND_FACTOR
             )
-            if start is None and cool:
-                start = when
-            elif start is not None and not cool:
-                end = when
-                break
-        if start is None:
-            return None
-        day = "Heute" if start.date() == now.date() else "Morgen"
-        text = f"{day} ab {start.strftime('%H:%M')}"
-        return f"{text} bis {end.strftime('%H:%M')} Uhr" if end else f"{text} Uhr"
+
+        return self._forecast_window_text(forecast, cool)
 
     async def _warm_outside_warning(self):
         """Ans Schließen erinnern, wenn das Lüften den Raum aufheizt – unabhängig von der
@@ -458,7 +456,7 @@ class RoomExtrasMixin:
         zeigen konnte, als der Entfeuchter tatsächlich tat."""
         rh = self.indoor_rh
         indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
-        target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
+        target_abs = float(self.data.get(CONF_TARGET_ABS, DEFAULT_TARGET_ABS))
         need = (
             (indoor_ah is not None and indoor_ah > target_abs + DEHUM_AH_HYSTERESIS)
             or (rh is not None and rh >= DEHUM_ON_RH)
@@ -487,7 +485,7 @@ class RoomExtrasMixin:
 
         indoor_ah = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         rh = self.indoor_rh
-        target_abs = float(self.data.get(CONF_TARGET_ABS, 11.5))
+        target_abs = float(self.data.get(CONF_TARGET_ABS, DEFAULT_TARGET_ABS))
         ah_stop = target_abs - DEHUM_AH_HYSTERESIS
         rh_stop = DEHUM_OFF_RH - DEHUM_RH_HYSTERESIS
         mold_high = self.mold_risk == "hoch"

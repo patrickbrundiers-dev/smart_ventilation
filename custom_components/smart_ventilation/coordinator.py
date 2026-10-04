@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 from datetime import datetime, timedelta
 
@@ -42,6 +43,8 @@ from .decision_engine import (
 # gebündeltes Lernmodell - hier noch nicht verdrahtet, DIESES Modul nutzt stattdessen
 # ventilation_utility_score. Nicht versehentlich als Ersatz für Letzteres einsetzen: andere
 # Gewichtung, andere Signatur.
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
@@ -282,7 +285,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
 
     @property
     def remaining_minutes(self):
-        """Dynamically estimated remaining ventilation time for the active session."""
+        """Dynamisch geschätzte verbleibende Lüftungsdauer für die laufende Sitzung."""
         if not self.session:
             return 0
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
@@ -295,7 +298,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         wind, angle, temp_diff = self._context()
         ach, _ = self._model_ach(wind, angle, temp_diff, bool(self.session.get("cross")))
         ratio = DEFAULT_TARGET_DIFF / max(diff, DEFAULT_TARGET_DIFF + 0.01)
-        remaining = max(1.0, -60 / ach * math.log(ratio))
+        remaining = max(1.0, self._minutes_for_ratio(ach, ratio))
         return round(min(60.0, remaining))
 
     @property
@@ -695,6 +698,18 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                     ach *= 0.9
         return max(0.5, ach), key
 
+    @staticmethod
+    def _minutes_for_ratio(ach, ratio):
+        """Minuten, um bei gegebenem Luftwechsel `ach` [1/h] ein Verhältnis `ratio` (Zielabstand
+        zu aktuellem Abstand, z. B. Feuchte-, Temperatur- oder CO₂-Differenz) zu erreichen.
+
+        Herleitung aus dem exponentiellen Abklingen einer Konzentrations-/Temperaturdifferenz bei
+        konstantem Luftwechsel: diff(t) = diff(0) * e^(-ach/60 * t) -> nach t minuten umgestellt.
+        Dieselbe Formel wird für Feuchte-, CO₂-, Kühl- und Vorheiz-Minuten gebraucht - hier
+        gebündelt, damit sie nicht an mehreren Stellen leicht abweichend gepflegt wird.
+        """
+        return -60 / ach * math.log(ratio)
+
     def _start_session(self):
         indoor = _float_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
@@ -920,9 +935,18 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
         return limit > 0 and temp is not None and temp < limit
 
+    async def _send_warning_once(self, key, title, message):
+        """Letzter, bei allen Warnungen identischer Teil des 'einmalig pro Sitzung warnen'-
+        Musters in _check_warnings(): merkt sich, dass gewarnt wurde, verschickt die
+        Nachricht und speichert. Die eigentliche Bedingungsprüfung (wann gewarnt werden soll)
+        bleibt bewusst am jeweiligen Aufrufort, da sie sich pro Warnung unterscheidet."""
+        tag = f"smart_ventilation_{self.entry.entry_id}_warn"
+        self.session[key] = True
+        await self._send(title, message, tag, category=CAT_WARNING)
+        await self._save()
+
     async def _check_warnings(self):
         name = self.data[CONF_NAME]
-        tag = f"smart_ventilation_{self.entry.entry_id}_warn"
 
         # Fenster wurde geöffnet, obwohl die Außenluft gerade nicht trockener ist als die
         # Raumluft (siehe _update_recommendation: "Raumluft feucht – Außenluft aktuell nicht
@@ -937,18 +961,15 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 and (indoor - outdoor) <= START_DIFF
                 and self._humidity_reasons_met
             ):
-                self.session["humid_outdoor_warned"] = True
-                await self._send(
+                await self._send_warning_once(
+                    "humid_outdoor_warned",
                     f"Außenluft nicht trockener: {name}",
                     (
                         "Die Luft draußen ist gerade nicht trockener als drinnen – Lüften bringt "
                         "hier eher zusätzliche Feuchte rein, statt welche loszuwerden. Am besten "
                         "das Fenster wieder schließen."
                     ),
-                    tag,
-                    category=CAT_WARNING,
                 )
-                await self._save()
 
         # Windböen-Vorhersage: Kippfenster können bei starken Böen beschädigt werden oder
         # aufschlagen - einmalig pro Sitzung warnen, sobald die Vorhersage die Schwelle
@@ -956,53 +977,41 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         if not self.session.get("gust_warned"):
             gust = _float_state(self.hass, self.data.get(CONF_WIND_GUST))
             if gust is not None and gust >= WIND_GUST_WARN_KMH:
-                self.session["gust_warned"] = True
-                await self._send(
+                await self._send_warning_once(
+                    "gust_warned",
                     f"Windböen erwartet: {name}",
                     f"Bis zu {gust:.0f} km/h laut Vorhersage – Fenster besser sichern oder schließen.",
-                    tag,
-                    category=CAT_WARNING,
                 )
-                await self._save()
 
         # Frost heute Nacht: offenes Fenster nicht vergessen, sonst frieren Rohre/Pflanzen am
         # Fensterbrett - einmalig pro Sitzung.
         if not self.session.get("frost_warned") and _has_risk(self.hass, self.data.get(CONF_FROST)):
-            self.session["frost_warned"] = True
-            await self._send(
+            await self._send_warning_once(
+                "frost_warned",
                 f"Frost erwartet: {name}",
                 "Heute Nacht ist Frost angesagt – Fenster nicht offen vergessen.",
-                tag,
-                category=CAT_WARNING,
             )
-            await self._save()
 
         if self.cooling_down and not self.session.get("cool_warned"):
-            self.session["cool_warned"] = True
             temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
-            await self._send(
+            await self._send_warning_once(
+                "cool_warned",
                 f"Raum kühlt aus: {name}",
                 f"Nur noch {temp:.1f} °C bei offenem Fenster – bitte schließen.",
-                tag,
-                category=CAT_WARNING,
             )
-            await self._save()
 
         if self.season == SEASON_WINTER and not self.session.get("overtime_warned"):
             limit = self._winter_max_minutes()
             minutes = self.current_duration_seconds / 60
             if minutes >= limit + WINTER_OVERTIME_MINUTES:
-                self.session["overtime_warned"] = True
-                await self._send(
+                await self._send_warning_once(
+                    "overtime_warned",
                     f"Fenster noch offen: {name}",
                     (
                         f"Seit {minutes:.0f} Minuten gelüftet – bei diesen Temperaturen "
                         f"reichen {limit} Minuten Stoßlüften."
                     ),
-                    tag,
-                    category=CAT_WARNING,
                 )
-                await self._save()
 
     # ------------------------------------------------------------------
     # Heizung beim Lüften absenken und danach wiederherstellen
@@ -1012,6 +1021,9 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             await self.hass.services.async_call(domain, service, data, blocking=True)
             return True
         except Exception:  # noqa: BLE001 – ein Thermostat offline darf nichts blockieren
+            _LOGGER.debug(
+                "Serviceaufruf %s.%s mit %s fehlgeschlagen", domain, service, data, exc_info=True
+            )
             return False
 
     async def _check_heating(self):
@@ -1180,11 +1192,15 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         try:
             forecast = await self._fetch_hourly_forecast(entity_id)
         except Exception:  # noqa: BLE001 – z. B. Dienst ohne Stundenvorhersage
+            _LOGGER.debug(
+                "Stündliche Vorhersage für %s nicht verfügbar", entity_id, exc_info=True
+            )
             self._set_best(None, "Wetterdaten nicht verfügbar (stündliche Vorhersage?)", {})
             return
         try:
             daily = await self._fetch_daily_forecast(entity_id)
         except Exception:  # noqa: BLE001 – Tagesvorhersage optional
+            _LOGGER.debug("Tagesvorhersage für %s nicht verfügbar", entity_id, exc_info=True)
             daily = []
         self._forecast_season = forecast_season_signal(
             forecast,
@@ -1241,8 +1257,6 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
                 continue
             rain_raw = _num(item.get("precipitation"))
             rain_prob_raw = _num(item.get("precipitation_probability"))
-            if rain_raw is not None or rain_prob_raw is not None:
-                has_rain_data = True
             rain = rain_raw or 0.0
             rain_prob = rain_prob_raw or 0.0
             if rain > FORECAST_MAX_RAIN_MM or rain_prob >= FORECAST_MAX_RAIN_PROB:
@@ -1440,7 +1454,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             session.get("wind"), session.get("angle"), session.get("temp_diff"),
             session.get("cross", False),
         )
-        volume = float(self.data.get(CONF_VOLUME, 40))
+        volume = float(self.data.get(CONF_VOLUME, DEFAULT_VOLUME))
         exchanged = 1 - math.exp(-n * elapsed / 3600)
         return AIR_HEAT_CAPACITY_WH * volume * d_t * exchanged / 1000
 
@@ -1458,7 +1472,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
             session.get("wind"), session.get("angle"), session.get("temp_diff"),
             session.get("cross", False),
         )
-        volume = float(self.data.get(CONF_VOLUME, 40))
+        volume = float(self.data.get(CONF_VOLUME, DEFAULT_VOLUME))
         exchanged = 1 - math.exp(-n * elapsed / 3600)
         return AIR_HEAT_CAPACITY_WH * volume * abs(d_t) * exchanged / 1000
 
@@ -2187,10 +2201,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin):
         minutes = 0.0
         if need_humidity:
             ratio = DEFAULT_TARGET_DIFF / max(diff, DEFAULT_TARGET_DIFF + 0.01)
-            minutes = -60 / effective_ach * math.log(ratio)
+            minutes = self._minutes_for_ratio(effective_ach, ratio)
         if need_co2:
             co2_ratio = (CO2_TARGET - CO2_OUTDOOR) / max(co2 - CO2_OUTDOOR, 1)
-            minutes = max(minutes, -60 / effective_ach * math.log(co2_ratio))
+            minutes = max(minutes, self._minutes_for_ratio(effective_ach, co2_ratio))
         if need_cool:
             minutes = max(minutes, cool_minutes)
         if need_preheat:

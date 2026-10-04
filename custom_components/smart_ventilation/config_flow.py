@@ -11,7 +11,7 @@ from homeassistant.helpers import selector
 vol = getattr(cv, "probatio", None) or cv.vol
 
 from .const import (
-    DOMAIN, CONF_NAME, CONF_VOLUME, CONF_WINDOW_DIRECTION,
+    DOMAIN, CONF_NAME, CONF_VOLUME, DEFAULT_VOLUME, CONF_WINDOW_DIRECTION,
     CONF_INDOOR_HUMIDITY, CONF_OUTDOOR_HUMIDITY, CONF_INDOOR_RH, CONF_OUTDOOR_RH,
     CONF_INDOOR_TEMP, CONF_OUTDOOR_TEMP,
     CONF_SOLAR_RADIATION, CONF_THUNDERSTORM, CONF_WIND_GUST, CONF_FROST,
@@ -226,7 +226,7 @@ def _section_fields(name: str, hass: HomeAssistant, d: dict, with_name: bool) ->
             fields[_req(CONF_NAME, g(CONF_NAME))] = str
         fields.update({
             _req(CONF_WINDOW, _windows(d)): _entity(["binary_sensor", "sensor"], multiple=True),
-            vol.Required(CONF_VOLUME, default=g(CONF_VOLUME, 40.0)): _number(1, 2000, 0.1, "m³"),
+            vol.Required(CONF_VOLUME, default=g(CONF_VOLUME, DEFAULT_VOLUME)): _number(1, 2000, 0.1, "m³"),
             vol.Required(CONF_WINDOW_DIRECTION, default=g(CONF_WINDOW_DIRECTION, 180)): _number(0, 359, 1, "°"),
             vol.Required(CONF_ROOM_TYPE, default=g(CONF_ROOM_TYPE, DEFAULT_ROOM_TYPE)): _select(
                 list(ROOM_TYPE_TARGET_ABS), "room_type"

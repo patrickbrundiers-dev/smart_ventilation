@@ -2,6 +2,7 @@ DOMAIN = "smart_ventilation"
 
 CONF_NAME = "name"
 CONF_VOLUME = "volume"
+DEFAULT_VOLUME = 40.0  # m³ – typisches Schlafzimmer, falls beim Einrichten nichts angegeben wurde
 CONF_WINDOW_DIRECTION = "window_direction"
 CONF_INDOOR_HUMIDITY = "indoor_absolute_humidity"
 CONF_OUTDOOR_HUMIDITY = "outdoor_absolute_humidity"
@@ -163,7 +164,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.22.8"
+VERSION = "2.22.9"
 
 # Adaptive decision / learning
 ADAPTIVE_SCORE_MIN = 20

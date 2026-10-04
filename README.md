@@ -146,6 +146,16 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.9
+
+- **Architektur:** Weitere Punkte aus der Verbesserungs-Review umgesetzt (reine Lesbarkeits-/Wartbarkeits-Refactorings, keine Verhaltensänderung):
+  - Toter Code entfernt (nie gelesene `has_rain_data`-Zuweisung in `_forecast_rain_soon()`), ein Docstring von Englisch auf Deutsch vereinheitlicht.
+  - Neue Hilfsmethode `_minutes_for_ratio()` bündelt die an vier Stellen (Feuchte-/CO₂-Restzeit, Vorheiz-/Kühl-Minuten) leicht unterschiedlich gepflegte Formel „Minuten bis ein Zielverhältnis bei gegebenem Luftwechsel erreicht ist“.
+  - Neue Hilfsmethode `_forecast_window_text()` bündelt die bisher doppelt vorhandene Such-/Formatierungslogik für das nächste passende Zeitfenster aus der Wettervorhersage (`preheat_plan()`/`cooling_plan()` unterscheiden sich jetzt nur noch im Prädikat).
+  - Neue Hilfsmethode `_send_warning_once()` bündelt den bei allen fünf Warnungen (Feuchte-Außenluft, Windböen, Frost, Auskühlen, Fenster zu lange offen) identischen „einmal pro Sitzung warnen, dann speichern“-Teil.
+  - Magic Numbers durch benannte Konstanten ersetzt: `DEFAULT_VOLUME` (Rauminhalt-Vorgabe) und `DEFAULT_TARGET_ABS` (Tagesziel absolute Feuchte) statt hartcodierter `40`/`11.5`-Literale an mehreren Stellen.
+  - Stille `except Exception`-Zweige (Thermostat-Serviceaufruf, Stunden-/Tagesvorhersage) loggen den Fehler jetzt auf Debug-Level, statt ihn komplett zu verschlucken – das bewusste „nicht blockieren“-Verhalten bleibt unverändert.
+
 ### Version 2.22.8
 
 - **Performance:** Weitere Punkte aus der Verbesserungs-Review umgesetzt:
