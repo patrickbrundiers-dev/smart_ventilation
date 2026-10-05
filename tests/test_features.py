@@ -766,12 +766,18 @@ async def test_shutter_radiation_noise_does_not_spam_notifications(
     shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
     assert shutter_titles == []  # trotz mehrfachem Wechsel noch keine einzige Meldung
 
-    # Jetzt bleibt die Strahlung anhaltend hoch -> nach Ablauf der Bestätigungszeit genau eine
-    # "schließen"-Meldung, keine weiteren aus dem vorherigen Flackern.
+    # Jetzt bleibt die Strahlung anhaltend hoch. Wichtig: in zwei Schritten ticken, nicht in einem
+    # einzigen großen Sprung - sonst sieht _confirm_radiation_high() den neuen Kandidaten und das
+    # Ablaufen der Bestätigungszeit in ein und demselben Aufruf und die Uhr startet faktisch erst
+    # am Ende des Sprungs (0 Minuten verstrichen), statt vorher schon zu laufen.
     hass.states.async_set("sensor.strahlung", 350)
+    await _tick(hass, freezer, 0.5)  # Kandidat wird aufgenommen, Bestätigungsuhr startet jetzt
+    shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
+    assert shutter_titles == []  # weiterhin nicht bestätigt
+
     await _tick(hass, freezer, SHUTTER_RADIATION_CONFIRM_MINUTES + 0.5)
     shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
-    assert shutter_titles == ["Rollo schließen: Schlafzimmer"]
+    assert shutter_titles == ["Rollo schließen: Schlafzimmer"]  # genau eine, keine aus dem Flackern
 
 
 async def test_shutter_notification_close_and_open_once_per_exposure(
