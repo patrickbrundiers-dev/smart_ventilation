@@ -146,6 +146,11 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.14
+
+- **Fehlerbehebung (Rollo-Empfehlung):** Bei Räumen mit einem hinterlegten Globalstrahlungssensor (`solar_radiation_entity`) konnte eine einzelne, kurzzeitig schwankende Messung (vorbeiziehende Wolken, Bäume, Reflexionen – in der Praxis beobachtet: Sprünge zwischen ca. 70 und 350 W/m² binnen weniger Sekunden) die Rollo-Empfehlung sofort umschlagen lassen. Bei Räumen ohne hinterlegtes Rollo-Entity (reine Empfehlung per Push) löste das mehrere widersprüchliche „Rollo schließen“/„Rollo öffnen“-Benachrichtigungen innerhalb einer Minute aus. Ein Wechsel der Einstrahlung zählt jetzt erst, wenn er `SHUTTER_RADIATION_CONFIRM_MINUTES` (3 Minuten) lang ununterbrochen anliegt (`_confirm_radiation_high()` in `coordinator.py`, analog zur bestehenden `_confirm_season_candidate()`-Bestätigungslogik der Jahreszeit-Erkennung). Rein geometrie-/wetterbasierte Entscheidungen (kein Globalstrahlungssensor hinterlegt) reagieren weiterhin sofort.
+- **Testabdeckung:** Neuer Regressionstest `test_shutter_radiation_noise_does_not_spam_notifications`, der genau das beobachtete Flackern nachbildet und prüft, dass dabei keine einzige Benachrichtigung ausgelöst wird, bevor der Zustand sich wirklich bestätigt. Die beiden bestehenden Strahlungs-Tests (`test_solar_radiation_overrides_geometric_direct_sun`, `test_shutter_cloud_cover_and_radiation_are_combined`) entsprechend angepasst, um die neue Bestätigungszeit zu berücksichtigen.
+
 ### Version 2.22.13
 
 - **Testabdeckung:** Die restlichen Punkte aus der Verbesserungs-Review umgesetzt – neue, bisher fehlende Tests sowie zwei bestehende Tests robuster gemacht:

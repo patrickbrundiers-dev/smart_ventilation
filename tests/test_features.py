@@ -10,7 +10,11 @@ from homeassistant.helpers import intent
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed, async_mock_service
 
-from custom_components.smart_ventilation.const import DEHUM_RESTART_COOLDOWN_MINUTES, DOMAIN
+from custom_components.smart_ventilation.const import (
+    DEHUM_RESTART_COOLDOWN_MINUTES,
+    DOMAIN,
+    SHUTTER_RADIATION_CONFIRM_MINUTES,
+)
 
 from .conftest import eid, setup_room
 
@@ -657,7 +661,10 @@ async def test_solar_radiation_overrides_geometric_direct_sun(
 ) -> None:
     """Winkel und Höhe passen geometrisch (Azimut = Fensterausrichtung), aber ein hinterlegter
     Globalstrahlungssensor meldet zu wenig echte Einstrahlung (bedeckter Himmel) -> keine
-    Rollo-Empfehlung trotz passender Sonnengeometrie. Erst ab genug W/m² wieder wie gewohnt."""
+    Rollo-Empfehlung trotz passender Sonnengeometrie. Erst ab genug W/m² wieder wie gewohnt - und
+    erst, wenn das SHUTTER_RADIATION_CONFIRM_MINUTES lang ununterbrochen anliegt (siehe
+    _confirm_radiation_high(): ein echter Sensor kann binnen Sekunden springen, ein einzelner
+    hoher Messwert soll noch keine Empfehlung/Push auslösen)."""
     freezer.move_to("2026-06-15 12:00:00+02:00")
     entry = await setup_room(
         hass,
@@ -676,6 +683,9 @@ async def test_solar_radiation_overrides_geometric_direct_sun(
 
     hass.states.async_set("sensor.strahlung", 300)  # jetzt klarer Himmel
     await _tick(hass, freezer, 0.5)
+    assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is False  # noch nicht bestätigt
+
+    await _tick(hass, freezer, SHUTTER_RADIATION_CONFIRM_MINUTES + 0.5)
     assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is True
 
 
@@ -730,6 +740,38 @@ async def test_shutter_resyncs_when_manually_reopened_while_sun_still_shines(
 
     await _tick(hass, freezer, 0.5)  # nächster Durchlauf: Schließ-Logik greift wieder
     assert len(close) == 2
+
+
+async def test_shutter_radiation_noise_does_not_spam_notifications(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Regressionstest für einen echten Vorfall: ein Globalstrahlungssensor kann binnen Sekunden
+    stark schwanken (vorbeiziehende Wolken/Bäume) - ohne _confirm_radiation_high() hätte jede
+    einzelne Schwankung sofort eine neue "Rollo schließen"/"Rollo öffnen"-Push ausgelöst (mehrere
+    Meldungen pro Minute). Mehrfaches Hin- und Her innerhalb von SHUTTER_RADIATION_CONFIRM_MINUTES
+    darf noch keine Benachrichtigung auslösen - erst eine wirklich anhaltende Änderung."""
+    freezer.move_to("2026-06-15 12:00:00+02:00")
+    pushes = async_mock_service(hass, "notify", "mobile_app_test")
+    await setup_room(
+        hass, use_sun=True, season_mode="summer", solar_radiation_entity="sensor.strahlung",
+    )
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"elevation": 40, "azimuth": 106}  # = Fensterausrichtung
+    )
+    # Schnell schwankende Messwerte über und unter der Schwelle (SOLAR_RADIATION_MIN=120), jeweils
+    # deutlich kürzer auseinander als SHUTTER_RADIATION_CONFIRM_MINUTES.
+    for value in (350, 80, 300, 90, 320, 100):
+        hass.states.async_set("sensor.strahlung", value)
+        await _tick(hass, freezer, 0.5)
+    shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
+    assert shutter_titles == []  # trotz mehrfachem Wechsel noch keine einzige Meldung
+
+    # Jetzt bleibt die Strahlung anhaltend hoch -> nach Ablauf der Bestätigungszeit genau eine
+    # "schließen"-Meldung, keine weiteren aus dem vorherigen Flackern.
+    hass.states.async_set("sensor.strahlung", 350)
+    await _tick(hass, freezer, SHUTTER_RADIATION_CONFIRM_MINUTES + 0.5)
+    shutter_titles = [c.data["title"] for c in pushes if "Rollo" in c.data["title"]]
+    assert shutter_titles == ["Rollo schließen: Schlafzimmer"]
 
 
 async def test_shutter_notification_close_and_open_once_per_exposure(
@@ -937,7 +979,9 @@ async def test_dehumidifier_uses_absolute_humidity_hysteresis(
 async def test_shutter_cloud_cover_and_radiation_are_combined(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
 ) -> None:
-    """Mittlere Bewölkung reicht ohne ausreichend echte Einstrahlung nicht für die Rollo-Aktion."""
+    """Mittlere Bewölkung reicht ohne ausreichend echte Einstrahlung nicht für die Rollo-Aktion.
+    Die zweite (hohe) Messung muss außerdem SHUTTER_RADIATION_CONFIRM_MINUTES lang anliegen, bevor
+    sie zählt (siehe _confirm_radiation_high())."""
     freezer.move_to("2026-06-15 12:00:00+02:00")
     entry = await setup_room(
         hass,
@@ -958,7 +1002,7 @@ async def test_shutter_cloud_cover_and_radiation_are_combined(
     assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is False
 
     hass.states.async_set("sensor.strahlung", 220)
-    await _tick(hass, freezer, 0.5)
+    await _tick(hass, freezer, SHUTTER_RADIATION_CONFIRM_MINUTES + 0.5)
     assert hass.states.get(rec).attributes["karte"]["rollo_empfehlung"] is True
 
 

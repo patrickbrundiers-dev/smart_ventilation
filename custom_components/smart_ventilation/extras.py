@@ -64,6 +64,9 @@ class RoomExtrasMixin:
         self._dehum_off_until = None        # Neustart-/Pingpong-Schutz nach dem Ausschalten
         self._shutter_closed_since = None   # nur gesetzt, wenn WIR das Rollo geschlossen haben
         self._shutter_notified = False      # einmalig pro Sonnen-Expositionsfenster benachrichtigt
+        self._radiation_high = False        # bestätigter (entprellter) Globalstrahlungs-Zustand,
+        self._radiation_pending = None      # siehe _confirm_radiation_high() in coordinator.py -
+        self._radiation_pending_since = None  # absichtlich nicht persistiert (nur Minuten-Fenster)
         self._last_report = None            # Kalenderwoche des letzten Wochenberichts
         self._warm_warned = False
         self.last_trace = None

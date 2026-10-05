@@ -1705,7 +1705,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
             # ist oft zu grob; Globalstrahlung kann dagegen kurze sonnige Durchbrüche trotz
             # hoher Bewölkung erkennen.
             if radiation is not None:
-                if radiation < SOLAR_RADIATION_MIN:
+                if not self._confirm_radiation_high(radiation >= SOLAR_RADIATION_MIN):
                     return True, False, ""
                 if cloud_cover is not None:
                     if cloud_cover >= CLOUD_COVER_BLOCK:
@@ -1727,6 +1727,25 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
             )
 
         return True, False, ""
+
+    def _confirm_radiation_high(self, candidate):
+        """Ein echter Globalstrahlungssensor kann binnen Sekunden um mehrere hundert W/m² springen
+        (vorbeiziehende Wolken, Bäume, Reflexionen) - ohne Dämpfung würde jeder einzelne Messwert
+        sofort eine neue Rollo-Empfehlung (und damit eine Push-Benachrichtigung) auslösen. Ein
+        Wechsel zählt deshalb erst, wenn er SHUTTER_RADIATION_CONFIRM_MINUTES lang ununterbrochen
+        anliegt - analog zu _confirm_season_candidate(), nur im Minuten- statt Stundenfenster."""
+        now = dt_util.now()
+        if candidate == self._radiation_high:
+            self._radiation_pending = None
+            self._radiation_pending_since = None
+        elif candidate != self._radiation_pending:
+            self._radiation_pending = candidate
+            self._radiation_pending_since = now
+        elif now - self._radiation_pending_since >= timedelta(minutes=SHUTTER_RADIATION_CONFIRM_MINUTES):
+            self._radiation_high = candidate
+            self._radiation_pending = None
+            self._radiation_pending_since = None
+        return self._radiation_high
 
     @property
     def shutter_recommended(self):

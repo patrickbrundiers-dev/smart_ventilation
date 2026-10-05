@@ -164,7 +164,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.22.13"
+VERSION = "2.22.14"
 
 # Adaptive decision / learning
 ADAPTIVE_SCORE_MIN = 20
@@ -212,6 +212,7 @@ DEHUM_RESTART_COOLDOWN_MINUTES = 10
 # Rollo/Jalousie
 CONF_SHUTTER = "shutter_entity"
 SHUTTER_MIN_RUNTIME_MINUTES = 15
+SHUTTER_RADIATION_CONFIRM_MINUTES = 3
 
 # Zusätzliche optionale Wettersensoren
 CONF_SOLAR_RADIATION = "solar_radiation_entity"
