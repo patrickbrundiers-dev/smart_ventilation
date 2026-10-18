@@ -5,6 +5,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import selector
 
 # HA ≤ 2026.9 nutzt voluptuous, ab 2026.10 probatio (gleiche API) – dieselbe Bibliothek wie HA verwenden
@@ -355,11 +356,22 @@ def overview_schema(hass: HomeAssistant, d: dict) -> vol.Schema:
     })
 
 
-def _validate_room(data: dict) -> dict:
+def _is_own_entity(hass: HomeAssistant | None, entity_id: str | None) -> bool:
+    if hass is None or not entity_id:
+        return False
+    entry = er.async_get(hass).async_get(entity_id)
+    return entry is not None and entry.platform == DOMAIN
+
+
+def _validate_room(data: dict, hass: HomeAssistant | None = None) -> dict:
     """Verhindert, dass derselbe Sensor versehentlich für Innen- und Außenwert ausgewählt wird -
     die daraus berechnete Differenz wäre dann dauerhaft 0, ohne dass das beim Einrichten auffällt."""
     errors: dict[str, str] = {}
-    if data.get(CONF_INDOOR_HUMIDITY) and data.get(CONF_INDOOR_HUMIDITY) == data.get(CONF_OUTDOOR_HUMIDITY):
+    if _is_own_entity(hass, data.get(CONF_INDOOR_RH)) or _is_own_entity(hass, data.get(CONF_OUTDOOR_RH)):
+        # Die eigene "Relative Luftfeuchte"-Entität als Quelle würde sich selbst zurücklesen und
+        # nach einem Neustart auf dem ersten Wert einfrieren.
+        errors["base"] = "own_sensor_rh"
+    elif data.get(CONF_INDOOR_HUMIDITY) and data.get(CONF_INDOOR_HUMIDITY) == data.get(CONF_OUTDOOR_HUMIDITY):
         errors["base"] = "same_sensor_humidity"
     elif data.get(CONF_INDOOR_TEMP) and data.get(CONF_INDOOR_TEMP) == data.get(CONF_OUTDOOR_TEMP):
         errors["base"] = "same_sensor_temp"
@@ -413,7 +425,7 @@ class SmartVentilationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             data = flatten(user_input)
             defaults = data  # bei Fehler die Eingaben erneut vorausfüllen statt sie zu verwerfen
-            errors = _validate_room(data)
+            errors = _validate_room(data, self.hass)
             if not errors:
                 await self.async_set_unique_id(data[CONF_NAME].strip().lower())
                 self._abort_if_unique_id_configured()
@@ -474,7 +486,7 @@ class SmartVentilationOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             data = flatten(user_input)
-            errors = {} if overview else _validate_room(data)
+            errors = {} if overview else _validate_room(data, self.hass)
             if not errors:
                 return self.async_create_entry(
                     title="", data={**self.config_entry.options, **data}

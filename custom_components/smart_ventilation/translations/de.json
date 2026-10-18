@@ -244,6 +244,7 @@
     "error": {
       "same_sensor_humidity": "Innen- und Außenfeuchte sind derselbe Sensor - die Differenz wäre dann immer 0.",
       "same_sensor_temp": "Innen- und Außentemperatur sind derselbe Sensor - die Differenz wäre dann immer 0.",
+      "own_sensor_rh": "Als relative Feuchte ist eine Entität von Smart Ventilation selbst gewählt (z. B. die eigene „Relative Luftfeuchte“). Bitte einen echten Feuchtesensor wählen oder das Feld leer lassen.",
       "same_sensor_rh": "Innen- und Außenluftfeuchte (rel.) sind derselbe Sensor - die Differenz wäre dann immer 0.",
       "preheat_above_comfort": "Vorheiz-Zieltemperatur sollte unter der Komfort-/Kühltemperatur liegen, sonst würde Vorheizen den Raum sofort wieder über die Kühl-Schwelle treiben."
     }
@@ -252,6 +253,7 @@
     "error": {
       "same_sensor_humidity": "Innen- und Außenfeuchte sind derselbe Sensor - die Differenz wäre dann immer 0.",
       "same_sensor_temp": "Innen- und Außentemperatur sind derselbe Sensor - die Differenz wäre dann immer 0.",
+      "own_sensor_rh": "Als relative Feuchte ist eine Entität von Smart Ventilation selbst gewählt (z. B. die eigene „Relative Luftfeuchte“). Bitte einen echten Feuchtesensor wählen oder das Feld leer lassen.",
       "same_sensor_rh": "Innen- und Außenluftfeuchte (rel.) sind derselbe Sensor - die Differenz wäre dann immer 0.",
       "preheat_above_comfort": "Vorheiz-Zieltemperatur sollte unter der Komfort-/Kühltemperatur liegen, sonst würde Vorheizen den Raum sofort wieder über die Kühl-Schwelle treiben."
     },
@@ -679,6 +681,14 @@
     "sensor_unavailable": {
       "title": "Smart Ventilation: Sensor fehlt ({room})",
       "description": "Der Sensor **{role}** (`{entity}`) im Raum **{room}** liefert seit mindestens {minutes} Minuten keine Werte. Ohne ihn kann die Lüftungsempfehlung nicht berechnet werden.\n\nPrüfe, ob das Gerät erreichbar ist (Batterie, Funk), oder wähle unter *Geräte & Dienste → Smart Ventilation → Konfigurieren* einen anderen Sensor. Der Hinweis verschwindet automatisch, sobald wieder Werte kommen."
+    },
+    "optional_entity_unavailable": {
+      "title": "Smart Ventilation: Gerät nicht erreichbar ({room})",
+      "description": "Das Gerät **{role}** (`{entity}`) im Raum **{room}** existiert nicht mehr oder ist seit mindestens {minutes} Minuten nicht erreichbar. Die Lüftungsempfehlung läuft weiter, aber diese Funktion fällt aus.\n\nPrüfe das Gerät oder wähle unter *Geräte & Dienste → Smart Ventilation → Konfigurieren* die aktuelle Entität (z. B. nach dem Entfernen von Better Thermostat). Der Hinweis verschwindet automatisch, sobald das Gerät wieder verfügbar ist."
+    },
+    "own_sensor_selected": {
+      "title": "Smart Ventilation: eigener Sensor als Quelle ({room})",
+      "description": "Im Raum **{room}** ist als **{role}** die Entität `{entity}` gewählt. Sie gehört zu Smart Ventilation selbst und würde sich selbst zurücklesen (der Wert friert nach einem Neustart ein). Sie wird deshalb ignoriert und die Feuchte wie ohne Sensor aus absoluter Feuchte und Temperatur berechnet.\n\nBitte unter *Geräte & Dienste → Smart Ventilation → Konfigurieren* einen echten Feuchtesensor wählen oder das Feld leeren."
     }
   },
   "services": {

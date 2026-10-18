@@ -920,9 +920,69 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
                     },
                 )
 
+        self._check_optional_entities(now)
+        self._check_own_rh_sources()
+
+    def _optional_entities(self):
+        """Optionale Geräte, die die Integration steuert. Fehlen sie, läuft die Empfehlung weiter,
+        aber die Funktion (Heizung absenken, Entfeuchter) fällt still aus - live beobachtet, als
+        die Better-Thermostat-Entitäten entfernt wurden und die Absenkung tagelang ins Leere lief."""
+        entities = {c: "Thermostat (Heizung bei offenem Fenster absenken)" for c in self.climates}
+        if self.data.get(CONF_DEHUMIDIFIER):
+            entities[self.data[CONF_DEHUMIDIFIER]] = "Luftentfeuchter"
+        return entities
+
+    def _check_optional_entities(self, now):
+        for entity_id, role in self._optional_entities().items():
+            state = self.hass.states.get(entity_id)
+            broken = state is None or state.state in ("unavailable", "unknown")
+            issue_id = self._issue_id(entity_id)
+            if not broken:
+                if self._unavailable_since.pop(entity_id, None) is not None:
+                    ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+                continue
+            since = self._unavailable_since.setdefault(entity_id, now)
+            if (now - since).total_seconds() >= ISSUE_AFTER_MINUTES * 60:
+                ir.async_create_issue(
+                    self.hass, DOMAIN, issue_id,
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key="optional_entity_unavailable",
+                    translation_placeholders={
+                        "room": str(self.data.get(CONF_NAME)),
+                        "role": role,
+                        "entity": entity_id,
+                        "minutes": str(ISSUE_AFTER_MINUTES),
+                    },
+                )
+
+    def _own_rh_issue_id(self, key):
+        return f"own_sensor_{self.entry.entry_id}_{key}"
+
+    def _check_own_rh_sources(self):
+        for key, role in ((CONF_INDOOR_RH, "Relative Feuchte innen"), (CONF_OUTDOOR_RH, "Relative Feuchte außen")):
+            entity_id = self.data.get(key)
+            issue_id = self._own_rh_issue_id(key)
+            if not self._is_own_entity(entity_id):
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+                continue
+            ir.async_create_issue(
+                self.hass, DOMAIN, issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="own_sensor_selected",
+                translation_placeholders={
+                    "room": str(self.data.get(CONF_NAME)),
+                    "role": role,
+                    "entity": entity_id,
+                },
+            )
+
     def _clear_issues(self):
-        for entity_id in self._required_sensors():
+        for entity_id in (*self._required_sensors(), *self._optional_entities()):
             ir.async_delete_issue(self.hass, DOMAIN, self._issue_id(entity_id))
+        for key in (CONF_INDOOR_RH, CONF_OUTDOOR_RH):
+            ir.async_delete_issue(self.hass, DOMAIN, self._own_rh_issue_id(key))
 
     # ------------------------------------------------------------------
     # Warnungen während des Lüftens
@@ -2019,6 +2079,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
         need_cool = cool_minutes > 0
         preheat_minutes = self.preheat_minutes()
         need_preheat = preheat_minutes > 0
+        self._preheat_active = need_preheat
         reasons = [
             r for r, on in (
                 ("Feuchte", need_humidity), ("CO₂", need_co2),
@@ -2331,11 +2392,26 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
             return None
         return round(abs(indoor - outdoor), 1)
 
+    def _is_own_entity(self, entity_id):
+        """True, wenn entity_id eine Entität dieser Integration ist (z. B. die eigene
+        "Relative Luftfeuchte"). Als RH-Quelle gewählt, würde sie sich selbst zurücklesen und nach
+        dem ersten Wert nach einem Neustart einfrieren - live beobachtet: rel. Feuchte, Schimmel-
+        risiko und Feuchte-Empfehlung liefen tagelang mit dem Wert vom letzten Neustart."""
+        if not entity_id:
+            return False
+        entry = er.async_get(self.hass).async_get(entity_id)
+        return entry is not None and entry.platform == DOMAIN
+
+    def _external_rh_entity(self, key):
+        entity_id = self.data.get(key)
+        return None if self._is_own_entity(entity_id) else entity_id
+
     def _compute_indoor_rh(self):
         # Falls ein echter RH-Sensor konfiguriert ist: direkt verwenden statt aus AH+Temperatur
         # zurückzurechnen (spart eine Umrechnung samt deren Rundungsfehler). Ohne Sensor oder wenn
-        # er gerade keinen Wert liefert (z. B. "unavailable"), wie bisher aus AH ableiten.
-        rh_entity = self.data.get(CONF_INDOOR_RH)
+        # er gerade keinen Wert liefert (z. B. "unavailable"), wie bisher aus AH ableiten. Eine
+        # eigene Entität dieser Integration zählt nicht als Sensor (siehe _is_own_entity()).
+        rh_entity = self._external_rh_entity(CONF_INDOOR_RH)
         direct = _float_state(self.hass, rh_entity) if rh_entity else None
         if direct is not None:
             return direct
@@ -2351,7 +2427,7 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
         return self._per_round("indoor_rh", self._compute_indoor_rh)
 
     def _compute_outdoor_rh(self):
-        rh_entity = self.data.get(CONF_OUTDOOR_RH)
+        rh_entity = self._external_rh_entity(CONF_OUTDOOR_RH)
         direct = _float_state(self.hass, rh_entity) if rh_entity else None
         if direct is not None:
             return direct

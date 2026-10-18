@@ -146,6 +146,12 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.15
+
+- **Fehlerbehebung (rel. Feuchte eingefroren):** War als „Relative Feuchte innen/außen“ eine Entität von Smart Ventilation selbst gewählt (z. B. die eigene „Relative Luftfeuchte“), las sie sich selbst zurück und fror nach jedem Neustart auf dem ersten Wert ein – rel. Feuchte, Schimmelrisiko und Feuchte-Empfehlung liefen dann tagelang mit einem alten Wert. Eine solche Auswahl wird jetzt ignoriert (Berechnung wie ohne Sensor aus absoluter Feuchte + Temperatur), im Einrichtungs-/Options-Flow abgelehnt und als Reparatur-Hinweis gemeldet.
+- **Fehlerbehebung (Vorheizen flackert):** Die Vorheiz-Empfehlung hatte keine Hysterese und kippte minütlich zwischen „Vorheizen“ und „Außenluft nicht trockener“, wenn Außentemperatur oder Feuchteabstand genau an der Schwelle schwankten. Einmal aktiv, geht sie jetzt erst 0,5 °C bzw. 0,3 g/m³ jenseits der Einstiegsschwelle wieder aus (`PREHEAT_TEMP_HYSTERESIS`, `PREHEAT_HUMIDITY_HYSTERESIS`).
+- **Reparatur-Hinweis für fehlende Geräte:** Gekoppelte Thermostate und der Luftentfeuchter werden jetzt wie die Pflichtsensoren überwacht. Existieren sie nicht mehr oder sind sie länger als 10 Minuten nicht erreichbar, erscheint ein Hinweis, statt dass die Heizungsabsenkung bzw. Entfeuchtung still ausfällt.
+
 ### Version 2.22.14
 
 - **Fehlerbehebung (Rollo-Empfehlung):** Bei Räumen mit einem hinterlegten Globalstrahlungssensor (`solar_radiation_entity`) konnte eine einzelne, kurzzeitig schwankende Messung (vorbeiziehende Wolken, Bäume, Reflexionen – in der Praxis beobachtet: Sprünge zwischen ca. 70 und 350 W/m² binnen weniger Sekunden) die Rollo-Empfehlung sofort umschlagen lassen. Bei Räumen ohne hinterlegtes Rollo-Entity (reine Empfehlung per Push) löste das mehrere widersprüchliche „Rollo schließen“/„Rollo öffnen“-Benachrichtigungen innerhalb einer Minute aus. Ein Wechsel der Einstrahlung zählt jetzt erst, wenn er `SHUTTER_RADIATION_CONFIRM_MINUTES` (3 Minuten) lang ununterbrochen anliegt (`_confirm_radiation_high()` in `coordinator.py`, analog zur bestehenden `_confirm_season_candidate()`-Bestätigungslogik der Jahreszeit-Erkennung). Rein geometrie-/wetterbasierte Entscheidungen (kein Globalstrahlungssensor hinterlegt) reagieren weiterhin sofort.

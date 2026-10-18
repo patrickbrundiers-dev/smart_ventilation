@@ -1050,3 +1050,41 @@ async def test_decision_reason_sensor_explains_current_choice(
     assert reason.state
     assert isinstance(reason.attributes["score"], int)
     assert reason.attributes["empfohlene_minuten"] > 0
+
+
+async def test_preheat_has_hysteresis_against_flapping(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Live beobachtet: Die Empfehlung kippte minütlich zwischen "Vorheizen" und "Außenluft nicht
+    trockener", weil Außentemperatur bzw. Feuchteabstand genau an der Einstiegsschwelle schwankten.
+    Einmal aktiv, bleibt Vorheizen jetzt bis kurz unter die Schwelle bestehen."""
+    freezer.move_to("2026-12-05 23:00:00+01:00")
+    entry = await setup_room(hass)
+    hass.states.async_set("sensor.aussen_t", -2.0)
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 1)
+    freezer.move_to("2026-12-06 09:30:00+01:00")
+    await _tick(hass, freezer, 1)
+
+    room = hass.data[DOMAIN][entry.entry_id]
+    hass.states.async_set("sensor.innen_t", 15.0)
+    hass.states.async_set("sensor.innen_ah", 6.0)
+    hass.states.async_set("sensor.aussen_ah", 6.9)  # knapp unter der Feuchte-Schwelle (+1,0)
+    hass.states.async_set("sensor.aussen_t", 17.2)  # knapp über der Temperatur-Schwelle (+2,0)
+    await _tick(hass, freezer, 1)
+    assert room.preheat_minutes() > 0
+
+    # Kleine Schwankung über die Einstiegsschwellen hinaus -> bleibt aktiv
+    hass.states.async_set("sensor.aussen_t", 16.8)
+    hass.states.async_set("sensor.aussen_ah", 7.2)
+    await _tick(hass, freezer, 1)
+    rec = hass.states.get(eid(hass, "sensor", entry, "recommendation"))
+    assert rec.attributes["grund"] == "Vorheizen"
+
+    # Deutlich unter der Schwelle -> geht aus und kommt bei derselben kleinen Schwankung nicht zurück
+    hass.states.async_set("sensor.aussen_t", 16.4)
+    await _tick(hass, freezer, 1)
+    assert room.preheat_minutes() == 0
+    hass.states.async_set("sensor.aussen_t", 16.8)
+    await _tick(hass, freezer, 1)
+    assert room.preheat_minutes() == 0

@@ -244,6 +244,7 @@
     "error": {
       "same_sensor_humidity": "Indoor and outdoor humidity are the same sensor - the difference would always be 0.",
       "same_sensor_temp": "Indoor and outdoor temperature are the same sensor - the difference would always be 0.",
+      "own_sensor_rh": "A Smart Ventilation entity itself is selected as relative humidity (e.g. its own \"Relative humidity\"). Please choose a real humidity sensor or leave the field empty.",
       "same_sensor_rh": "Indoor and outdoor relative humidity are the same sensor - the difference would always be 0.",
       "preheat_above_comfort": "The preheat target temperature should be below the comfort/cooling temperature, otherwise preheating would immediately push the room back above the cooling threshold."
     }
@@ -252,6 +253,7 @@
     "error": {
       "same_sensor_humidity": "Indoor and outdoor humidity are the same sensor - the difference would always be 0.",
       "same_sensor_temp": "Indoor and outdoor temperature are the same sensor - the difference would always be 0.",
+      "own_sensor_rh": "A Smart Ventilation entity itself is selected as relative humidity (e.g. its own \"Relative humidity\"). Please choose a real humidity sensor or leave the field empty.",
       "same_sensor_rh": "Indoor and outdoor relative humidity are the same sensor - the difference would always be 0.",
       "preheat_above_comfort": "The preheat target temperature should be below the comfort/cooling temperature, otherwise preheating would immediately push the room back above the cooling threshold."
     },
@@ -679,6 +681,14 @@
     "sensor_unavailable": {
       "title": "Smart Ventilation: sensor missing ({room})",
       "description": "The sensor **{role}** (`{entity}`) in **{room}** has not reported values for at least {minutes} minutes. Without it the ventilation recommendation cannot be calculated.\n\nCheck whether the device is reachable (battery, radio) or pick another sensor under *Devices & services → Smart Ventilation → Configure*. This notice disappears automatically once values arrive again."
+    },
+    "optional_entity_unavailable": {
+      "title": "Smart Ventilation: device unreachable ({room})",
+      "description": "The device **{role}** (`{entity}`) in room **{room}** no longer exists or has been unreachable for at least {minutes} minutes. Recommendations keep working, but this feature is disabled.\n\nCheck the device or pick the current entity under *Devices & services → Smart Ventilation → Configure* (e.g. after removing Better Thermostat). This notice clears automatically once the device is available again."
+    },
+    "own_sensor_selected": {
+      "title": "Smart Ventilation: own sensor selected as source ({room})",
+      "description": "In room **{room}**, the entity `{entity}` is selected as **{role}**. It belongs to Smart Ventilation itself and would read back its own value (it freezes after a restart). It is therefore ignored and humidity is calculated from absolute humidity and temperature instead.\n\nPlease pick a real humidity sensor under *Devices & services → Smart Ventilation → Configure* or clear the field."
     }
   },
   "services": {

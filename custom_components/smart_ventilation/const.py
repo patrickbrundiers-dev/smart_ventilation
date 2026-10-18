@@ -164,7 +164,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.22.14"
+VERSION = "2.22.15"
 
 # Adaptive decision / learning
 ADAPTIVE_SCORE_MIN = 20
@@ -199,6 +199,11 @@ NIGHT_LOW_START_HOUR = 22
 NIGHT_LOW_END_HOUR = 9
 PREHEAT_RAIN_LOOKAHEAD_HOURS = 2
 PREHEAT_MAX_EXTRA_HUMIDITY = 1.0
+# Puffer, bevor eine aktive Vorheiz-Empfehlung wieder ausgeht (analog zur Feuchte-Hysterese).
+# Ohne ihn kippte die Empfehlung live minütlich zwischen "Vorheizen" und "Außenluft nicht
+# trockener", sobald Außentemperatur bzw. Feuchteabstand genau an der Schwelle schwankten.
+PREHEAT_TEMP_HYSTERESIS = 0.5        # °C
+PREHEAT_HUMIDITY_HYSTERESIS = 0.3    # g/m³
 
 # Luftentfeuchter
 CONF_DEHUMIDIFIER = "dehumidifier_entity"

@@ -339,3 +339,17 @@ async def test_options_save_unchanged_like_frontend(hass: HomeAssistant) -> None
     await hass.async_block_till_done()
     assert entry.options["co2_sensor"] == ""
     assert entry.options["window"] == ["binary_sensor.fenster_1", "binary_sensor.fenster_2"]
+
+
+async def test_options_rejects_own_entity_as_relative_humidity(hass: HomeAssistant) -> None:
+    """Die eigene "Relative Luftfeuchte"-Entität als Quelle würde sich selbst zurücklesen und nach
+    einem Neustart einfrieren - genau das war live bei mehreren Räumen eingestellt."""
+    from .conftest import eid
+    entry = await setup_room(hass)
+    own_rh = eid(hass, "sensor", entry, "indoor_rh")
+    user_input = _options_input(entry, indoor_relative_humidity=own_rh)
+    assert any(v.get("indoor_relative_humidity") == own_rh for v in user_input.values())
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], user_input)
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "own_sensor_rh"}
