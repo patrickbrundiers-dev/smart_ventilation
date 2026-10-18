@@ -1048,3 +1048,49 @@ async def test_wall_values_shared_across_sensors_but_not_stale(hass: HomeAssista
     karte_after = hass.states.get(rec_entity).attributes["karte"]
     assert karte_after["wand_t"] == wall_t_after  # beide Entities konsistent
     assert karte_after["wand_rh"] == round(wall_rh_after)
+
+
+async def test_own_rh_entity_as_source_is_ignored_and_reported(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Live beobachtet: Als "indoor_relative_humidity" war die eigene "Relative Luftfeuchte"-Entität
+    des Raums gewählt. Sie las sich selbst zurück und fror nach jedem Neustart auf dem ersten Wert
+    ein - rel. Feuchte, Schimmelrisiko und Feuchte-Empfehlung liefen tagelang mit einem alten Wert.
+    Jetzt wird sie ignoriert (Berechnung aus AH + Temperatur) und ein Reparatur-Hinweis erstellt."""
+    entry = await setup_room(hass)
+    own_rh = eid(hass, "sensor", entry, "indoor_rh")
+    hass.config_entries.async_update_entry(entry, options={"indoor_relative_humidity": own_rh})
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 0.5)
+
+    issue_id = f"own_sensor_{entry.entry_id}_indoor_relative_humidity"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is not None
+
+    first = float(hass.states.get(own_rh).state)
+    hass.states.async_set("sensor.innen_ah", 13.0)  # deutlich feuchter -> rel. Feuchte muss steigen
+    await _tick(hass, freezer, 0.5)
+    assert float(hass.states.get(own_rh).state) > first + 5
+
+    hass.config_entries.async_update_entry(entry, options={"indoor_relative_humidity": ""})
+    await hass.async_block_till_done()
+    await _tick(hass, freezer, 0.5)
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_repair_issue_for_missing_climate_entity(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, berlin
+) -> None:
+    """Live beobachtet: Die gekoppelten Better-Thermostat-Entitäten wurden entfernt, die Heizungs-
+    absenkung bei offenem Fenster lief danach tagelang still ins Leere. Ein fehlendes optionales
+    Gerät erzeugt jetzt einen Reparatur-Hinweis, der wieder verschwindet, sobald es da ist."""
+    entry = await setup_room(hass, climate_entities=["climate.weg"])
+    issue_id = f"unavailable_{entry.entry_id}_climate_weg"
+    await _tick(hass, freezer, 0.5)
+    await _tick(hass, freezer, 11)
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
+    assert issue is not None
+    assert issue.translation_key == "optional_entity_unavailable"
+
+    hass.states.async_set("climate.weg", "heat")
+    await _tick(hass, freezer, 0.5)
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None

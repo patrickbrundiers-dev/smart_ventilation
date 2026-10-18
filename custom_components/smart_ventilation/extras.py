@@ -22,6 +22,7 @@ from .const import (
     SEASON_SUMMER, SHOWER_FOLLOWUP_MINUTES, SHOWER_JUMP, SHOWER_WINDOW_MINUTES,
     TRACE_CARD_POINTS, TRACE_MAX_POINTS,
     CONF_PREHEAT_TEMP, DEFAULT_PREHEAT_TEMP, PREHEAT_MIN_WARMER, PREHEAT_MAX_EXTRA_HUMIDITY, CONF_RAIN,
+    PREHEAT_TEMP_HYSTERESIS, PREHEAT_HUMIDITY_HYSTERESIS,
     CONF_SEASON_THRESHOLD, DEFAULT_SEASON_THRESHOLD,
     CONF_SEASON_MODE, DEFAULT_SEASON_MODE,
     FORECAST_MAX_RAIN_MM, FORECAST_MAX_RAIN_PROB, MIN_FORECAST_WIND_FACTOR,
@@ -64,6 +65,7 @@ class RoomExtrasMixin:
         self._dehum_off_until = None        # Neustart-/Pingpong-Schutz nach dem Ausschalten
         self._shutter_closed_since = None   # nur gesetzt, wenn WIR das Rollo geschlossen haben
         self._shutter_notified = False      # einmalig pro Sonnen-Expositionsfenster benachrichtigt
+        self._preheat_active = False        # Vorheiz-Empfehlung war in der letzten Runde aktiv (Hysterese)
         self._radiation_high = False        # bestätigter (entprellter) Globalstrahlungs-Zustand,
         self._radiation_pending = None      # siehe _confirm_radiation_high() in coordinator.py -
         self._radiation_pending_since = None  # absichtlich nicht persistiert (nur Minuten-Fenster)
@@ -322,11 +324,15 @@ class RoomExtrasMixin:
             return 0
         ti = _num_state(self.hass, self.data[CONF_INDOOR_TEMP])
         to = _num_state(self.hass, self.data[CONF_OUTDOOR_TEMP])
-        if None in (ti, to) or ti >= self.preheat_temp or to < ti + PREHEAT_MIN_WARMER:
+        # Einmal aktiv, geht die Empfehlung erst mit etwas Abstand zur Einstiegsschwelle wieder aus
+        # (siehe PREHEAT_TEMP_HYSTERESIS) - sonst flackert sie bei jeder kleinen Sensorschwankung.
+        min_warmer = PREHEAT_MIN_WARMER - (PREHEAT_TEMP_HYSTERESIS if self._preheat_active else 0)
+        max_extra = PREHEAT_MAX_EXTRA_HUMIDITY + (PREHEAT_HUMIDITY_HYSTERESIS if self._preheat_active else 0)
+        if None in (ti, to) or ti >= self.preheat_temp or to < ti + min_warmer:
             return 0
         ai = _num_state(self.hass, self.data[CONF_INDOOR_HUMIDITY])
         ao = _num_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
-        if ai is not None and ao is not None and ao > ai + PREHEAT_MAX_EXTRA_HUMIDITY:
+        if ai is not None and ao is not None and ao > ai + max_extra:
             return 0
         wind, angle, temp_diff = self._context()
         # cross mitgeben - siehe Kommentar in cooling_minutes() weiter oben.
