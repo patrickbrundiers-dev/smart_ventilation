@@ -105,6 +105,16 @@ PARTY_MODE_COOLDOWN_MINUTES = 20
 CONF_COOL_LIMIT = "cool_limit"
 DEFAULT_COOL_LIMIT = 18.0
 WINTER_OVERTIME_MINUTES = 5
+# Bleibt das Fenster im Winter weit über die Stoßlüftzeit hinaus offen, wird erneut erinnert
+# (Minuten seit dem Öffnen). Die erste Warnung kommt weiterhin nach Stoßlüftzeit + 5 Minuten.
+WINTER_OVERTIME_REPEAT_MINUTES = (60, 120, 240)
+# Gewittersensor länger als diese Zeit nicht verfügbar: nicht mehr komplett sperren, sondern nur
+# noch nach dem (lokalen) Regensensor entscheiden und den Datenausfall in der Empfehlung nennen.
+THUNDERSTORM_UNAVAILABLE_GRACE_MINUTES = 30
+THUNDERSTORM_FALLBACK_NOTE = "Gewitterdaten fehlen, Wetter selbst prüfen"
+# Anzeige Schimmelrisiko: höhere Stufe sofort, niedrigere erst nach dieser Zeit stabil darunter.
+MOLD_LEVEL_DOWNGRADE_MINUTES = 20
+MOLD_LEVEL_RANK = {"niedrig": 0, "beobachten": 1, "erhöht": 2, "hoch": 3, "kritisch": 4}
 CONF_QUIET_START = "quiet_start"
 CONF_QUIET_END = "quiet_end"
 DEFAULT_QUIET_START = "22:00:00"
@@ -164,7 +174,7 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_ROOM = "room"
 ENTRY_TYPE_OVERVIEW = "overview"
 CONF_COMBINE = "combine_notifications"
-VERSION = "2.22.15"
+VERSION = "2.22.16"
 
 # Adaptive decision / learning
 ADAPTIVE_SCORE_MIN = 20

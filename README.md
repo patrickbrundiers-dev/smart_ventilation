@@ -146,6 +146,13 @@ Home Assistant **2024.11** oder neuer.
 
 ## Changelog
 
+### Version 2.22.16
+
+- **Gewittersensor-Ausfall sperrt nicht mehr tagelang:** Ist der Gewittersensor (z. B. KachelmannWetter bei einer Internetstörung) länger als 30 Minuten nicht verfügbar, entscheidet der Raum nur noch nach dem Regensensor weiter, statt komplett zu sperren. Die Empfehlung endet dann auf „– Gewitterdaten fehlen, Wetter selbst prüfen“, der Reparatur-Hinweis bleibt. Ohne konfigurierten Regensensor bleibt es bei der Sperre (`THUNDERSTORM_UNAVAILABLE_GRACE_MINUTES`). Anlass: Ausfall 21.–28.10.2026, eine Woche lang keine Lüftungsempfehlung in allen Räumen.
+- **Empfehlungssensor ohne Minutenangabe:** Der Zustand lautet jetzt z. B. „Stoßlüften (Querlüften)“ statt „Stoßlüften (Querlüften) – ca. 14 Min.“. Die geschätzte Dauer schwankte beim Lüften minütlich um 1–2 Minuten und erzeugte so bis zu 45 Zustandswechsel pro Stunde in Logbuch und Datenbank. Die Dauer steht weiter im Sensor „Empfohlene Dauer“, im Karten-Attribut und in den Benachrichtigungen; der volle Text im (nicht aufgezeichneten) Attribut `text`.
+- **Schimmelrisiko-Anzeige mit Hysterese:** Der Sensor „Schimmelrisiko“ steigt sofort, fällt aber erst, wenn die niedrigere Stufe 20 Minuten stabil anliegt (`MOLD_LEVEL_DOWNGRADE_MINUTES`). Vorher hielt fast jede zweite Stufe keine 10 Minuten. Die Lüftungsentscheidung nutzt weiter den ungeglätteten Wert.
+- **Wiederholte Erinnerung bei sehr langem Lüften im Winter:** Nach der ersten Warnung (Stoßlüftzeit + 5 Minuten) wird nach 1, 2 und 4 Stunden erneut erinnert, nachts in der Ruhezeit ohne Push/Sprachausgabe. Zusätzlich erscheint eine lokale HA-Benachrichtigung, die auch ohne Internet ankommt und beim Schließen des Fensters verschwindet.
+
 ### Version 2.22.15
 
 - **Fehlerbehebung (rel. Feuchte eingefroren):** War als „Relative Feuchte innen/außen“ eine Entität von Smart Ventilation selbst gewählt (z. B. die eigene „Relative Luftfeuchte“), las sie sich selbst zurück und fror nach jedem Neustart auf dem ersten Wert ein – rel. Feuchte, Schimmelrisiko und Feuchte-Empfehlung liefen dann tagelang mit einem alten Wert. Eine solche Auswahl wird jetzt ignoriert (Berechnung wie ohne Sensor aus absoluter Feuchte + Temperatur), im Einrichtungs-/Options-Flow abgelehnt und als Reparatur-Hinweis gemeldet.
