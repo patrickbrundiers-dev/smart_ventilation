@@ -105,18 +105,19 @@ class BaseSensor(SensorEntity):
 
 
 class RecommendationSensor(BaseSensor):
-    # Kartendaten nicht in der Datenbank speichern
-    _unrecorded_attributes = frozenset({"karte"})
+    # Kartendaten und den Volltext mit Minutenangabe nicht in der Datenbank speichern
+    _unrecorded_attributes = frozenset({"karte", "text"})
 
     def __init__(self, c): super().__init__(c, "recommendation", "Empfehlung")
     @property
-    def native_value(self): return self.coordinator.recommendation
+    def native_value(self): return self.coordinator.recommendation_state
 
     @property
     def extra_state_attributes(self):
         return {
             **super().extra_state_attributes,
             "grund": self.coordinator.recommend_reason,
+            "text": self.coordinator.recommendation,
             "karte": self.coordinator.card_data(),
         }
 
@@ -237,7 +238,7 @@ class MoldRiskSensor(BaseSensor):
             "erhöht": "elevated",
             "hoch": "high",
             "kritisch": "critical",
-        }.get(self.coordinator.mold_risk, "unknown")
+        }.get(self.coordinator.mold_risk_display, "unknown")
 
     @property
     def extra_state_attributes(self):

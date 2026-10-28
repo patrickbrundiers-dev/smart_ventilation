@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 from datetime import datetime, timedelta
 
+from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
@@ -46,6 +48,17 @@ from .decision_engine import (
 # Gewichtung, andere Signatur.
 
 _LOGGER = logging.getLogger(__name__)
+
+def _duration_text(minutes):
+    """"45 Minuten", "2 Stunden", "1 Stunde" - für Erinnerungen bei langem Lüften."""
+    if minutes < 60:
+        return f"{minutes:.0f} Minuten"
+    hours = round(minutes / 60)
+    return "1 Stunde" if hours == 1 else f"{hours} Stunden"
+
+
+# " – ca. 12 Min." bzw. " (ca. 12 Min.)" in den selbst erzeugten Empfehlungstexten
+_MINUTES_IN_TEXT = re.compile(r" – ca\. \d+ Min\.| \(ca\. \d+ Min\.\)")
 
 
 class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
@@ -108,6 +121,10 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
         self._party_until = None
         self._mold_assessment_cache_key = None
         self._mold_assessment_cache = None
+        self._mold_level_shown = None
+        self._mold_lower_since = None
+        self._thunder_unavailable_since = None
+        self._thunder_fallback = False
         # Mehrere abgeleitete Werte (context_model, _sun_info/_sun_effect, wall_rh/wall_temperature/
         # indoor_rh/... - siehe _per_round()) werden pro Durchlauf von mehreren Sensor-Entities
         # bzw. mehreren Properties unabhängig voneinander gelesen - ohne Cache würden dieselben
@@ -892,6 +909,24 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
         state = self.hass.states.get(entity_id)
         return state is None or state.state in ("unknown", "unavailable", "")
 
+    def _track_thunderstorm_availability(self):
+        """Merkt sich, seit wann der Gewittersensor fehlt - unabhängig davon, ob gerade
+        Lüftungsbedarf besteht, damit die Karenzzeit ab dem echten Ausfall zählt."""
+        if self._sensor_unavailable(self.data.get(CONF_THUNDERSTORM)):
+            if self._thunder_unavailable_since is None:
+                self._thunder_unavailable_since = dt_util.now()
+        else:
+            self._thunder_unavailable_since = None
+
+    def _thunderstorm_fallback_allowed(self):
+        """True, wenn der Gewittersensor schon länger als die Karenzzeit fehlt und ein
+        Regensensor als Ersatz-Sicherheitssignal konfiguriert ist (und verfügbar - das prüft
+        _update_recommendation() vorher). Ohne Regensensor bleibt es bei der harten Sperre."""
+        if not self.data.get(CONF_RAIN) or self._thunder_unavailable_since is None:
+            return False
+        grace = timedelta(minutes=THUNDERSTORM_UNAVAILABLE_GRACE_MINUTES)
+        return dt_util.now() - self._thunder_unavailable_since >= grace
+
     def _issue_id(self, entity_id):
         return f"unavailable_{self.entry.entry_id}_{entity_id.replace('.', '_')}"
 
@@ -996,14 +1031,14 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
         temp = _float_state(self.hass, self.data[CONF_INDOOR_TEMP])
         return limit > 0 and temp is not None and temp < limit
 
-    async def _send_warning_once(self, key, title, message):
+    async def _send_warning_once(self, key, title, message, *, notification_key=None):
         """Letzter, bei allen Warnungen identischer Teil des 'einmalig pro Sitzung warnen'-
         Musters in _check_warnings(): merkt sich, dass gewarnt wurde, verschickt die
         Nachricht und speichert. Die eigentliche Bedingungsprüfung (wann gewarnt werden soll)
         bleibt bewusst am jeweiligen Aufrufort, da sie sich pro Warnung unterscheidet."""
         tag = f"smart_ventilation_{self.entry.entry_id}_warn"
         self.session[key] = True
-        await self._send(title, message, tag, category=CAT_WARNING)
+        await self._send(title, message, tag, category=CAT_WARNING, notification_key=notification_key)
         await self._save()
 
     async def _check_warnings(self):
@@ -1061,18 +1096,53 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
                 f"Nur noch {temp:.1f} °C bei offenem Fenster – bitte schließen.",
             )
 
-        if self.season == SEASON_WINTER and not self.session.get("overtime_warned"):
-            limit = self._winter_max_minutes()
-            minutes = self.current_duration_seconds / 60
-            if minutes >= limit + WINTER_OVERTIME_MINUTES:
-                await self._send_warning_once(
-                    "overtime_warned",
-                    f"Fenster noch offen: {name}",
-                    (
-                        f"Seit {minutes:.0f} Minuten gelüftet – bei diesen Temperaturen "
-                        f"reichen {limit} Minuten Stoßlüften."
-                    ),
-                )
+        if self.season == SEASON_WINTER:
+            await self._check_winter_overtime(name)
+
+    async def _check_winter_overtime(self, name):
+        """Fenster im Winter weit über die Stoßlüftzeit hinaus offen: erst nach Stoßlüftzeit
+        + 5 Minuten warnen, danach nach 1, 2 und 4 Stunden erneut. Fenster blieben trotz der
+        einen Warnung teils über 30 Stunden offen. Zusätzlich eine lokale HA-Benachrichtigung,
+        die auch ohne Internet (Push/Alexa) ankommt und beim Schließen wieder verschwindet."""
+        limit = self._winter_max_minutes()
+        minutes = self.current_duration_seconds / 60
+        stages = [limit + WINTER_OVERTIME_MINUTES] + [
+            m for m in WINTER_OVERTIME_REPEAT_MINUTES if m > limit + WINTER_OVERTIME_MINUTES
+        ]
+        # Alte Sitzungen (vor dieser Version gespeichert) kennen nur "overtime_warned".
+        done = self.session.get("overtime_stage", 1 if self.session.get("overtime_warned") else 0)
+        due = sum(1 for m in stages if minutes >= m)
+        if due <= done:
+            return
+        if done == 0:
+            message = (
+                f"Seit {minutes:.0f} Minuten gelüftet – bei diesen Temperaturen "
+                f"reichen {limit} Minuten Stoßlüften."
+            )
+        else:
+            message = (
+                f"Das Fenster ist seit {_duration_text(minutes)} offen – der Raum kühlt aus und "
+                f"die Wände werden kalt. Bitte schließen."
+            )
+        self.session["overtime_stage"] = due
+        persistent_notification.async_create(
+            self.hass, message, f"Fenster noch offen: {name}",
+            notification_id=self._overtime_notification_id,
+        )
+        if done > 0 and self.in_quiet_hours():
+            # Nachts (z. B. Bad bewusst gekippt) keine Push-/Sprachnachricht für die
+            # Wiederholungen - die HA-Benachrichtigung oben reicht dann.
+            self.session["overtime_warned"] = True
+            await self._save()
+            return
+        await self._send_warning_once(
+            "overtime_warned", f"Fenster noch offen: {name}", message,
+            notification_key=f"overtime_{due}",
+        )
+
+    @property
+    def _overtime_notification_id(self):
+        return f"smart_ventilation_{self.entry.entry_id}_overtime"
 
     # ------------------------------------------------------------------
     # Service-Aufrufe (u. a. von HeatingMixin und RoomExtrasMixin genutzt)
@@ -1439,6 +1509,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
 
         await self._restore_heating(session.get("heating"))
         self._trace_finish(session)
+        if session.get("overtime_stage") or session.get("overtime_warned"):
+            persistent_notification.async_dismiss(self.hass, self._overtime_notification_id)
 
         elapsed = ((ended or dt_util.now()) - session["started"]).total_seconds()
         restored = session.get("restored", False)
@@ -2061,6 +2133,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
         outdoor = _float_state(self.hass, self.data[CONF_OUTDOOR_HUMIDITY])
 
         self.block_reason = ""
+        self._thunder_fallback = False
+        self._track_thunderstorm_availability()
         # Diagnostics must always describe the current decision, never a previous cycle.
         self.adaptive_score = 0
         self.adaptive_reason = "Keine aktuelle Lüftungsentscheidung"
@@ -2106,8 +2180,9 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
             return
 
         # Regen/Gewitter sind harte Sicherheitsregeln: Ein konfiguriertes,
-        # aber nicht verfügbares Sicherheitssignal darf niemals als "trocken/sicher"
-        # interpretiert werden.
+        # aber nicht verfügbares Sicherheitssignal darf nicht als "trocken/sicher"
+        # interpretiert werden. Einzige Ausnahme: ein länger ausgefallener Gewittersensor,
+        # solange der Regensensor verfügbar ist (siehe _thunderstorm_fallback_allowed()).
         if self._sensor_unavailable(self.data.get(CONF_RAIN)):
             self._set_blocked(
                 "Nicht lüften – Regensensor nicht verfügbar",
@@ -2117,12 +2192,17 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
             return
 
         if self._sensor_unavailable(self.data.get(CONF_THUNDERSTORM)):
-            self._set_blocked(
-                "Nicht lüften – Gewittersensor nicht verfügbar",
-                "Gewittersensor nicht verfügbar – Lüftung blockiert",
-                block_reason="Gewittersensor nicht verfügbar",
-            )
-            return
+            if not self._thunderstorm_fallback_allowed():
+                self._set_blocked(
+                    "Nicht lüften – Gewittersensor nicht verfügbar",
+                    "Gewittersensor nicht verfügbar – Lüftung blockiert",
+                    block_reason="Gewittersensor nicht verfügbar",
+                )
+                return
+            # Länger ausgefallen (z. B. Internetstörung beim Wetterdienst): eine tagelange
+            # Sperre schadet mehr als sie schützt. Der lokale Regensensor ist oben schon als
+            # verfügbar geprüft und entscheidet weiter; der Ausfall steht in der Empfehlung.
+            self._thunder_fallback = True
 
         if _is_raining(self.hass, self.data[CONF_RAIN]):
             self._set_blocked("Nicht lüften – Regen", "Regen blockiert", block_reason="Regen")
@@ -2238,6 +2318,8 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
             if self.party_active:
                 suffix += " (Party-Modus)"
             self.recommendation = f"{mode} – ca. {self.recommended_minutes} Min.{suffix}"
+        if self._thunder_fallback:
+            self.recommendation += f" – {THUNDERSTORM_FALLBACK_NOTE}"
         self.hass.async_create_task(self._send_notification_if_needed())
 
     @property
@@ -2562,8 +2644,39 @@ class SmartVentilationCoordinator(RoomExtrasMixin, HistoryMixin, HeatingMixin):
         return "good"
 
     @property
+    def recommendation_state(self):
+        """Empfehlung ohne Minutenangabe - für den Zustand des Empfehlungssensors. Die Dauer
+        schwankt beim Lüften oft minütlich um 1-2 Minuten; im Zustand erzeugte das hunderte
+        Zustandswechsel pro Tag. Die Minuten stehen im Sensor "Empfohlene Dauer" und in den
+        Benachrichtigungen (die weiter self.recommendation verwenden)."""
+        return _MINUTES_IN_TEXT.sub("", self.recommendation)
+
+    @property
     def mold_risk(self):
         return self.mold_assessment.level
+
+    @property
+    def mold_risk_display(self):
+        """Schimmelstufe für den Sensor "Schimmelrisiko", mit Abwärts-Hysterese: eine höhere
+        Stufe gilt sofort, eine niedrigere erst, wenn sie MOLD_LEVEL_DOWNGRADE_MINUTES lang
+        ununterbrochen anliegt. Ohne das sprang die Anzeige an einer Stufengrenze teils
+        minütlich hin und her. Die Lüftungsentscheidung nutzt weiter mold_risk (ungeglättet),
+        damit z. B. die Pause nach erfolgreichem Lüften nicht künstlich verzögert wird."""
+        raw = self.mold_risk
+        shown = self._mold_level_shown
+        rank = MOLD_LEVEL_RANK
+        if shown is None or raw not in rank or shown not in rank or rank[raw] >= rank[shown]:
+            self._mold_level_shown = raw
+            self._mold_lower_since = None
+            return raw
+        now = dt_util.now()
+        if self._mold_lower_since is None:
+            self._mold_lower_since = now
+        if now - self._mold_lower_since >= timedelta(minutes=MOLD_LEVEL_DOWNGRADE_MINUTES):
+            self._mold_level_shown = raw
+            self._mold_lower_since = None
+            return raw
+        return shown
 
     @property
     def sun_data(self):
